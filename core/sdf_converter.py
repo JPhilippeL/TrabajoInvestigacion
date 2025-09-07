@@ -78,7 +78,7 @@ def graph_to_mol(graph):
                 any_3d = True
         elif "pos" in graph.nodes[nid]:
             x, y = graph.nodes[nid]["pos"]
-            conf.SetAtomPosition(i, Point3D(float(x), float(y), 0.0))
+            conf.SetAtomPosition(i, Point3D(float(x) / SCALE, float(y) / SCALE, 0.0))
         else:
             # Poner en origen
             conf.SetAtomPosition(i, Point3D(0.0, 0.0, 0.0))

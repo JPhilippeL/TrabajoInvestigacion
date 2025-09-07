@@ -136,7 +136,6 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
 
     best_val_loss = float("inf")
     patience_counter = 0
-    best_model_state = None
     best_epoch = epochs
     avg_train_loss_saved = None
 

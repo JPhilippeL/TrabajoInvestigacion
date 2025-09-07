@@ -15,13 +15,13 @@ logger = logging.getLogger(__name__)
 logging.getLogger('matplotlib.font_manager').setLevel(logging.WARNING)
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
-def cargar_y_predecir(checkpoint_path, sdf_path):
+def cargar_modelo(checkpoint_path):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Cargar checkpoint
     checkpoint = torch.load(checkpoint_path, map_location=device)
 
-     # Recuperar metadatos
+    # Recuperar metadatos
     model_type = checkpoint['model_type']
     input_dim = checkpoint['input_dim']
     edge_dim = checkpoint['edge_dim']
@@ -40,6 +40,11 @@ def cargar_y_predecir(checkpoint_path, sdf_path):
     model.load_state_dict(checkpoint['model_state_dict'])
     model.to(device)
     model.eval()
+
+    return model, device, target_name
+
+def cargar_y_predecir(checkpoint_path, sdf_path):
+    model, device, target_name = cargar_modelo(checkpoint_path)
 
     # Leer molécula del SDF
     suppl = Chem.SDMolSupplier(sdf_path, removeHs=False)
@@ -61,24 +66,11 @@ def cargar_y_predecir(checkpoint_path, sdf_path):
 
 def test_model_on_directory(checkpoint_path, sdf_dir, targets_file):
     try:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model, device, target_name = cargar_modelo(checkpoint_path)
 
         # Crear carpeta de resultados si no existe
         resultados_dir = "Resultados"
         os.makedirs(resultados_dir, exist_ok=True)
-
-        # Cargar checkpoint
-        checkpoint = torch.load(checkpoint_path, map_location=device)
-        model = create_model(
-            checkpoint['model_type'],
-            input_dim=checkpoint['input_dim'],
-            edge_dim=checkpoint['edge_dim'],
-            hidden_dim=checkpoint.get('hidden_dim', 64),
-            num_layers=checkpoint.get('num_layers', 3)
-        )
-        model.load_state_dict(checkpoint['model_state_dict'])
-        model.to(device)
-        model.eval()
 
         # Leer datos
         target_dict = read_targets(targets_file)
