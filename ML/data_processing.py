@@ -104,5 +104,6 @@ def load_data_from_sdf(sdf_dir, target_dict):
     return data_list
 
 
-def create_dataloader(data_list, batch_size=32, shuffle=True):
-    return DataLoader(data_list, batch_size=batch_size, shuffle=shuffle)
+def create_dataloader(dataset, batch_size=32, shuffle=True, num_workers=0, pin_memory=False):
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,
+                      num_workers=num_workers, pin_memory=pin_memory)

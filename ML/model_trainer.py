@@ -1,5 +1,6 @@
 #model_trainer.py
 
+import sys
 import torch
 import torch.nn.functional as F
 from torch_geometric.nn import GINConv, GINEConv, GATConv, global_add_pool, TransformerConv
@@ -8,7 +9,12 @@ from ML.data_processing import read_targets, load_data_from_sdf, create_dataload
 import os
 import logging
 import gc
-logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    stream=sys.stdout
+)
 
 
 # ----------------------
@@ -168,7 +174,8 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
             if avg_val_loss < best_val_loss:
                 best_val_loss = avg_val_loss
                 patience_counter = 0
-                torch.save(model.state_dict(), "best_model_tmp.pt")
+                #torch.save(model.state_dict(), "best_model_tmp.pt")
+                best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
                 best_epoch = epoch
                 avg_train_loss_saved = avg_train_loss
             else:
@@ -176,20 +183,22 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
                     # Early stopping
                     patience_counter += 1
                     if patience_counter >= patience:
-                        logger.info(f"Early stopping en epoch {epoch}")
+                        logging.info(f"Early stopping en epoch {epoch}")
                         break
 
         del batch
         if avg_val_loss is not None:
-            logger.info(f"Epoch {epoch:03d} | Train MSE: {avg_train_loss:.4f} | Validation MSE: {avg_val_loss:.4f}")
+            logging.info(f"Epoch {epoch:03d} | Train MSE: {avg_train_loss:.4f} | Validation MSE: {avg_val_loss:.4f}")
         else:
-            logger.info(f"Epoch {epoch:03d} | Train Loss: {avg_train_loss:.4f}")
+            logging.info(f"Epoch {epoch:03d} | Train Loss: {avg_train_loss:.4f}")
 
     # Restaurar siempre el mejor modelo antes de salir
-    if os.path.exists("best_model_tmp.pt"):
-        model.load_state_dict(torch.load("best_model_tmp.pt"))
-        os.remove("best_model_tmp.pt")
-        logger.info(f"Mejor modelo guardado en epoch {best_epoch} | Train MSE: {avg_train_loss_saved:.4f} | Validation MSE: {best_val_loss:.4f}")
+    #if os.path.exists("best_model_tmp.pt"):
+    #    model.load_state_dict(torch.load("best_model_tmp.pt"))
+    #    os.remove("best_model_tmp.pt")
+        model.load_state_dict(best_state)
+        logging.info(f"Mejor modelo guardado en epoch {best_epoch} | Train MSE: {avg_train_loss_saved:.4f} | Validation MSE: {best_val_loss:.4f}")
+    #    logging.info(f"Mejor modelo guardado en epoch {best_epoch} | Train MSE: {avg_train_loss_saved:.4f} | Validation MSE: {best_val_loss:.4f}")
 
 
 

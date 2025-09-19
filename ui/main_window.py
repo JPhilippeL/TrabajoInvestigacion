@@ -12,6 +12,7 @@ import networkx as nx
 import logging
 from ui.logger import QtHandler
 from ML.training_controller import TrainingController
+from ML.training_controller_process import TrainingControllerProcess
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -69,7 +70,8 @@ class MainWindow(QMainWindow):
         logger.setLevel(logging.DEBUG)
 
         # Controlador de entrenamiento
-        self.training_controller = TrainingController(self)
+        #self.training_controller = TrainingController(self)
+        self.training_controller = TrainingControllerProcess(self)
 
 
     def create_new_graph(self):
