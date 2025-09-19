@@ -6,6 +6,12 @@ import sys
 
 app = QApplication(sys.argv)
 app.setStyle("Fusion")
+app.setStyleSheet("""
+    QWidget {
+        background-color: #2b2b2b;
+        color: white;
+    }
+""")
 app.setApplicationName("Sistema de Análisis Molecular")
 app.setWindowIcon(QIcon("assets/icono2.png"))
 window = MainWindow()
