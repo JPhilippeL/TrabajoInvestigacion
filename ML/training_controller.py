@@ -63,7 +63,7 @@ class TrainingController:
 
     def on_error(self, msg):
         logger.error(f"Error en entrenamiento: {msg}")
-        if self.thread.isRunning():
+        if self.thread is not None and self.thread.isRunning():
             self.thread.quit()
             self.thread.wait()
 

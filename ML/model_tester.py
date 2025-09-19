@@ -54,11 +54,13 @@ def cargar_y_predecir(checkpoint_path, sdf_path):
 
     # Convertir a PyG Data
     data = mol_to_graph_data_obj(mol)
-    data = data.to(device)
+    data = data.to(str(device))
 
     # Predecir
     with torch.no_grad():
-        batch = torch.zeros(data.num_nodes, dtype=torch.long, device=data.x.device)  # todos nodos del mismo grafo
+        num_nodes = data.num_nodes if data.num_nodes is not None else (data.x.shape[0] if data.x is not None else 1)
+        batch_device = data.x.device if data.x is not None else device
+        batch = torch.zeros(num_nodes, dtype=torch.long, device=batch_device)  # todos nodos del mismo grafo
         out = model(data.x, data.edge_index, data.edge_attr, batch)
         pred = out.squeeze().item()
 
