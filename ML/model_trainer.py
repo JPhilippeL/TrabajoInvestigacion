@@ -193,12 +193,10 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
             logging.info(f"Epoch {epoch:03d} | Train Loss: {avg_train_loss:.4f}")
 
     # Restaurar siempre el mejor modelo antes de salir
-    #if os.path.exists("best_model_tmp.pt"):
-    #    model.load_state_dict(torch.load("best_model_tmp.pt"))
-    #    os.remove("best_model_tmp.pt")
-        model.load_state_dict(best_state)
+    if os.path.exists("best_model_tmp.pt"):
+        model.load_state_dict(torch.load("best_model_tmp.pt"))
+        os.remove("best_model_tmp.pt")
         logging.info(f"Mejor modelo guardado en epoch {best_epoch} | Train MSE: {avg_train_loss_saved:.4f} | Validation MSE: {best_val_loss:.4f}")
-    #    logging.info(f"Mejor modelo guardado en epoch {best_epoch} | Train MSE: {avg_train_loss_saved:.4f} | Validation MSE: {best_val_loss:.4f}")
 
 
 

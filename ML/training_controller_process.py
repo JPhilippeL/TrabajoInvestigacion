@@ -28,7 +28,7 @@ class TrainingControllerProcess:
     ):
         
         # Mostrar mensaje en GUI
-        self.parent.log("Inicializando entrenamiento...")
+        logger.info("Inicializando entrenamiento...")
         
         self.process = QProcess()
         self.process.setProgram(sys.executable)  # ejecuta el mismo Python
@@ -61,8 +61,8 @@ class TrainingControllerProcess:
         for line in data.splitlines():
             if line.startswith("FINISHED|"):
                 _, path, elapsed = line.split("|")
-                logger.info(f"Modelo guardado en: {path} (tiempo {elapsed}s)")
-                #self.parent.log(f"Entrenamiento completado en {elapsed}s")
+                logger.info(f"Entrenamiento completado en {elapsed} segundos.")
+                logger.info(f"Modelo guardado en: {path}")
             elif line.startswith("ERROR|"):
                 _, msg = line.split("|", 1)
                 logger.error(f"Error en entrenamiento: {msg}")
