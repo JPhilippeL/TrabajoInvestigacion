@@ -11,7 +11,6 @@ from PySide6.QtGui import QTextCursor
 import networkx as nx
 import logging
 from ui.logger import QtHandler
-from ML.training_controller import TrainingController
 from ML.training_controller_process import TrainingControllerProcess
 
 class MainWindow(QMainWindow):

@@ -54,6 +54,46 @@ class TrainingControllerProcess:
 
         self.process.start()
 
+    def transfer_learning(
+        self,
+        sdf_dir,
+        target_file,
+        pretrained_model_path,
+        transfer_mode,
+        epochs,
+        batch_size,
+        lr,
+        valid_split,
+        save_path,
+        hidden_dim=64,
+        num_layers=3,
+        patience=0
+    ):
+        logger.info("Inicializando Transfer Learning...")
+
+        self.process = QProcess()
+        self.process.setProgram(sys.executable)
+        self.process.setArguments([
+            "-m", "ML.transfer_trainer_worker",
+            "--sdf_dir", sdf_dir,
+            "--target_file", target_file,
+            "--pretrained_model_path", pretrained_model_path,
+            "--transfer_mode", transfer_mode,
+            "--epochs", str(epochs),
+            "--batch_size", str(batch_size),
+            "--lr", str(lr),
+            "--valid_split", str(valid_split),
+            "--save_path", save_path,
+            "--hidden_dim", str(hidden_dim),
+            "--num_layers", str(num_layers),
+            "--patience", str(patience)
+        ])
+
+        self.process.readyReadStandardOutput.connect(self.on_stdout)
+        self.process.readyReadStandardError.connect(self.on_stderr)
+        self.process.start()
+
+
     def on_stdout(self):
         if self.process is None:
             return

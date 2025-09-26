@@ -174,8 +174,7 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
             if avg_val_loss < best_val_loss:
                 best_val_loss = avg_val_loss
                 patience_counter = 0
-                #torch.save(model.state_dict(), "best_model_tmp.pt")
-                best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+                torch.save(model.state_dict(), "best_model_tmp.pt")
                 best_epoch = epoch
                 avg_train_loss_saved = avg_train_loss
             else:

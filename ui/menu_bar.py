@@ -7,6 +7,7 @@ from rdkit import Chem
 from ui.dialogs.train_config_dialog import TrainConfigDialog
 from ui.dialogs.model_test_dialog import ModelTestDialog
 from ui.dialogs.batch_model_test_dialog import BatchModelTestDialog
+from ui.dialogs.transfer_learning_dialog import TransferLearningDialog
 from ML.model_tester import test_model_on_directory
 from ML.model_tester import obtener_info_checkpoint
 import traceback
@@ -49,6 +50,11 @@ class MenuBar(QMenuBar):
         entrenar_action = QAction("Entrenar IA", self)
         entrenar_action.triggered.connect(self.entrenar_ia)
         ia_menu.addAction(entrenar_action)
+
+        # Transfer Learning
+        transfer_action = QAction("Transfer Learning", self)
+        transfer_action.triggered.connect(self.transfer_learning_ia)
+        ia_menu.addAction(transfer_action)
 
         # Testeo de IA con un solo SDF
         testeo_action = QAction("Predecir SDF", self)
@@ -167,6 +173,62 @@ class MenuBar(QMenuBar):
             num_layers=config["num_layers"],
             patience=config["early_stopping_patience"]
         )
+
+    def transfer_learning_ia(self):
+        dialog = TransferLearningDialog(self)
+        if dialog.exec_() != QDialog.Accepted:
+            return
+
+        config = dialog.get_values()
+
+        # ---------- Validaciones básicas ----------
+        if not config["sdf_dir"] or not os.path.isdir(config["sdf_dir"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
+            return
+
+        if not config["target_file"] or not os.path.isfile(config["target_file"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
+            return
+
+        if not config["pretrained_model_path"] or not os.path.isfile(config["pretrained_model_path"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un modelo preentrenado válido (.pt).")
+            return
+
+        if not config["save_name"]:
+            QMessageBox.warning(self.parent, "Nombre inválido", "El nombre del archivo no puede estar vacío.")
+            return
+
+        # Validar early stopping y validación
+        if config["early_stopping_patience"] > 0 and config["valid_split"] <= 0:
+            QMessageBox.warning(
+                self.parent,
+                "Configuración inválida",
+                "Para usar Early Stopping, el porcentaje de validación debe ser mayor que 0."
+            )
+            return
+
+        # ---------- Configurar save_path ----------
+        save_dir = "modelos"
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, f"{config['save_name']}.pt")
+
+        # ---------- Ejecutar Transfer Learning ----------
+        self.parent.training_controller.transfer_learning(
+            sdf_dir=config["sdf_dir"],
+            target_file=config["target_file"],
+            pretrained_model_path=config["pretrained_model_path"],
+            transfer_mode=config["transfer_mode"].lower().replace(" ", "_"),  # fine_tuning o feature_extraction
+            epochs=config["epochs"],
+            batch_size=config["batch_size"],
+            lr=config["lr"],
+            valid_split=config["valid_split"],
+            save_path=save_path,
+            hidden_dim=config["hidden_dim"],
+            num_layers=config["num_layers"],
+            patience=config["early_stopping_patience"]
+        )
+
+
 
     def testear_modelo(self):
         dialog = ModelTestDialog(self.parent)
