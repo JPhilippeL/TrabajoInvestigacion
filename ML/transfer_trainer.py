@@ -45,9 +45,14 @@ def transfer_train(
     target_name = os.path.splitext(os.path.basename(target_file))[0]
     data_list = load_data_from_sdf(sdf_dir, target_dict)
 
-    train_data, val_data = train_test_split(data_list, test_size=valid_split, random_state=42)
+    if (valid_split > 0) and (valid_split < 1):
+        train_data, val_data = train_test_split(data_list, test_size=valid_split, random_state=42)
+        val_loader = create_dataloader(val_data, batch_size=batch_size)
+    else:
+        train_data = data_list
+        val_loader = None
+        
     train_loader = create_dataloader(train_data, batch_size=batch_size)
-    val_loader = create_dataloader(val_data, batch_size=batch_size)
 
     # Crear modelo y cargar pesos
     model = create_model(model_type, input_dim, edge_dim, hidden_dim, num_layers)
