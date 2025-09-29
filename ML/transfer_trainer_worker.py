@@ -4,7 +4,6 @@ import argparse
 import time
 import torch
 import gc
-from ML.transfer_trainer_flexible import transfer_train_flexible
 from ML.transfer_trainer import transfer_train
 
 def main():
