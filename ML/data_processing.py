@@ -70,38 +70,42 @@ def read_targets(targets_file):
 
 
 def load_data_from_sdf(sdf_dir, target_dict):
-    #Lee los archivos SDF de un directorio y los convierte a objetos Data con sus targets.
-
     data_list = []
     for filename in sorted(os.listdir(sdf_dir)):
-        if filename.endswith('.sdf'):
-            
-            mol_id = os.path.splitext(filename)[0]
-            if '_' in mol_id:
-                mol_id = mol_id.split('_')[0]
+        if not filename.endswith('.sdf'):
+            continue
+        
+        mol_id = os.path.splitext(filename)[0]  # nombre completo del SDF
 
-            if mol_id not in target_dict:
-                print(f"Warning: No se encontró target para la molécula '{mol_id}', se omite.")
-                continue
+        # Quitar "_Ligand" solo si no existe exactamente en target_dict
+        if mol_id not in target_dict and "_" in mol_id:
+            mol_id_alt = mol_id.split('_')[0]
+            if mol_id_alt in target_dict:
+                mol_id = mol_id_alt
 
-            affinity = target_dict[mol_id]
-            filepath = os.path.join(sdf_dir, filename)
-            suppl = Chem.SDMolSupplier(filepath, removeHs=False)
-            mol = suppl[0]
-            if mol is None:
-                print(f"Warning: No se pudo leer la molécula del archivo '{filename}', se omite.")
-                continue
+        if mol_id not in target_dict:
+            print(f"Warning: No se encontró target para la molécula '{mol_id}', se omite.")
+            continue
 
-            data = mol_to_graph_data_obj(mol)
-            data.y = torch.tensor([affinity], dtype=torch.float)
-            data.name = os.path.splitext(filename)[0]
+        affinity = target_dict[mol_id]
+        filepath = os.path.join(sdf_dir, filename)
+        suppl = Chem.SDMolSupplier(filepath, removeHs=False)
+        mol = next((m for m in suppl if m is not None), None)
+        if mol is None:
+            print(f"Warning: No se pudo leer la molécula del archivo '{filename}', se omite.")
+            continue
 
-            data_list.append(data)
-    
+        data = mol_to_graph_data_obj(mol)
+        data.y = torch.tensor([affinity], dtype=torch.float)
+        data.name = mol_id  # nombre limpio que coincide con target
+
+        data_list.append(data)
+
     if not data_list:
         raise ValueError("No se pudo cargar ninguna molécula válida.")
 
     return data_list
+
 
 
 def create_dataloader(dataset, batch_size=32, shuffle=True, num_workers=0, pin_memory=False):

@@ -8,8 +8,10 @@ from ui.dialogs.train_config_dialog import TrainConfigDialog
 from ui.dialogs.model_test_dialog import ModelTestDialog
 from ui.dialogs.batch_model_test_dialog import BatchModelTestDialog
 from ui.dialogs.transfer_learning_dialog import TransferLearningDialog
+from ui.dialogs.split_sdf_dialog import SDFSplitDialog
 from ML.model_tester import test_model_on_directory
 from ML.model_tester import obtener_info_checkpoint
+from core.sdf_converter import split_sdf_with_targets
 import traceback
 import torch
 import logging
@@ -22,54 +24,57 @@ class MenuBar(QMenuBar):
         self.parent = parent  # Referencia a MainWindow
 
         #Menu de Archivo    
-        archivo_menu = self.addMenu("Archivo")
+        menu_molecula = self.addMenu("Molécula")
 
-        nuevo_action = QAction("Nuevo", self)
+        nuevo_action = QAction("Nueva", self)
         nuevo_action.triggered.connect(self.nuevo_archivo)
-        archivo_menu.addAction(nuevo_action)
+        menu_molecula.addAction(nuevo_action)
 
         cargar_action = QAction("Cargar", self)
         cargar_action.triggered.connect(self.cargar_archivo)
-        archivo_menu.addAction(cargar_action)
+        menu_molecula.addAction(cargar_action)
 
         guardar_action = QAction("Guardar", self)
         guardar_action.triggered.connect(self.guardar_archivo)
-        archivo_menu.addAction(guardar_action)
-
-        # Menu de Verificación
-        verificacion_menu = self.addMenu("Verificación")
+        menu_molecula.addAction(guardar_action)
 
         verificar_action = QAction("Verificar Molécula", self)
         verificar_action.triggered.connect(self.verificar_molecula)
-        verificacion_menu.addAction(verificar_action)
+        menu_molecula.addAction(verificar_action)
+
+        dividir_action = QAction("Dividir SDF y generar targets", self)
+        dividir_action.triggered.connect(self.dividir_sdf)
+        menu_molecula.addAction(dividir_action)
 
         # Menu de IA
-        ia_menu = self.addMenu("IA")
+        menu_train = self.addMenu("Entrenamiento GNN")
 
         # Entrenamiento de IA
         entrenar_action = QAction("Entrenar IA", self)
         entrenar_action.triggered.connect(self.entrenar_ia)
-        ia_menu.addAction(entrenar_action)
+        menu_train.addAction(entrenar_action)
 
         # Transfer Learning
         transfer_action = QAction("Transfer Learning", self)
         transfer_action.triggered.connect(self.transfer_learning_ia)
-        ia_menu.addAction(transfer_action)
+        menu_train.addAction(transfer_action)
+
+        menu_test = self.addMenu("Testeo GNN")
 
         # Testeo de IA con un solo SDF
         testeo_action = QAction("Predecir SDF", self)
         testeo_action.triggered.connect(self.testear_modelo)
-        ia_menu.addAction(testeo_action)
+        menu_test.addAction(testeo_action)
 
         # Testeo de IA con múltiples SDF
         testeo_batch_action = QAction("Testear IA", self)
         testeo_batch_action.triggered.connect(self.testear_modelo_en_batch)
-        ia_menu.addAction(testeo_batch_action)
+        menu_test.addAction(testeo_batch_action)
 
         # Consultar parámetros modelo
         consultar_params_action = QAction("Consultar modelo", self)
         consultar_params_action.triggered.connect(self.consultar_parametros_modelo)
-        ia_menu.addAction(consultar_params_action)
+        menu_test.addAction(consultar_params_action)
 
     def nuevo_archivo(self):
         self.parent.create_new_graph()
@@ -112,7 +117,6 @@ class MenuBar(QMenuBar):
                 str(e)
             )
 
-
     def verificar_molecula(self):
         if not self.parent.graph_view:
             mensaje = "No hay una molécula cargada para verificar."
@@ -127,6 +131,40 @@ class MenuBar(QMenuBar):
         except Exception as e:
             mensaje = f"Se detectaron errores químicos en la molécula:\n{str(e)}"
             logger.error(mensaje)
+
+    def dividir_sdf(self):
+        dialog = SDFSplitDialog(self.parent)
+        if dialog.exec_() != QDialog.Accepted:
+            return
+
+        config = dialog.get_values()
+
+        # Validaciones básicas
+        if not config["sdf_file"] or not os.path.isfile(config["sdf_file"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo SDF válido.")
+            return
+
+        if not config["target_file"] or not os.path.isfile(config["target_file"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
+            return
+
+        if not config["output_dir"]:
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio de salida.")
+            return
+
+        try:
+            split_sdf_with_targets(
+                sdf_file=config["sdf_file"],
+                target_file=config["target_file"],
+                output_dir=config["output_dir"],
+                name_prefix=config["name_prefix"],
+                force_rename=config["force_rename"]
+            )
+            mensaje = f"SDF dividido correctamente. Archivos guardados en: {config['output_dir']}"
+            logger.info(mensaje)
+        except Exception as e:
+            QMessageBox.critical(self.parent, "Error al dividir SDF", str(e))
+            logger.error(f"Error al dividir SDF: {str(e)}")
 
     def entrenar_ia(self):
         dialog = TrainConfigDialog(self)

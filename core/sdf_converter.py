@@ -1,10 +1,14 @@
-# sdf_parser.py
+# sdf_converter.py
 # Leer/Guardar archivos SDF y convertirlos a un grafo de NetworkX
 
+import logging
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Geometry import Point3D
 import networkx as nx
+import os
+logger = logging.getLogger(__name__)
+
 
 SCALE = 50
 
@@ -102,3 +106,74 @@ def save_graph_as_sdf(graph, file_path):
         writer.close()
     except Exception as e:
         raise RuntimeError(f"Error al guardar la molécula: {str(e)}")
+    
+import os
+from rdkit import Chem
+
+import os
+from rdkit import Chem
+
+def split_sdf_with_targets(sdf_file, target_file, output_dir, name_prefix="mol", force_rename=False):
+    """
+    Divide un SDF con múltiples moléculas en SDF individuales, les asigna un nombre si no tienen,
+    y genera un nuevo archivo de targets.txt asociando cada molécula con su valor por orden.
+    Ignora moléculas inválidas sin desincronizar los targets.
+
+    Parámetros:
+        force_rename (bool): Si True, sobreescribe todos los nombres de moléculas con 'name_prefix_#'.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Leer targets
+    with open(target_file, "r") as f:
+        targets = [line.strip() for line in f if line.strip()]
+
+    suppl = Chem.SDMolSupplier(sdf_file, removeHs=False)
+    new_targets = []
+    target_idx = 0
+
+    for idx, mol in enumerate(suppl):
+        if mol is None:
+            logger.warning(f"MOL {idx}: INVÁLIDA, se saltará")
+            continue
+
+        # Decidir nombre de la molécula
+        if force_rename:
+            mol_name = f"{name_prefix}_{idx+1}"
+        else:
+            mol_name = mol.GetProp("_Name") if mol.HasProp("_Name") else f"{name_prefix}_{idx+1}"
+
+        mol.SetProp("_Name", mol_name)  # aseguramos que la molécula tenga este nombre
+
+        # Intentar asociar target
+        try:
+            target_value = float(targets[target_idx])
+        except IndexError:
+            logger.warning(f"La molécula {mol_name} no tiene target asociado (más moléculas que targets). Se asigna None.")
+            target_value = None
+        except ValueError:
+            logger.warning(f"El target para la molécula {mol_name} no es un número válido. Se asigna None.")
+            target_value = None
+
+        # Debug: imprimir todas las moléculas y su target
+        print(f"[DEBUG] MOL {idx} | Nombre: {mol_name} | Target: {target_value}")
+
+        # Guardar SDF individual
+        out_sdf_path = os.path.join(output_dir, f"{mol_name}.sdf")
+        writer = Chem.SDWriter(out_sdf_path)
+        writer.write(mol)
+        writer.close()
+
+        # Guardar target solo si es válido
+        if target_value is not None:
+            new_targets.append(f"{mol_name}  {target_value}")
+            target_idx += 1
+
+    # Guardar archivo de targets nuevo con prefijo "new_"
+    target_filename = os.path.basename(target_file)
+    target_out_path = os.path.join(output_dir, f"new_{target_filename}")
+    with open(target_out_path, "w") as f:
+        f.write("\n".join(new_targets))
+
+    #print(f"Se han generado {len(new_targets)} SDF individuales en '{output_dir}' y '{target_out_path}'.")
+
