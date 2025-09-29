@@ -2,29 +2,30 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit,
     QPushButton, QFileDialog, QDialogButtonBox, QWidget, QHBoxLayout
 )
+from PySide6.QtCore import QSettings
+
 
 class BatchModelTestDialog(QDialog):
-    last_model_path = ""
-    last_sdf_dir = ""
-    last_targets_file = ""
-
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Testear modelo con conjunto de moléculas")
 
+        # ---------- QSettings ----------
+        self.settings = QSettings("Investigacion", "Analisis Molecular")
+
         # Inputs
         self.model_path_input = QLineEdit()
-        self.model_path_input.setText(BatchModelTestDialog.last_model_path)
+        self.model_path_input.setText(self.settings.value("batchTest/model_path", ""))
         self.model_browse_btn = QPushButton("Seleccionar...")
         self.model_browse_btn.clicked.connect(self.browse_model)
 
         self.sdf_dir_input = QLineEdit()
-        self.sdf_dir_input.setText(BatchModelTestDialog.last_sdf_dir)
+        self.sdf_dir_input.setText(self.settings.value("batchTest/sdf_dir", ""))
         self.sdf_browse_btn = QPushButton("Seleccionar...")
         self.sdf_browse_btn.clicked.connect(self.browse_sdf_dir)
 
         self.targets_file_input = QLineEdit()
-        self.targets_file_input.setText(BatchModelTestDialog.last_targets_file)
+        self.targets_file_input.setText(self.settings.value("batchTest/targets_file", ""))
         self.targets_browse_btn = QPushButton("Seleccionar...")
         self.targets_browse_btn.clicked.connect(self.browse_targets_file)
 
@@ -68,14 +69,16 @@ class BatchModelTestDialog(QDialog):
         if path:
             self.targets_file_input.setText(path)
 
+    def accept(self):
+        # Guardar en QSettings
+        self.settings.setValue("batchTest/model_path", self.model_path_input.text())
+        self.settings.setValue("batchTest/sdf_dir", self.sdf_dir_input.text())
+        self.settings.setValue("batchTest/targets_file", self.targets_file_input.text())
+        super().accept()
+
     def get_paths(self):
-        model_path = self.model_path_input.text()
-        sdf_dir = self.sdf_dir_input.text()
-        targets_file = self.targets_file_input.text()
-
-        # Guardar para la próxima vez
-        BatchModelTestDialog.last_model_path = model_path
-        BatchModelTestDialog.last_sdf_dir = sdf_dir
-        BatchModelTestDialog.last_targets_file = targets_file
-
-        return model_path, sdf_dir, targets_file
+        return (
+            self.model_path_input.text(),
+            self.sdf_dir_input.text(),
+            self.targets_file_input.text()
+        )

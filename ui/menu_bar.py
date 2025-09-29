@@ -223,8 +223,6 @@ class MenuBar(QMenuBar):
             lr=config["lr"],
             valid_split=config["valid_split"],
             save_path=save_path,
-            hidden_dim=config["hidden_dim"],
-            num_layers=config["num_layers"],
             patience=config["early_stopping_patience"]
         )
 

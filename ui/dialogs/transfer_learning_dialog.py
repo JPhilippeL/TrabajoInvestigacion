@@ -2,6 +2,7 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QComboBox, QSpinBox,
     QDoubleSpinBox, QDialogButtonBox, QPushButton, QFileDialog, QWidget, QHBoxLayout
 )
+from PySide6.QtCore import QSettings
 
 class TransferLearningDialog(QDialog):
     session_defaults = {
@@ -17,9 +18,12 @@ class TransferLearningDialog(QDialog):
         layout = QVBoxLayout()
         form_layout = QFormLayout()
 
+        # ---------- QSettings ----------
+        self.settings = QSettings("Investigacion", "Analisis Molecular")
+
         # ---------- SDF directory ----------
         self.sdf_path_input = QLineEdit()
-        self.sdf_path_input.setText(self.session_defaults["sdf_dir"])
+        self.sdf_path_input.setText(self.settings.value("transferL/sdf_dir", ""))
         self.sdf_path_button = QPushButton("Elegir carpeta...")
         self.sdf_path_button.clicked.connect(self.select_sdf_folder)
         sdf_layout = QHBoxLayout()
@@ -29,7 +33,7 @@ class TransferLearningDialog(QDialog):
 
         # ---------- Target file ----------
         self.target_file_input = QLineEdit()
-        self.target_file_input.setText(self.session_defaults["target_file"])
+        self.target_file_input.setText(self.settings.value("transferL/target_file", ""))
         self.target_file_button = QPushButton("Elegir archivo...")
         self.target_file_button.clicked.connect(self.select_target_file)
         target_layout = QHBoxLayout()
@@ -39,7 +43,7 @@ class TransferLearningDialog(QDialog):
 
         # ---------- Pretrained model ----------
         self.pretrained_model_input = QLineEdit()
-        self.pretrained_model_input.setText(self.session_defaults["pretrained_model_path"])
+        self.pretrained_model_input.setText(self.settings.value("transferL/pretrained_model_path", ""))
         self.pretrained_model_button = QPushButton("Elegir modelo preentrenado...")
         self.pretrained_model_button.clicked.connect(self.select_pretrained_model)
         pretrained_layout = QHBoxLayout()
@@ -50,18 +54,34 @@ class TransferLearningDialog(QDialog):
         # ---------- Transfer mode ----------
         self.transfer_mode_select = QComboBox()
         self.transfer_mode_select.addItems(["Fine Tuning", "Feature Extraction"])
+        self.transfer_mode_select.setCurrentText(self.settings.value("transferL/transfer_mode", "Fine Tuning"))
         form_layout.addRow("Modo Transfer Learning:", self.transfer_mode_select)
 
         # ---------- Otros parámetros ----------
-        self.epochs_input = QSpinBox(); self.epochs_input.setRange(1, 10000); self.epochs_input.setValue(20)
-        self.valid_split_input = QDoubleSpinBox(); self.valid_split_input.setDecimals(2)
-        self.valid_split_input.setRange(0.0, 0.5); self.valid_split_input.setSingleStep(0.05); self.valid_split_input.setValue(0.2)
-        self.early_stopping_patience_input = QSpinBox(); self.early_stopping_patience_input.setRange(0, 100); self.early_stopping_patience_input.setValue(0)
-        self.batch_input = QSpinBox(); self.batch_input.setRange(1, 1024); self.batch_input.setValue(32)
-        self.lr_input = QDoubleSpinBox(); self.lr_input.setDecimals(5); self.lr_input.setRange(0.00001, 0.1)
-        self.lr_input.setSingleStep(0.0001); self.lr_input.setValue(0.0001)
-        self.hidden_dim_input = QSpinBox(); self.hidden_dim_input.setRange(8, 1024); self.hidden_dim_input.setValue(64)
-        self.num_layers_input = QSpinBox(); self.num_layers_input.setRange(1, 10); self.num_layers_input.setValue(3)
+        self.epochs_input = QSpinBox()
+        self.epochs_input.setRange(1, 10000)
+        self.epochs_input.setValue(int(self.settings.value("transferL/epochs", 20)))
+
+        self.valid_split_input = QDoubleSpinBox()
+        self.valid_split_input.setDecimals(2)
+        self.valid_split_input.setRange(0.0, 0.5)
+        self.valid_split_input.setSingleStep(0.05)
+        self.valid_split_input.setValue(float(self.settings.value("transferL/valid_split", 0.2)))
+
+        self.early_stopping_patience_input = QSpinBox()
+        self.early_stopping_patience_input.setRange(0, 100)
+        self.early_stopping_patience_input.setValue(int(self.settings.value("transferL/early_stopping_patience", 0)))
+
+        self.batch_input = QSpinBox()
+        self.batch_input.setRange(1, 1024)
+        self.batch_input.setValue(int(self.settings.value("transferL/batch_size", 32)))
+
+        self.lr_input = QDoubleSpinBox()
+        self.lr_input.setDecimals(5)
+        self.lr_input.setRange(0.00001, 0.1)
+        self.lr_input.setSingleStep(0.0001)
+        self.lr_input.setValue(float(self.settings.value("transferL/lr", 0.0001)))
+
         self.save_name_input = QLineEdit()
 
         form_layout.addRow("Épocas:", self.epochs_input)
@@ -69,8 +89,6 @@ class TransferLearningDialog(QDialog):
         form_layout.addRow("Paciencia Early Stopping (0 desactiva):", self.early_stopping_patience_input)
         form_layout.addRow("Batch size:", self.batch_input)
         form_layout.addRow("Learning rate:", self.lr_input)
-        form_layout.addRow("Hidden dim:", self.hidden_dim_input)
-        form_layout.addRow("Número de capas:", self.num_layers_input)
         form_layout.addRow("Nombre del modelo final:", self.save_name_input)
 
         layout.addLayout(form_layout)
@@ -101,9 +119,16 @@ class TransferLearningDialog(QDialog):
 
     # ---------- Accept ----------
     def accept(self):
-        TransferLearningDialog.session_defaults["sdf_dir"] = self.sdf_path_input.text()
-        TransferLearningDialog.session_defaults["target_file"] = self.target_file_input.text()
-        TransferLearningDialog.session_defaults["pretrained_model_path"] = self.pretrained_model_input.text()
+        # Guardar configuraciones con prefijo transferL/
+        self.settings.setValue("transferL/sdf_dir", self.sdf_path_input.text())
+        self.settings.setValue("transferL/target_file", self.target_file_input.text())
+        self.settings.setValue("transferL/pretrained_model_path", self.pretrained_model_input.text())
+        self.settings.setValue("transferL/transfer_mode", self.transfer_mode_select.currentText())
+        self.settings.setValue("transferL/epochs", self.epochs_input.value())
+        self.settings.setValue("transferL/batch_size", self.batch_input.value())
+        self.settings.setValue("transferL/lr", self.lr_input.value())
+        self.settings.setValue("transferL/valid_split", self.valid_split_input.value())
+        self.settings.setValue("transferL/early_stopping_patience", self.early_stopping_patience_input.value())
         super().accept()
 
     # ---------- Get values ----------
@@ -118,7 +143,5 @@ class TransferLearningDialog(QDialog):
             "lr": self.lr_input.value(),
             "valid_split": self.valid_split_input.value(),
             "save_name": self.save_name_input.text(),
-            "hidden_dim": self.hidden_dim_input.value(),
-            "num_layers": self.num_layers_input.value(),
             "early_stopping_patience": self.early_stopping_patience_input.value()
         }

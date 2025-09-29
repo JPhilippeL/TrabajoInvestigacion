@@ -5,6 +5,7 @@ import time
 import torch
 import gc
 from ML.transfer_trainer_flexible import transfer_train_flexible
+from ML.transfer_trainer import transfer_train
 
 def main():
     parser = argparse.ArgumentParser()
@@ -17,14 +18,12 @@ def main():
     parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--valid_split", type=float, default=0.2)
     parser.add_argument("--save_path", required=True)
-    parser.add_argument("--hidden_dim", type=int, default=64)
-    parser.add_argument("--num_layers", type=int, default=3)
     parser.add_argument("--patience", type=int, default=0)
     args = parser.parse_args()
 
     try:
         start_time = time.time()
-        path = transfer_train_flexible(
+        path = transfer_train(
             pretrained_model_path=args.pretrained_model_path,
             sdf_dir=args.sdf_dir,
             target_file=args.target_file,
@@ -33,6 +32,7 @@ def main():
             lr=args.lr,
             batch_size=args.batch_size,
             valid_split=args.valid_split,
+            patience=args.patience,
             save_path=args.save_path
         )
         elapsed = time.time() - start_time

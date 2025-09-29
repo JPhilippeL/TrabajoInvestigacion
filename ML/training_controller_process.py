@@ -65,8 +65,6 @@ class TrainingControllerProcess:
         lr,
         valid_split,
         save_path,
-        hidden_dim=64,
-        num_layers=3,
         patience=0
     ):
         logger.info("Inicializando Transfer Learning...")
@@ -84,8 +82,6 @@ class TrainingControllerProcess:
             "--lr", str(lr),
             "--valid_split", str(valid_split),
             "--save_path", save_path,
-            "--hidden_dim", str(hidden_dim),
-            "--num_layers", str(num_layers),
             "--patience", str(patience)
         ])
 

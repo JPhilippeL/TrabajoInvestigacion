@@ -20,6 +20,7 @@ def transfer_train(
     lr=1e-3,
     batch_size=32,
     valid_split=0.2,
+    patience=0,
     save_path="transfer_model.pt"
 ):
     """
@@ -75,7 +76,7 @@ def transfer_train(
                 param.requires_grad = False
 
     # Entrenar
-    train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader)
+    train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience)
 
     # Guardar checkpoint actualizado
     checkpoint_transfer = {
@@ -90,12 +91,13 @@ def transfer_train(
         'batch_size': batch_size,
         'learning_rate': lr,
         'valid_split': valid_split,
+        'early_stopping_patience': patience,
         'transfer_mode': transfer_mode,
     }
 
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     torch.save(checkpoint_transfer, save_path)
-    logging.info(f"Modelo Transfer Learning guardado en: {save_path}")
+    #logging.info(f"Modelo Transfer Learning guardado en: {save_path}")
 
     # Liberar memoria
     del model, train_loader, val_loader
