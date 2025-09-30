@@ -34,28 +34,18 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.splitter)
 
-
-        # Inicialmente, mostramos el selector de archivo
-        #self.file_selector = FileSelector()
-        #self.splitter.addWidget(self.file_selector)
+        # Welcome screen inicial
         self.splitter.addWidget(WelcomeScreen())
 
-        # Conexión del botón "Abrir archivo"
-        #self.file_selector.archivo_seleccionado.connect(self.load_graph_from_file)
-
-        # Luego reemplazarlo
-        self.graph_view = None
-
-        # Área de log pequeña 
+        # Área de log 
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
         self.log_output.setPlaceholderText("Mensajes del sistema...")
-        self.log_output.setMaximumHeight(150)
-
         self.splitter.addWidget(self.log_output)
 
-        # Ajustamos tamaños iniciales
-        self.splitter.setSizes([self.height() - 150, 150])
+        # Ajustar proporciones: 75% para el contenido, 25% para el log
+        self.splitter.setStretchFactor(0, 3)  # índice 0: WelcomeScreen o GraphView
+        self.splitter.setStretchFactor(1, 1)  # índice 1: log
 
         self.qt_handler = QtHandler(self.log)  # pasamos función directamente
         formatter = logging.Formatter(

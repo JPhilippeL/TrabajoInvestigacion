@@ -78,6 +78,7 @@ class TrainConfigDialog(QDialog):
         self.num_layers_input.setValue(int(self.settings.value("train/num_layers", 3))) # cargar
 
         self.save_name_input = QLineEdit()
+        self.save_name_input.setText(self.settings.value("train/save_name", "")) # cargar
 
         form_layout.addRow("Modelo:", self.model_select)
         form_layout.addRow("Épocas:", self.epochs_input)
@@ -118,7 +119,7 @@ class TrainConfigDialog(QDialog):
         self.settings.setValue("train/batch_size", self.batch_input.value())
         self.settings.setValue("train/lr", self.lr_input.value())
         self.settings.setValue("train/valid_split", self.valid_split_input.value())
-        #self.settings.setValue("train/save_name", self.save_name_input.text())
+        self.settings.setValue("train/save_name", self.save_name_input.text())
         self.settings.setValue("train/hidden_dim", self.hidden_dim_input.value())
         self.settings.setValue("train/num_layers", self.num_layers_input.value())
         self.settings.setValue("train/early_stopping_patience", self.early_stopping_patience_input.value())

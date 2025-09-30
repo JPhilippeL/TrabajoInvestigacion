@@ -83,6 +83,7 @@ class TransferLearningDialog(QDialog):
         self.lr_input.setValue(float(self.settings.value("transferL/lr", 0.0001)))
 
         self.save_name_input = QLineEdit()
+        self.save_name_input.setText(self.settings.value("transferL/save_name", ""))
 
         form_layout.addRow("Épocas:", self.epochs_input)
         form_layout.addRow("Porcentaje validación:", self.valid_split_input)
@@ -129,6 +130,7 @@ class TransferLearningDialog(QDialog):
         self.settings.setValue("transferL/lr", self.lr_input.value())
         self.settings.setValue("transferL/valid_split", self.valid_split_input.value())
         self.settings.setValue("transferL/early_stopping_patience", self.early_stopping_patience_input.value())
+        self.settings.setValue("transferL/save_name", self.save_name_input.text())
         super().accept()
 
     # ---------- Get values ----------
