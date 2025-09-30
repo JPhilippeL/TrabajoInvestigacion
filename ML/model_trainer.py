@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from torch_geometric.nn import GINConv, GINEConv, GATConv, global_add_pool, TransformerConv
 from sklearn.model_selection import train_test_split
 from ML.data_processing import read_targets, load_data_from_sdf, create_dataloader
+import matplotlib.pyplot as plt
 import os
 import logging
 import gc
@@ -15,6 +16,9 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
     stream=sys.stdout
 )
+
+CARPETA_MODELOS = "Modelos"
+CARPETA_RESULTADOS = "Resultados"
 
 
 # ----------------------
@@ -135,7 +139,7 @@ def create_model(model_name, input_dim, edge_dim=1, hidden_dim=64, num_layers=3)
 # Función para entrenar modelo
 # ----------------------
 
-def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, patience=0):
+def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, patience=0, model_name="model"):
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = torch.nn.MSELoss()
@@ -144,6 +148,10 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
     patience_counter = 0
     best_epoch = epochs
     avg_train_loss_saved = None
+
+    # --- Guardar histórico ---
+    train_losses = []
+    val_losses = []
 
     for epoch in range(1, epochs + 1):
         model.train()
@@ -157,6 +165,7 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
             optimizer.step()
             total_loss += loss.item() * batch.num_graphs
         avg_train_loss = total_loss / len(train_loader.dataset)
+        train_losses.append(avg_train_loss)
 
         avg_val_loss = None
         if val_loader is not None:
@@ -169,6 +178,7 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
                     loss = criterion(out, batch.y)
                     val_loss += loss.item() * batch.num_graphs
             avg_val_loss = val_loss / len(val_loader.dataset)
+            val_losses.append(avg_val_loss)
 
             # Guardar el mejor modelo si la validación mejora
             if avg_val_loss < best_val_loss:
@@ -197,15 +207,36 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
         os.remove("best_model_tmp.pt")
         logging.info(f"Mejor modelo guardado en epoch {best_epoch} | Train MSE: {avg_train_loss_saved:.4f} | Validation MSE: {best_val_loss:.4f}")
 
+    # --- Gráfica ---
+    plt.figure()
+    plt.plot(range(1, len(train_losses) + 1), train_losses, label='Train Loss')
+    if val_loader is not None:
+        plt.plot(range(1, len(val_losses) + 1), val_losses, label='Validation Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('MSE Loss')
+    plt.yscale('log')  # <- escala logarítmica
+    plt.title(f'Training and Validation Loss - {model_name}')
+    plt.legend()
+    plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+    
+    # Guardarla
+    os.makedirs(CARPETA_RESULTADOS, exist_ok=True)
+    model_results_dir = os.path.join(CARPETA_RESULTADOS, model_name)
+    os.makedirs(model_results_dir, exist_ok=True)
+    plt.savefig(os.path.join(model_results_dir, f"{model_name}_loss_curve.png"))
+    plt.close()
+    
+    logging.info(f"Gráfico de pérdidas guardado en {os.path.join(model_results_dir, f'{model_name}_loss_curve.png')}")
 
 
 
 def train_and_save_model(
     sdf_dir,
     target_file,
-    modelo_nombre,
+    model_type,
     epochs,
-    save_path,
+    model_name,
     batch_size=32,
     lr=0.001,
     valid_split=0.2,
@@ -230,13 +261,13 @@ def train_and_save_model(
     input_dim = data_list[0].x.shape[1]
     edge_dim = data_list[0].edge_attr.shape[1]
     
-    model = create_model(modelo_nombre, input_dim, edge_dim, hidden_dim=hidden_dim, num_layers=num_layers)
+    model = create_model(model_type, input_dim, edge_dim, hidden_dim=hidden_dim, num_layers=num_layers)
 
-    train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience)
+    train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience, model_name=model_name)
 
     checkpoint = {
         'model_state_dict': model.state_dict(),
-        'model_type': modelo_nombre,
+        'model_type': model_type,
         'input_dim': input_dim,
         'edge_dim': edge_dim,
         'epochs_trained': epochs,
@@ -248,9 +279,11 @@ def train_and_save_model(
         'valid_split': valid_split,
         'early_stopping_patience': patience,
     }
+    # Crear carpeta de modelos si no existe
+    os.makedirs(CARPETA_MODELOS, exist_ok=True)
+    # Guardar el modelo
+    save_path = os.path.join(CARPETA_MODELOS, f"{model_name}.pt")
 
-
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
     torch.save(checkpoint, save_path)
 
     del model

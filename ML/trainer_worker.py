@@ -13,9 +13,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--sdf_dir")
     parser.add_argument("--target_file")
-    parser.add_argument("--modelo_nombre")
+    parser.add_argument("--model_type")
     parser.add_argument("--epochs", type=int)
-    parser.add_argument("--save_path")
+    parser.add_argument("--model_name", type=str, default="model")
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--valid_split", type=float, default=0.2)
@@ -29,9 +29,9 @@ def main():
         path = train_and_save_model(
             sdf_dir=args.sdf_dir,
             target_file=args.target_file,
-            modelo_nombre=args.modelo_nombre,
+            model_type=args.model_type,
             epochs=args.epochs,
-            save_path=args.save_path,
+            model_name=args.model_name,
             batch_size=args.batch_size,
             lr=args.lr,
             valid_split=args.valid_split,

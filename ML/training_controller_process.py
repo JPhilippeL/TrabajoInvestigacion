@@ -16,12 +16,12 @@ class TrainingControllerProcess:
         self,
         sdf_dir,
         target_file,
-        modelo,
+        model_type,
         epochs,
         batch_size,
         lr,
         valid_split,
-        save_path,
+        model_name,
         hidden_dim=64,
         num_layers=3,
         patience=0
@@ -36,9 +36,9 @@ class TrainingControllerProcess:
             "-m", "ML.trainer_worker",
             "--sdf_dir", sdf_dir,
             "--target_file", target_file,
-            "--modelo_nombre", modelo,
+            "--model_type", model_type,
             "--epochs", str(epochs),
-            "--save_path", save_path,
+            "--model_name", model_name,
             "--batch_size", str(batch_size),
             "--lr", str(lr),
             "--valid_split", str(valid_split),
@@ -64,7 +64,7 @@ class TrainingControllerProcess:
         batch_size,
         lr,
         valid_split,
-        save_path,
+        model_name,
         patience=0
     ):
         logger.info("Inicializando Transfer Learning...")
@@ -81,7 +81,7 @@ class TrainingControllerProcess:
             "--batch_size", str(batch_size),
             "--lr", str(lr),
             "--valid_split", str(valid_split),
-            "--save_path", save_path,
+            "--model_name", model_name,
             "--patience", str(patience)
         ])
 

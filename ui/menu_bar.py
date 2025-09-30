@@ -15,6 +15,7 @@ from core.sdf_converter import split_sdf
 import logging
 from ui.dialogs.image_dialog import ImageDialog
 logger = logging.getLogger(__name__)
+RESULTADOS_DIR = "Resultados"
 
 class MenuBar(QMenuBar):
     def __init__(self, parent):
@@ -184,18 +185,16 @@ class MenuBar(QMenuBar):
             )
             return
 
-        save_path = f"modelos/{config['save_name']}.pt"
-
         # Ejecutar entrenamiento
         self.parent.training_controller.entrenar(
             sdf_dir=config["sdf_dir"],
             target_file=config["target_file"],
-            modelo=config["modelo"],
+            model_type=config["modelo"],
             epochs=config["epochs"],
             batch_size=config["batch_size"],
             lr=config["lr"],
             valid_split=config["valid_split"],
-            save_path=save_path,
+            model_name=config['save_name'],
             hidden_dim=config["hidden_dim"],
             num_layers=config["num_layers"],
             patience=config["early_stopping_patience"]
@@ -234,11 +233,6 @@ class MenuBar(QMenuBar):
             )
             return
 
-        # ---------- Configurar save_path ----------
-        save_dir = "modelos"
-        os.makedirs(save_dir, exist_ok=True)
-        save_path = os.path.join(save_dir, f"{config['save_name']}.pt")
-
         # ---------- Ejecutar Transfer Learning ----------
         self.parent.training_controller.transfer_learning(
             sdf_dir=config["sdf_dir"],
@@ -249,7 +243,7 @@ class MenuBar(QMenuBar):
             batch_size=config["batch_size"],
             lr=config["lr"],
             valid_split=config["valid_split"],
-            save_path=save_path,
+            model_name=config["save_name"],
             patience=config["early_stopping_patience"]
         )
 
@@ -272,13 +266,13 @@ class MenuBar(QMenuBar):
                 logger.error(f"Error en testear modelo: {str(e)}")
 
     def testear_modelo_en_batch(self):
-
+        
         dialog = BatchModelTestDialog(self.parent)
         if dialog.exec():
             model_path, sdf_dir, targets_file = dialog.get_paths()
 
             try:
-                # Definir nombre del archivo de salida de predicciones
+                # Nombre del modelo
                 model_name = os.path.splitext(os.path.basename(model_path))[0]
 
                 # Ejecutar función de testeo
@@ -286,12 +280,15 @@ class MenuBar(QMenuBar):
 
                 # Mostrar scatter plot
                 folder_name = os.path.basename(sdf_dir.rstrip(os.sep))
-                plot_path = os.path.join("Resultados", f"scatter_plot_{model_name}_{folder_name}.png")
+                model_results_dir = os.path.join(RESULTADOS_DIR, model_name)
+                plot_path = os.path.join(model_results_dir, f"scatter_plot_{model_name}_{folder_name}.png")
+
                 self.image_dialog = ImageDialog(plot_path, self.parent)
                 self.image_dialog.show()
 
             except Exception as e:
                 logger.error("Error en testeo por lotes: " + str(e))
+
 
 
     def consultar_parametros_modelo(self):

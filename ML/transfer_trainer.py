@@ -11,6 +11,8 @@ from ML.data_processing import read_targets, load_data_from_sdf, create_dataload
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(levelname)s - %(message)s")
 
+CARPETA_MODELOS = "Modelos"
+
 def transfer_train(
     pretrained_model_path,
     sdf_dir,
@@ -21,11 +23,8 @@ def transfer_train(
     batch_size=32,
     valid_split=0.2,
     patience=0,
-    save_path="transfer_model.pt"
+    model_name="transfer_model",
 ):
-    """
-    Función para reentrenar un modelo preentrenado usando Transfer Learning.
-    """
     # Validar transfer_mode
     if transfer_mode not in ["fine_tuning", "feature_extraction"]:
         raise ValueError("transfer_mode debe ser 'fine_tuning' o 'feature_extraction'")
@@ -81,7 +80,7 @@ def transfer_train(
                 param.requires_grad = False
 
     # Entrenar
-    train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience)
+    train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience, model_name=model_name)
 
     # Guardar checkpoint actualizado
     checkpoint_transfer = {
@@ -100,7 +99,10 @@ def transfer_train(
         'transfer_mode': transfer_mode,
     }
 
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    # Crear carpeta de modelos si no existe
+    os.makedirs(CARPETA_MODELOS, exist_ok=True)
+    # Guardar el modelo
+    save_path = os.path.join(CARPETA_MODELOS, f"{model_name}.pt")
     torch.save(checkpoint_transfer, save_path)
     #logging.info(f"Modelo Transfer Learning guardado en: {save_path}")
 

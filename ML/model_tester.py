@@ -14,6 +14,7 @@ import logging
 logger = logging.getLogger(__name__)
 logging.getLogger('matplotlib.font_manager').setLevel(logging.WARNING)
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
+RESULTADOS_DIR = "Resultados"
 
 def cargar_modelo(checkpoint_path):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -71,8 +72,14 @@ def test_model_on_directory(checkpoint_path, sdf_dir, targets_file):
         model, device, target_name = cargar_modelo(checkpoint_path)
 
         # Crear carpeta de resultados si no existe
-        resultados_dir = "Resultados"
-        os.makedirs(resultados_dir, exist_ok=True)
+        os.makedirs(RESULTADOS_DIR, exist_ok=True)
+
+        # Crear carpeta específica para este modelo
+        model_filename = os.path.basename(checkpoint_path)
+        model_name_no_ext = os.path.splitext(model_filename)[0]
+
+        model_results_dir = os.path.join(RESULTADOS_DIR, model_name_no_ext)
+        os.makedirs(model_results_dir, exist_ok=True)
 
         # Leer datos
         target_dict = read_targets(targets_file)
@@ -93,13 +100,11 @@ def test_model_on_directory(checkpoint_path, sdf_dir, targets_file):
             filenames.append(data.name if hasattr(data, 'name') else 'unknown')
 
         # Nombre base de archivos
-        model_filename = os.path.basename(checkpoint_path)
-        model_name_no_ext = os.path.splitext(model_filename)[0]
         folder_name = os.path.basename(sdf_dir.rstrip(os.sep))
 
         # Archivo de predicciones
         output_predictions_path = os.path.join(
-            resultados_dir,
+            model_results_dir,
             f"predicciones_{model_name_no_ext}_{folder_name}.txt"
         )
 
@@ -123,7 +128,7 @@ def test_model_on_directory(checkpoint_path, sdf_dir, targets_file):
 
         # Guardar imagen
         plot_filename = os.path.join(
-            resultados_dir,
+            model_results_dir,
             f"scatter_plot_{model_name_no_ext}_{folder_name}.png"
         )
         plt.savefig(plot_filename)
