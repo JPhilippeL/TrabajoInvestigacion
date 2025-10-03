@@ -14,6 +14,7 @@ import logging
 import sys
 from ui.utils import RESULTADOS_DIR
 import csv
+from scipy.stats import pearsonr
 
 # Logger por módulo (no tocar basicConfig aquí)
 logger = logging.getLogger(__name__)
@@ -182,11 +183,10 @@ logger = logging.getLogger(__name__)
 def test_all_models_in_directory(models_dir, sdf_dir, targets_file):
     """
     Testea todos los modelos de un directorio con un conjunto de moléculas y targets.
-    Genera resultados individuales por modelo y además un archivo resumen CSV con los RMSE,
-    ordenado alfabéticamente por nombre de modelo.
+    Genera resultados individuales por modelo y además un archivo resumen CSV con los RMSE
+    y el Pearson coefficient, ordenado alfabéticamente por nombre de modelo.
     """
-    # Nombre del archivo CSV
-    resumen_file_name = f"resumen_rmse_{os.path.splitext(os.path.basename(targets_file))[0]}.csv"
+    resumen_file_name = f"resumen_metrics_{os.path.basename(models_dir)}.csv"
     resumen_path = os.path.join(RESULTADOS_DIR, resumen_file_name)
     os.makedirs(RESULTADOS_DIR, exist_ok=True)
 
@@ -221,22 +221,28 @@ def test_all_models_in_directory(models_dir, sdf_dir, targets_file):
             # Calcular RMSE
             rmse = sqrt(mean_squared_error(y_true, y_pred))
 
+            # Calcular Pearson coefficient
+            if len(y_true) > 1:  # necesario para scipy
+                pearson_r, _ = pearsonr(y_true, y_pred)
+            else:
+                pearson_r = float("nan")
+
             # Guardar resultados completos (plots y predicciones)
             test_model_on_directory(model_path, sdf_dir, targets_file)
 
-            resultados.append((fname, f"{rmse:.4f}"))
+            resultados.append((fname, f"{rmse:.4f}", f"{pearson_r:.4f}"))
 
         except Exception as e:
             logger.exception(f"Error con el modelo {fname}")
-            resultados.append((fname, f"ERROR ({str(e)})"))
+            resultados.append((fname, f"ERROR ({str(e)})", "ERROR"))
 
     # Ordenar alfabéticamente por nombre de modelo
     resultados.sort(key=lambda x: x[0].lower())
 
-    # Guardar CSV
+    # Guardar CSV con RMSE y Pearson
     with open(resumen_path, mode="w", newline="") as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(["Modelo", "RMSE"])
+        writer.writerow(["Modelo", "RMSE", "Pearson"])
         for row in resultados:
             writer.writerow(row)
 
