@@ -17,8 +17,7 @@ logging.basicConfig(
     stream=sys.stdout
 )
 
-CARPETA_MODELOS = "Modelos"
-CARPETA_RESULTADOS = "Resultados"
+from ui.utils import RESULTADOS_DIR, MODELOS_DIR
 
 
 # ----------------------
@@ -221,8 +220,8 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
 
     
     # Guardarla
-    os.makedirs(CARPETA_RESULTADOS, exist_ok=True)
-    model_results_dir = os.path.join(CARPETA_RESULTADOS, model_name)
+    os.makedirs(RESULTADOS_DIR, exist_ok=True)
+    model_results_dir = os.path.join(RESULTADOS_DIR, model_name)
     os.makedirs(model_results_dir, exist_ok=True)
     plt.savefig(os.path.join(model_results_dir, f"{model_name}_loss_curve.png"))
     plt.close()
@@ -280,9 +279,9 @@ def train_and_save_model(
         'early_stopping_patience': patience,
     }
     # Crear carpeta de modelos si no existe
-    os.makedirs(CARPETA_MODELOS, exist_ok=True)
+    os.makedirs(MODELOS_DIR, exist_ok=True)
     # Guardar el modelo
-    save_path = os.path.join(CARPETA_MODELOS, f"{model_name}.pt")
+    save_path = os.path.join(MODELOS_DIR, f"{model_name}.pt")
 
     torch.save(checkpoint, save_path)
 

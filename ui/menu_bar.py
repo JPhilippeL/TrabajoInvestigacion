@@ -9,13 +9,16 @@ from ui.dialogs.model_test_dialog import ModelTestDialog
 from ui.dialogs.batch_model_test_dialog import BatchModelTestDialog
 from ui.dialogs.transfer_learning_dialog import TransferLearningDialog
 from ui.dialogs.split_sdf_dialog import SDFSplitDialog
+from ui.dialogs.test_all_models_dialog import BatchAllModelsTestDialog
 from ML.model_tester import test_model_on_directory
 from ML.model_tester import obtener_info_checkpoint
+from ML.model_tester import test_all_models_in_directory 
+from ML.testing_controller_process import TestingControllerProcess
 from core.sdf_converter import split_sdf
 import logging
 from ui.dialogs.image_dialog import ImageDialog
+from ui.utils import RESULTADOS_DIR
 logger = logging.getLogger(__name__)
-RESULTADOS_DIR = "Resultados"
 
 class MenuBar(QMenuBar):
     def __init__(self, parent):
@@ -66,9 +69,14 @@ class MenuBar(QMenuBar):
         menu_test.addAction(testeo_action)
 
         # Testeo de IA con múltiples SDF
-        testeo_batch_action = QAction("Testear IA", self)
+        testeo_batch_action = QAction("Testear modelo", self)
         testeo_batch_action.triggered.connect(self.testear_modelo_en_batch)
         menu_test.addAction(testeo_batch_action)
+
+        # Testeo de TODOS los modelos en un directorio
+        testeo_all_models_action = QAction("Testear todos los modelos", self)
+        testeo_all_models_action.triggered.connect(self.testear_directorio_modelos)
+        menu_test.addAction(testeo_all_models_action)
 
         # Consultar parámetros modelo
         consultar_params_action = QAction("Consultar modelo", self)
@@ -288,6 +296,18 @@ class MenuBar(QMenuBar):
 
             except Exception as e:
                 logger.error("Error en testeo por lotes: " + str(e))
+
+    def testear_directorio_modelos(self):
+        dialog = BatchAllModelsTestDialog(self.parent)
+        if dialog.exec():
+            models_dir, sdf_dir, targets_file = dialog.get_paths()
+
+            try:
+                # Ejecutamos testing con el proceso
+                self.parent.testing_controller.testear_modelos(models_dir, sdf_dir, targets_file)
+            except Exception as e:
+                logger.error("Error en testeo de todos los modelos: " + str(e))
+
 
 
 

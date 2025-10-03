@@ -12,6 +12,7 @@ import networkx as nx
 import logging
 from ui.logger import QtHandler
 from ML.training_controller_process import TrainingControllerProcess
+from ML.testing_controller_process import TestingControllerProcess
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -58,10 +59,9 @@ class MainWindow(QMainWindow):
         logger.addHandler(self.qt_handler)
         logger.setLevel(logging.DEBUG)
 
-        # Controlador de entrenamiento
-        #self.training_controller = TrainingController(self)
+        # Controlador de entrenamiento y testeo
         self.training_controller = TrainingControllerProcess(self)
-
+        self.testing_controller = TestingControllerProcess(self)
 
     def create_new_graph(self):
         graph = nx.Graph()

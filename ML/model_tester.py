@@ -11,10 +11,17 @@ from sklearn.metrics import mean_squared_error
 from math import sqrt
 from ML.data_processing import read_targets, load_data_from_sdf
 import logging
+import sys
+from ui.utils import RESULTADOS_DIR
+import csv
+
+# Logger por módulo (no tocar basicConfig aquí)
 logger = logging.getLogger(__name__)
+
+# Reducir logs de librerías ruidosas
 logging.getLogger('matplotlib.font_manager').setLevel(logging.WARNING)
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
-RESULTADOS_DIR = "Resultados"
+logging.getLogger('torch').setLevel(logging.WARNING)
 
 def cargar_modelo(checkpoint_path):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -169,3 +176,69 @@ def obtener_info_checkpoint(model_path):
         error_msg = f"Error al consultar parámetros del modelo: {str(e)}"
         logger.error(error_msg)
         return error_msg
+
+logger = logging.getLogger(__name__)
+
+def test_all_models_in_directory(models_dir, sdf_dir, targets_file):
+    """
+    Testea todos los modelos de un directorio con un conjunto de moléculas y targets.
+    Genera resultados individuales por modelo y además un archivo resumen CSV con los RMSE,
+    ordenado alfabéticamente por nombre de modelo.
+    """
+    # Nombre del archivo CSV
+    resumen_file_name = f"resumen_rmse_{os.path.splitext(os.path.basename(targets_file))[0]}.csv"
+    resumen_path = os.path.join(RESULTADOS_DIR, resumen_file_name)
+    os.makedirs(RESULTADOS_DIR, exist_ok=True)
+
+    resultados = []
+
+    for fname in os.listdir(models_dir):
+        model_path = os.path.join(models_dir, fname)
+
+        if not os.path.isfile(model_path):
+            continue
+        if not fname.endswith((".pt", ".pth")):
+            continue  # saltar archivos que no sean modelos
+
+        try:
+            # Cargar modelo
+            model, device, target_name = cargar_modelo(model_path)
+
+            # Leer datos
+            target_dict = read_targets(targets_file)
+            data_list = load_data_from_sdf(sdf_dir, target_dict)
+
+            y_true, y_pred = [], []
+            for data in data_list:
+                data = data.to(device)
+                batch = torch.zeros(data.num_nodes, dtype=torch.long, device=device)
+                with torch.no_grad():
+                    out = model(data.x, data.edge_index, data.edge_attr, batch)
+                    pred = out.squeeze().item()
+                y_pred.append(pred)
+                y_true.append(data.y.item())
+
+            # Calcular RMSE
+            rmse = sqrt(mean_squared_error(y_true, y_pred))
+
+            # Guardar resultados completos (plots y predicciones)
+            test_model_on_directory(model_path, sdf_dir, targets_file)
+
+            resultados.append((fname, f"{rmse:.4f}"))
+
+        except Exception as e:
+            logger.exception(f"Error con el modelo {fname}")
+            resultados.append((fname, f"ERROR ({str(e)})"))
+
+    # Ordenar alfabéticamente por nombre de modelo
+    resultados.sort(key=lambda x: x[0].lower())
+
+    # Guardar CSV
+    with open(resumen_path, mode="w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["Modelo", "RMSE"])
+        for row in resultados:
+            writer.writerow(row)
+
+    logger.info(f"Resumen CSV guardado en: {resumen_path}")
+

@@ -102,7 +102,6 @@ class TrainingControllerProcess:
             elif line.startswith("ERROR|"):
                 _, msg = line.split("|", 1)
                 logger.error(f"Error en entrenamiento: {msg}")
-                #self.parent.log(f"Error: {msg}")
             else:
                 # logs normales
                 self.parent.log(line)

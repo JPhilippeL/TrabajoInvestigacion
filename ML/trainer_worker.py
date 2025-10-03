@@ -3,10 +3,7 @@ import argparse
 import time
 import torch
 import gc
-import sys
 from ML.model_trainer import train_and_save_model
-
-
 
 
 def main():

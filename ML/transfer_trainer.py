@@ -7,11 +7,10 @@ import logging
 from sklearn.model_selection import train_test_split
 from ML.model_trainer import create_model, train
 from ML.data_processing import read_targets, load_data_from_sdf, create_dataloader
+from ui.utils import MODELOS_DIR
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(levelname)s - %(message)s")
-
-CARPETA_MODELOS = "Modelos"
 
 def transfer_train(
     pretrained_model_path,
@@ -100,9 +99,9 @@ def transfer_train(
     }
 
     # Crear carpeta de modelos si no existe
-    os.makedirs(CARPETA_MODELOS, exist_ok=True)
+    os.makedirs(MODELOS_DIR, exist_ok=True)
     # Guardar el modelo
-    save_path = os.path.join(CARPETA_MODELOS, f"{model_name}.pt")
+    save_path = os.path.join(MODELOS_DIR, f"{model_name}.pt")
     torch.save(checkpoint_transfer, save_path)
     #logging.info(f"Modelo Transfer Learning guardado en: {save_path}")
 
