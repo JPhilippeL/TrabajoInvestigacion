@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox, QDialogButtonBox, QPushButton, QFileDialog, QWidget, QHBoxLayout
 )
 from PySide6.QtCore import QSettings
+import os
 
 class TransferLearningDialog(QDialog):
     session_defaults = {
@@ -55,6 +56,7 @@ class TransferLearningDialog(QDialog):
         self.transfer_mode_select = QComboBox()
         self.transfer_mode_select.addItems(["Fine Tuning", "Feature Extraction"])
         self.transfer_mode_select.setCurrentText(self.settings.value("transferL/transfer_mode", "Fine Tuning"))
+        self.transfer_mode_select.currentTextChanged.connect(self.update_save_name)
         form_layout.addRow("Modo Transfer Learning:", self.transfer_mode_select)
 
         # ---------- Otros parámetros ----------
@@ -117,6 +119,16 @@ class TransferLearningDialog(QDialog):
         file, _ = QFileDialog.getOpenFileName(self, "Seleccionar modelo preentrenado", filter="PT files (*.pt)")
         if file:
             self.pretrained_model_input.setText(file)
+            self.update_save_name()
+
+    # ---------- Actualizar nombre dinámicamente ----------
+    def update_save_name(self):
+        path = self.pretrained_model_input.text()
+        if not path:
+            return
+        base = os.path.splitext(os.path.basename(path))[0]
+        suffix = "_FT" if self.transfer_mode_select.currentText() == "Fine Tuning" else "_FE"
+        self.save_name_input.setText(f"{base}{suffix}")
 
     # ---------- Accept ----------
     def accept(self):
