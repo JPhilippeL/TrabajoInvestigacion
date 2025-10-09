@@ -147,3 +147,34 @@ class TrainingControllerProcess:
         self.process.readyReadStandardOutput.connect(self.on_stdout)
         self.process.readyReadStandardError.connect(self.on_stderr)
         self.process.start()
+
+    def transfer_train_multiple_models(
+        self,
+        pretrained_model_directory_path,
+        sdf_dir,
+        target_file,
+        epochs,
+        batch_size=32,
+        lr=0.001,
+        valid_split=0.2,
+        patience=0
+    ):
+        logger.info("Inicializando entrenamiento múltiple con Transfer Learning...")
+
+        self.process = QProcess()
+        self.process.setProgram(sys.executable)
+        self.process.setArguments([
+            "-m", "ML.multiple_transfer_trainer_worker",
+            "--pretrained_model_directory_path", pretrained_model_directory_path,
+            "--sdf_dir", sdf_dir,
+            "--target_file", target_file,
+            "--epochs", str(epochs),
+            "--batch_size", str(batch_size),
+            "--lr", str(lr),
+            "--valid_split", str(valid_split),
+            "--patience", str(patience)
+        ])
+
+        self.process.readyReadStandardOutput.connect(self.on_stdout)
+        self.process.readyReadStandardError.connect(self.on_stderr)
+        self.process.start()

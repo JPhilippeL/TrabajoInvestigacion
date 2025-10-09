@@ -53,7 +53,7 @@ def transfer_train(
     train_loader = create_dataloader(train_data, batch_size=batch_size)
 
     # Crear modelo y cargar pesos
-    model = create_model(model_type, input_dim, edge_dim, hidden_dim, num_layers)
+    model = create_model(model_type, input_dim, hidden_dim, num_layers, edge_dim)
     model.load_state_dict(checkpoint['model_state_dict'], strict=False)  # strict=False permite mismatch
 
     # Ajustar capa de salida si hay incompatibilidad
@@ -111,3 +111,37 @@ def transfer_train(
     gc.collect()
 
     return save_path
+
+# Agarrar un directorio de modelos preentrenados y entrenar cada uno con cada tipo de transferencia (feature_extraction y fine_tuning)
+def transfer_train_multiple_models(
+    pretrained_model_directory_path,
+    sdf_dir,
+    target_file,
+    epochs,
+    lr,
+    batch_size,
+    valid_split,
+    patience,
+):
+    modelos_guardados = []
+    for filename in os.listdir(pretrained_model_directory_path):
+        if filename.endswith('.pt'):
+            modelo_path = os.path.join(pretrained_model_directory_path, filename)
+            modelo_nombre_base = os.path.splitext(filename)[0]
+            for modo in ['feature_extraction', 'fine_tuning']:
+                modelo_nombre = f"{modelo_nombre_base}_{modo}"
+                logging.info(f"Entrenando {modelo_nombre} usando {modo}")
+                modelo_guardado = transfer_train(
+                    pretrained_model_path=modelo_path,
+                    sdf_dir=sdf_dir,
+                    target_file=target_file,
+                    transfer_mode=modo,
+                    epochs=epochs,
+                    lr=lr,
+                    batch_size=batch_size,
+                    valid_split=valid_split,
+                    patience=patience,
+                    model_name=modelo_nombre
+                )
+                modelos_guardados.append(modelo_guardado)
+    return modelos_guardados

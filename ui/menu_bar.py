@@ -12,6 +12,7 @@ from ui.dialogs.transfer_learning_dialog import TransferLearningDialog
 from ui.dialogs.split_sdf_dialog import SDFSplitDialog
 from ui.dialogs.test_all_models_dialog import BatchAllModelsTestDialog
 from ui.dialogs.train_multiple_models import TrainMultipleModelsDialog
+from ui.dialogs.transfer_learning_multiple_models import TransferLearningMultipleDialog
 
 from ML.model_tester import test_model_on_directory
 from ML.model_tester import obtener_info_checkpoint
@@ -51,25 +52,33 @@ class MenuBar(QMenuBar):
         dividir_action.triggered.connect(self.dividir_sdf)
         menu_molecula.addAction(dividir_action)
 
-        # Menu de IA
-        menu_train = self.addMenu("Entrenamiento GNN")
+        # Menu de Entrenamiento
+        menu_train = self.addMenu("Train GNN")
 
         # Entrenamiento de IA
         entrenar_action = QAction("Entrenar Modelo", self)
         entrenar_action.triggered.connect(self.entrenar_ia)
         menu_train.addAction(entrenar_action)
 
-        # Transfer Learning
-        transfer_action = QAction("Transfer Learning", self)
-        transfer_action.triggered.connect(self.transfer_learning_ia)
-        menu_train.addAction(transfer_action)
-
         # Entrenamiento de múltiples modelos
         entrenar_multiple_action = QAction("Entrenar Múltiples Modelos", self)
         entrenar_multiple_action.triggered.connect(self.entrenar_multiples_modelos)
         menu_train.addAction(entrenar_multiple_action)
 
-        menu_test = self.addMenu("Testeo GNN")
+        # Menu de Transfer Learning
+        menu_transfer = self.addMenu("Transfer Learning GNN")
+
+        # Transfer Learning
+        transfer_action = QAction("Transfer Learning", self)
+        transfer_action.triggered.connect(self.transfer_learning_ia)
+        menu_transfer.addAction(transfer_action)
+
+        # Transfer Learning con múltiples modelos
+        transfer_multiple_action = QAction("Transfer Learning Múltiples Modelos", self)
+        transfer_multiple_action.triggered.connect(self.transfer_learning_multiple_modelos)
+        menu_transfer.addAction(transfer_multiple_action)
+
+        menu_test = self.addMenu("Test GNN")
 
         # Testeo de IA con un solo SDF
         testeo_action = QAction("Predecir SDF", self)
@@ -292,6 +301,47 @@ class MenuBar(QMenuBar):
             lr=config["lr"],
             valid_split=config["valid_split"],
             hidden_dim=config["hidden_dim"],
+            patience=config["patience"]
+        )
+
+    def transfer_learning_multiple_modelos(self):
+        dialog = TransferLearningMultipleDialog(self)
+        if dialog.exec_() != QDialog.Accepted:
+            return
+
+        config = dialog.get_values()
+
+        # ---------- Validaciones básicas ----------
+        if not config["sdf_dir"] or not os.path.isdir(config["sdf_dir"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
+            return
+
+        if not config["target_file"] or not os.path.isfile(config["target_file"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
+            return
+
+        if not config["pretrained_model_directory_path"] or not os.path.isdir(config["pretrained_model_directory_path"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio de modelos preentrenados válido.")
+            return
+
+        # Validar early stopping y validación
+        if config["patience"] > 0 and config["valid_split"] <= 0:
+            QMessageBox.warning(
+                self.parent,
+                "Configuración inválida",
+                "Para usar Early Stopping, el porcentaje de validación debe ser mayor que 0."
+            )
+            return
+
+        # ---------- Ejecutar Transfer Learning múltiple ----------
+        self.parent.training_controller.transfer_train_multiple_models(
+            pretrained_model_directory_path=config["pretrained_model_directory_path"],
+            sdf_dir=config["sdf_dir"],
+            target_file=config["target_file"],
+            epochs=config["epochs"],
+            batch_size=config["batch_size"],
+            lr=config["lr"],
+            valid_split=config["valid_split"],
             patience=config["patience"]
         )
 
