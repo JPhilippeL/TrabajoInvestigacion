@@ -18,6 +18,7 @@ logging.basicConfig(
 )
 
 from ui.utils import RESULTADOS_DIR, MODELOS_DIR
+HEADS = 4  # Número de cabezas para GAT y GraphTransformer
 
 
 # ----------------------
@@ -25,7 +26,7 @@ from ui.utils import RESULTADOS_DIR, MODELOS_DIR
 # ----------------------
 
 class GINNet(torch.nn.Module):
-    def __init__(self, input_dim, hidden_dim=64, num_layers=3):
+    def __init__(self, input_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=128):
         super().__init__()
         self.convs = torch.nn.ModuleList()
         for i in range(num_layers):
@@ -34,24 +35,27 @@ class GINNet(torch.nn.Module):
                 torch.nn.ReLU(),
                 torch.nn.Linear(hidden_dim, hidden_dim)
             )
-            conv = GINConv(mlp)
-            self.convs.append(conv)
-        self.lin = torch.nn.Linear(hidden_dim, 1)
+            self.convs.append(GINConv(mlp))
 
-    def forward(self, x, edge_index, edge_attr, batch):
+        self.fc = torch.nn.Sequential(
+            torch.nn.Linear(hidden_dim, fc_hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Linear(fc_hidden_dim, 1)
+        )
+
+    def forward(self, x, edge_index, edge_attr=None, batch=None):
         for conv in self.convs:
             x = conv(x, edge_index)
             x = F.relu(x)
         x = global_add_pool(x, batch)
-        out = self.lin(x)
+        out = self.fc(x)
         return out.squeeze()
 
 
 class GINENet(torch.nn.Module):
-    def __init__(self, input_dim, edge_dim=1, hidden_dim=64, num_layers=3):
+    def __init__(self, input_dim, edge_dim=1, hidden_dim=64, num_layers=3, fc_hidden_dim=128):
         super().__init__()
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
-
         self.convs = torch.nn.ModuleList()
         for _ in range(num_layers):
             mlp = torch.nn.Sequential(
@@ -59,41 +63,48 @@ class GINENet(torch.nn.Module):
                 torch.nn.ReLU(),
                 torch.nn.Linear(hidden_dim, hidden_dim)
             )
-            conv = GINEConv(mlp, edge_dim=edge_dim)
-            self.convs.append(conv)
+            self.convs.append(GINEConv(mlp, edge_dim=edge_dim))
 
-        self.readout = global_add_pool
-        self.output = torch.nn.Linear(hidden_dim, 1)
+        self.fc = torch.nn.Sequential(
+            torch.nn.Linear(hidden_dim, fc_hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Linear(fc_hidden_dim, 1)
+        )
 
     def forward(self, x, edge_index, edge_attr, batch):
         x = self.node_encoder(x)
         for conv in self.convs:
             x = conv(x, edge_index, edge_attr)
             x = F.relu(x)
-        x = self.readout(x, batch)
-        return self.output(x).view(-1)
+        x = global_add_pool(x, batch)
+        return self.fc(x).view(-1)
 
 
 class GATNet(torch.nn.Module):
-    def __init__(self, input_dim, hidden_dim=64, num_layers=3, heads=4):
+    def __init__(self, input_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128):
         super().__init__()
         self.convs = torch.nn.ModuleList()
         for i in range(num_layers):
             in_channels = input_dim if i == 0 else hidden_dim * heads
             conv = GATConv(in_channels, hidden_dim, heads=heads, concat=True)
             self.convs.append(conv)
-        self.lin = torch.nn.Linear(hidden_dim * heads, 1)
 
-    def forward(self, x, edge_index, edge_attr, batch):
+        self.fc = torch.nn.Sequential(
+            torch.nn.Linear(hidden_dim * heads, fc_hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Linear(fc_hidden_dim, 1)
+        )
+
+    def forward(self, x, edge_index, edge_attr=None, batch=None):
         for conv in self.convs:
             x = conv(x, edge_index)
             x = F.elu(x)
         x = global_add_pool(x, batch)
-        out = self.lin(x)
+        out = self.fc(x)
         return out.squeeze()
     
 class GraphTransformerNet(torch.nn.Module):
-    def __init__(self, input_dim, hidden_dim=64, num_layers=3, heads=4, edge_dim=1):
+    def __init__(self, input_dim, hidden_dim=64, num_layers=3, edge_dim=1, heads=4, fc_hidden_dim=128):
         super().__init__()
         self.convs = torch.nn.ModuleList()
         for i in range(num_layers):
@@ -106,14 +117,19 @@ class GraphTransformerNet(torch.nn.Module):
                 concat=True
             )
             self.convs.append(conv)
-        self.lin = torch.nn.Linear(hidden_dim * heads, 1)
+
+        self.fc = torch.nn.Sequential(
+            torch.nn.Linear(hidden_dim * heads, fc_hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Linear(fc_hidden_dim, 1)
+        )
 
     def forward(self, x, edge_index, edge_attr, batch):
         for conv in self.convs:
             x = conv(x, edge_index, edge_attr)
             x = F.relu(x)
         x = global_add_pool(x, batch)
-        out = self.lin(x)
+        out = self.fc(x)
         return out.squeeze()
 
 
@@ -121,15 +137,15 @@ class GraphTransformerNet(torch.nn.Module):
 # Función para crear modelo según elección
 # ----------------------
 
-def create_model(model_name, input_dim, edge_dim=1, hidden_dim=64, num_layers=3):
+def create_model(model_name, input_dim, hidden_dim, num_layers, edge_dim):
     if model_name == "GIN":
         return GINNet(input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers)
     elif model_name == "GINE":
-        return GINENet(input_dim=input_dim, edge_dim=edge_dim, hidden_dim=hidden_dim, num_layers=num_layers)
+        return GINENet(input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, edge_dim=edge_dim)
     elif model_name == "GAT":
-        return GATNet(input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers)
+        return GATNet(input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, heads=HEADS)
     elif model_name == "GraphTransformer":
-        return GraphTransformerNet(input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers)
+        return GraphTransformerNet(input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, edge_dim=edge_dim, heads=HEADS)
     else:
         raise ValueError(f"Modelo desconocido: {model_name}")
 
@@ -259,8 +275,8 @@ def train_and_save_model(
 
     input_dim = data_list[0].x.shape[1]
     edge_dim = data_list[0].edge_attr.shape[1]
-    
-    model = create_model(model_type, input_dim, edge_dim, hidden_dim=hidden_dim, num_layers=num_layers)
+
+    model = create_model(model_type, input_dim, hidden_dim=hidden_dim, num_layers=num_layers, edge_dim=edge_dim)
 
     train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience, model_name=model_name)
 
@@ -293,3 +309,38 @@ def train_and_save_model(
 
     return save_path
 
+# Entrenar y guardar modelos cambiandole las capas
+def train_multiple_models(
+    sdf_dir,
+    target_file,
+    epochs,
+    batch_size=32,
+    lr=0.001,
+    valid_split=0.2,
+    hidden_dim=64,
+    num_layers=3,
+    patience=0
+):
+    model_types = ["GIN", "GINE", "GAT", "GraphTransformer"]
+    capas = [2, 3, 4, 5]
+    nombreTarget = os.path.splitext(os.path.basename(target_file))[0]
+    saved_models = []
+    for model_type in model_types:
+        for num_layers in capas:
+            model_name = f"{model_type}_{num_layers}capas_{nombreTarget}"
+            logging.info(f"Entrenando modelo: {model_name}")
+            save_path = train_and_save_model(
+                sdf_dir=sdf_dir,
+                target_file=target_file,
+                model_type=model_type,
+                epochs=epochs,
+                model_name=model_name,
+                batch_size=batch_size,
+                lr=lr,
+                valid_split=valid_split,
+                hidden_dim=hidden_dim,
+                num_layers=num_layers,
+                patience=patience
+            )
+            saved_models.append(save_path)
+            logging.info(f"Modelo guardado en: {save_path}")

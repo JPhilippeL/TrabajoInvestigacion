@@ -124,6 +124,14 @@ def test_model_on_directory(checkpoint_path, sdf_dir, targets_file):
         rmse = sqrt(mean_squared_error(y_true, y_pred))
         logger.info(f"RMSE: {rmse:.4f}")
 
+        # Pearson coefficient
+        if len(y_true) > 1:  # necesario para scipy
+            pearson_r, _ = pearsonr(y_true, y_pred)
+            logger.info(f"Pearson coefficient: {pearson_r:.4f}")
+        else:
+            pearson_r = float("nan")
+            logger.info("Pearson coefficient: No se puede calcular con un solo punto.")
+
         # Scatter plot
         plt.figure(figsize=(6, 6))
         plt.scatter(y_true, y_pred, alpha=0.7)

@@ -4,6 +4,7 @@ from rdkit import Chem
 import torch
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
+import torch.nn.functional as TorchF
 
 def mol_to_graph_data_obj(mol):
     bond_type_to_int = {
@@ -12,12 +13,26 @@ def mol_to_graph_data_obj(mol):
         Chem.rdchem.BondType.TRIPLE: 2,
         Chem.rdchem.BondType.AROMATIC: 3
     }
-    #Convierte una molécula RDKit a un objeto Data de PyTorch Geometric.
+    num_bond_types = len(bond_type_to_int)
     
-    # Elementos de los átomos
+    periodic_elements = ['C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na','Ca', 'Fe',
+                     'As', 'Al', 'I', 'B', 'V', 'K', 'Tl', 'Yb','Sb', 'Sn', 'Ag', 'Pd',
+                     'Co', 'Se', 'Ti', 'Zn', 'H','Li', 'Ge', 'Cu', 'Au', 'Ni', 'Cd', 'In',
+                     'Mn', 'Zr','Cr', 'Pt', 'Hg', 'Pb','Unknown']
+
+    hybridization_types = ['S', 'SP', 'SP2', 'SP2D','SP3','SP3D', 'OTHER','UNSPECIFIED']
+
+    
+    # === ÁTOMOS: usar vector completo ===
     atom_features = []
     for atom in mol.GetAtoms():
-        atom_features.append([atom.GetAtomicNum()])
+        features = one_of_k_encoding_unk(atom.GetSymbol(), periodic_elements) + \
+                   [atom.GetDegree()/10.0] + \
+                   [atom.GetTotalNumHs()/10.0] + \
+                   [atom.GetIsAromatic()] + \
+                   one_of_k_encoding_unk(atom.GetHybridization().name, hybridization_types)
+        atom_features.append(features)
+
     x = torch.tensor(atom_features, dtype=torch.float)
 
     # Indices y atributos de los enlaces
@@ -32,24 +47,26 @@ def mol_to_graph_data_obj(mol):
 
         bond_type = bond.GetBondType()
         bond_type_idx = bond_type_to_int.get(bond_type, 0)  # default a 0
+        bond_onehot = TorchF.one_hot(torch.tensor(bond_type_idx), num_classes=num_bond_types).float()
 
-        edge_attr.append([bond_type_idx])
-        edge_attr.append([bond_type_idx])
+        edge_attr.append(bond_onehot)
+        edge_attr.append(bond_onehot)
 
     edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
-    edge_attr = torch.tensor(edge_attr, dtype=torch.float)
+    edge_attr = torch.stack(edge_attr).float()
 
     # Coordenadas 3D
-    conf = mol.GetConformer()
-    pos = []
-    for atom in mol.GetAtoms():
-        idx = atom.GetIdx()
-        p = conf.GetAtomPosition(idx)
-        pos.append([p.x, p.y, p.z])
-    pos = torch.tensor(pos, dtype=torch.float)
+    # conf = mol.GetConformer()
+    # pos = []
+    # for atom in mol.GetAtoms():
+    #    idx = atom.GetIdx()
+    #    p = conf.GetAtomPosition(idx)
+    #    pos.append([p.x, p.y, p.z])
+    # pos = torch.tensor(pos, dtype=torch.float)
 
     # Construir objeto Data
-    data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, pos=pos)
+    #data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, pos=pos)
+    data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
     return data
 
 
@@ -87,7 +104,7 @@ def load_data_from_sdf(sdf_dir, target_dict):
             print(f"Warning: No se encontró target para la molécula '{mol_id}', se omite.")
             continue
 
-        affinity = target_dict[mol_id]
+        target = target_dict[mol_id]
         filepath = os.path.join(sdf_dir, filename)
         suppl = Chem.SDMolSupplier(filepath, removeHs=False)
         mol = next((m for m in suppl if m is not None), None)
@@ -96,7 +113,7 @@ def load_data_from_sdf(sdf_dir, target_dict):
             continue
 
         data = mol_to_graph_data_obj(mol)
-        data.y = torch.tensor([affinity], dtype=torch.float)
+        data.y = torch.tensor([target], dtype=torch.float)
         data.name = mol_id  # nombre limpio que coincide con target
 
         data_list.append(data)
@@ -111,3 +128,11 @@ def load_data_from_sdf(sdf_dir, target_dict):
 def create_dataloader(dataset, batch_size=32, shuffle=True, num_workers=0, pin_memory=False):
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,
                       num_workers=num_workers, pin_memory=pin_memory)
+
+def one_of_k_encoding_unk(value, choices):
+    #Devuelve un vector one-hot para 'value', usando 'choices'. Si no está, se usa la última categoría (Unknown).
+    encoding = [0] * len(choices)
+    if value not in choices:
+        value = choices[-1]  # Unknown
+    encoding[choices.index(value)] = 1
+    return encoding
