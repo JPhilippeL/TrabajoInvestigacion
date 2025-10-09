@@ -4,12 +4,15 @@ from core.sdf_converter import graph_to_mol, save_graph_as_sdf
 from ML.model_tester import cargar_y_predecir
 import os
 from rdkit import Chem
+
 from ui.dialogs.train_config_dialog import TrainConfigDialog
 from ui.dialogs.model_test_dialog import ModelTestDialog
 from ui.dialogs.batch_model_test_dialog import BatchModelTestDialog
 from ui.dialogs.transfer_learning_dialog import TransferLearningDialog
 from ui.dialogs.split_sdf_dialog import SDFSplitDialog
 from ui.dialogs.test_all_models_dialog import BatchAllModelsTestDialog
+from ui.dialogs.train_multiple_models import TrainMultipleModelsDialog
+
 from ML.model_tester import test_model_on_directory
 from ML.model_tester import obtener_info_checkpoint
 from ML.model_tester import test_all_models_in_directory 
@@ -52,7 +55,7 @@ class MenuBar(QMenuBar):
         menu_train = self.addMenu("Entrenamiento GNN")
 
         # Entrenamiento de IA
-        entrenar_action = QAction("Entrenar IA", self)
+        entrenar_action = QAction("Entrenar Modelo", self)
         entrenar_action.triggered.connect(self.entrenar_ia)
         menu_train.addAction(entrenar_action)
 
@@ -60,6 +63,11 @@ class MenuBar(QMenuBar):
         transfer_action = QAction("Transfer Learning", self)
         transfer_action.triggered.connect(self.transfer_learning_ia)
         menu_train.addAction(transfer_action)
+
+        # Entrenamiento de múltiples modelos
+        entrenar_multiple_action = QAction("Entrenar Múltiples Modelos", self)
+        entrenar_multiple_action.triggered.connect(self.entrenar_multiples_modelos)
+        menu_train.addAction(entrenar_multiple_action)
 
         menu_test = self.addMenu("Testeo GNN")
 
@@ -253,6 +261,38 @@ class MenuBar(QMenuBar):
             valid_split=config["valid_split"],
             model_name=config["save_name"],
             patience=config["early_stopping_patience"]
+        )
+
+    def entrenar_multiples_modelos(self):
+        dialog = TrainMultipleModelsDialog(self)
+        if dialog.exec_() != QDialog.Accepted:
+            return
+        config = dialog.get_values()
+        # Validaciones básicas
+        if not config["sdf_dir"] or not os.path.isdir(config["sdf_dir"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
+            return
+        if not config["target_file"] or not os.path.isfile(config["target_file"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
+            return
+        # Validar early stopping y validación
+        if config["patience"] > 0 and config["valid_split"] <= 0:
+            QMessageBox.warning(
+                self.parent,
+                "Configuración inválida",
+                "Para usar Early Stopping, el porcentaje de validación debe ser mayor que 0."
+            )
+            return
+        # Ejecutar entrenamiento múltiple
+        self.parent.training_controller.train_multiple_models(
+            sdf_dir=config["sdf_dir"],
+            target_file=config["target_file"],
+            epochs=config["epochs"],
+            batch_size=config["batch_size"],
+            lr=config["lr"],
+            valid_split=config["valid_split"],
+            hidden_dim=config["hidden_dim"],
+            patience=config["patience"]
         )
 
 

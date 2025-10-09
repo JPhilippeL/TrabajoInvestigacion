@@ -116,3 +116,34 @@ class TrainingControllerProcess:
 
     #def on_finished(self, exitCode, exitStatus):
     #    logger.info(f"Proceso de entrenamiento terminado con código {exitCode}")
+
+    def train_multiple_models(
+        self,
+        sdf_dir,
+        target_file,
+        epochs,
+        batch_size=32,
+        lr=0.001,
+        valid_split=0.2,
+        hidden_dim=64,
+        patience=0
+    ):      
+        logger.info("Inicializando entrenamiento múltiple...")
+
+        self.process = QProcess()
+        self.process.setProgram(sys.executable)
+        self.process.setArguments([
+            "-m", "ML.multiple_models_trainer_worker",
+            "--sdf_dir", sdf_dir,
+            "--target_file", target_file,
+            "--epochs", str(epochs),
+            "--batch_size", str(batch_size),
+            "--lr", str(lr),
+            "--valid_split", str(valid_split),
+            "--hidden_dim", str(hidden_dim),
+            "--patience", str(patience)
+        ])
+
+        self.process.readyReadStandardOutput.connect(self.on_stdout)
+        self.process.readyReadStandardError.connect(self.on_stderr)
+        self.process.start()

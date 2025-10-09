@@ -318,7 +318,6 @@ def train_multiple_models(
     lr=0.001,
     valid_split=0.2,
     hidden_dim=64,
-    num_layers=3,
     patience=0
 ):
     model_types = ["GIN", "GINE", "GAT", "GraphTransformer"]
