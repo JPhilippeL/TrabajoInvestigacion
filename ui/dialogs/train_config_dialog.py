@@ -42,7 +42,7 @@ class TrainConfigDialog(QDialog):
 
         # ---------- Modelo y otros ----------
         self.model_select = QComboBox()
-        self.model_select.addItems(["GIN", "GINE", "GAT", "GraphTransformer"])
+        self.model_select.addItems(["GIN", "GINE", "GAT", "EGAT", "GraphTransformer"])
         self.model_select.setCurrentText(self.settings.value("train/modelo", "GIN")) # cargar
 
         self.epochs_input = QSpinBox()

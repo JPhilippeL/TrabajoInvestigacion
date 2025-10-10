@@ -103,6 +103,34 @@ class GATNet(torch.nn.Module):
         out = self.fc(x)
         return out.squeeze()
     
+class EGATNet(torch.nn.Module):
+    def __init__(self, input_dim, hidden_dim=64, num_layers=3, edge_dim = 1, heads=4, fc_hidden_dim=128):
+        super().__init__()
+        self.convs = torch.nn.ModuleList()
+        for i in range(num_layers):
+            in_channels = input_dim if i == 0 else hidden_dim * heads
+            conv = GATConv(
+                in_channels,
+                hidden_dim, 
+                heads=heads,
+                edge_dim=edge_dim, 
+                concat=True)
+            self.convs.append(conv)
+
+        self.fc = torch.nn.Sequential(
+            torch.nn.Linear(hidden_dim * heads, fc_hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Linear(fc_hidden_dim, 1)
+        )
+
+    def forward(self, x, edge_index, edge_attr=None, batch=None):
+        for conv in self.convs:
+            x = conv(x, edge_index, edge_attr)
+            x = F.elu(x)
+        x = global_add_pool(x, batch)
+        out = self.fc(x)
+        return out.squeeze()
+    
 class GraphTransformerNet(torch.nn.Module):
     def __init__(self, input_dim, hidden_dim=64, num_layers=3, edge_dim=1, heads=4, fc_hidden_dim=128):
         super().__init__()
@@ -146,6 +174,8 @@ def create_model(model_name, input_dim, hidden_dim, num_layers, edge_dim):
         return GATNet(input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, heads=HEADS)
     elif model_name == "GraphTransformer":
         return GraphTransformerNet(input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, edge_dim=edge_dim, heads=HEADS)
+    elif model_name == "EGAT":
+        return EGATNet(input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, edge_dim=edge_dim, heads=HEADS)
     else:
         raise ValueError(f"Modelo desconocido: {model_name}")
 
@@ -320,7 +350,7 @@ def train_multiple_models(
     hidden_dim=64,
     patience=0
 ):
-    model_types = ["GIN", "GINE", "GAT", "GraphTransformer"]
+    model_types = ["GIN", "GINE", "GAT", "EGAT", "GraphTransformer"]
     capas = [2, 3, 4, 5]
     nombreTarget = os.path.splitext(os.path.basename(target_file))[0]
     saved_models = []
