@@ -123,7 +123,7 @@ class EGATNet(torch.nn.Module):
             torch.nn.Linear(fc_hidden_dim, 1)
         )
 
-    def forward(self, x, edge_index, edge_attr=None, batch=None):
+    def forward(self, x, edge_index, edge_attr, batch):
         for conv in self.convs:
             x = conv(x, edge_index, edge_attr)
             x = F.elu(x)

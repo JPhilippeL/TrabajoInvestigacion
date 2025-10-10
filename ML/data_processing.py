@@ -35,6 +35,15 @@ def mol_to_graph_data_obj(mol):
 
     x = torch.tensor(atom_features, dtype=torch.float)
 
+    # Coordenadas 3D
+    conf = mol.GetConformer()
+    pos = []
+    for atom in mol.GetAtoms():
+       idx = atom.GetIdx()
+       p = conf.GetAtomPosition(idx)
+       pos.append([p.x, p.y, p.z])
+    pos = torch.tensor(pos, dtype=torch.float)
+
     # Indices y atributos de los enlaces
     edge_index = []
     edge_attr = []
@@ -42,30 +51,25 @@ def mol_to_graph_data_obj(mol):
         i = bond.GetBeginAtomIdx()
         j = bond.GetEndAtomIdx()
 
-        edge_index.append([i, j])
-        edge_index.append([j, i])
+        # Distancia Euclidiana
+        dist = torch.norm(pos[i] - pos[j]).unsqueeze(0)  # tensor de tamaño [1]
 
         bond_type = bond.GetBondType()
         bond_type_idx = bond_type_to_int.get(bond_type, 0)  # default a 0
         bond_onehot = TorchF.one_hot(torch.tensor(bond_type_idx), num_classes=num_bond_types).float()
 
-        edge_attr.append(bond_onehot)
-        edge_attr.append(bond_onehot)
+        # Concatenar tipo de enlace + distancia
+        edge_features = torch.cat([bond_onehot, dist], dim=0)
+
+        edge_index.append([i, j])
+        edge_index.append([j, i])
+        edge_attr.append(edge_features)
+        edge_attr.append(edge_features)
 
     edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
     edge_attr = torch.stack(edge_attr).float()
 
-    # Coordenadas 3D
-    # conf = mol.GetConformer()
-    # pos = []
-    # for atom in mol.GetAtoms():
-    #    idx = atom.GetIdx()
-    #    p = conf.GetAtomPosition(idx)
-    #    pos.append([p.x, p.y, p.z])
-    # pos = torch.tensor(pos, dtype=torch.float)
-
     # Construir objeto Data
-    #data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, pos=pos)
     data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
     return data
 
