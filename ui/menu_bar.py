@@ -16,8 +16,6 @@ from ui.dialogs.transfer_learning_multiple_models import TransferLearningMultipl
 
 from ML.model_tester import test_model_on_directory
 from ML.model_tester import obtener_info_checkpoint
-from ML.model_tester import test_all_models_in_directory 
-from ML.testing_controller_process import TestingControllerProcess
 from core.sdf_converter import split_sdf
 import logging
 from ui.dialogs.image_dialog import ImageDialog
@@ -77,6 +75,16 @@ class MenuBar(QMenuBar):
         transfer_multiple_action = QAction("Transfer Learning Múltiples Modelos", self)
         transfer_multiple_action.triggered.connect(self.transfer_learning_multiple_modelos)
         menu_transfer.addAction(transfer_multiple_action)
+
+        # Feature Extraction con múltiples modelos
+        feature_extraction_multiple_action = QAction("Feature Extraction Múltiples Modelos", self)
+        feature_extraction_multiple_action.triggered.connect(self.feature_extraction_multiples_modelos)
+        menu_transfer.addAction(feature_extraction_multiple_action)
+
+        # Fine Tuning con múltiples modelos
+        fine_tuning_multiple_action = QAction("Fine Tuning Múltiples Modelos", self)
+        fine_tuning_multiple_action.triggered.connect(self.fine_tuning_multiples_modelos)
+        menu_transfer.addAction(fine_tuning_multiple_action)    
 
         menu_test = self.addMenu("Test GNN")
 
@@ -335,6 +343,88 @@ class MenuBar(QMenuBar):
 
         # ---------- Ejecutar Transfer Learning múltiple ----------
         self.parent.training_controller.transfer_train_multiple_models(
+            pretrained_model_directory_path=config["pretrained_model_directory_path"],
+            sdf_dir=config["sdf_dir"],
+            target_file=config["target_file"],
+            epochs=config["epochs"],
+            batch_size=config["batch_size"],
+            lr=config["lr"],
+            valid_split=config["valid_split"],
+            patience=config["patience"]
+        )
+
+    def feature_extraction_multiples_modelos(self):
+        dialog = TransferLearningMultipleDialog(self)
+        if dialog.exec_() != QDialog.Accepted:
+            return
+
+        config = dialog.get_values()
+
+        # ---------- Validaciones básicas ----------
+        if not config["sdf_dir"] or not os.path.isdir(config["sdf_dir"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
+            return
+
+        if not config["target_file"] or not os.path.isfile(config["target_file"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
+            return
+
+        if not config["pretrained_model_directory_path"] or not os.path.isdir(config["pretrained_model_directory_path"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio de modelos preentrenados válido.")
+            return
+
+        # Validar early stopping y validación
+        if config["patience"] > 0 and config["valid_split"] <= 0:
+            QMessageBox.warning(
+                self.parent,
+                "Configuración inválida",
+                "Para usar Early Stopping, el porcentaje de validación debe ser mayor que 0."
+            )
+            return
+
+        # ---------- Ejecutar Transfer Learning múltiple ----------
+        self.parent.training_controller.feature_extraction_multiple_models(
+            pretrained_model_directory_path=config["pretrained_model_directory_path"],
+            sdf_dir=config["sdf_dir"],
+            target_file=config["target_file"],
+            epochs=config["epochs"],
+            batch_size=config["batch_size"],
+            lr=config["lr"],
+            valid_split=config["valid_split"],
+            patience=config["patience"]
+        )
+
+    def fine_tuning_multiples_modelos(self):
+        dialog = TransferLearningMultipleDialog(self)
+        if dialog.exec_() != QDialog.Accepted:
+            return
+
+        config = dialog.get_values()
+
+        # ---------- Validaciones básicas ----------
+        if not config["sdf_dir"] or not os.path.isdir(config["sdf_dir"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
+            return
+
+        if not config["target_file"] or not os.path.isfile(config["target_file"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
+            return
+
+        if not config["pretrained_model_directory_path"] or not os.path.isdir(config["pretrained_model_directory_path"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio de modelos preentrenados válido.")
+            return
+
+        # Validar early stopping y validación
+        if config["patience"] > 0 and config["valid_split"] <= 0:
+            QMessageBox.warning(
+                self.parent,
+                "Configuración inválida",
+                "Para usar Early Stopping, el porcentaje de validación debe ser mayor que 0."
+            )
+            return
+
+        # ---------- Ejecutar Transfer Learning múltiple ----------
+        self.parent.training_controller.fine_tuning_multiple_models(
             pretrained_model_directory_path=config["pretrained_model_directory_path"],
             sdf_dir=config["sdf_dir"],
             target_file=config["target_file"],

@@ -122,13 +122,21 @@ def transfer_train_multiple_models(
     batch_size,
     valid_split,
     patience,
+    transfer_mode = 0  # 0: both, 1: transfer learning, 2: fine-tuning
 ):
     modelos_guardados = []
+    if (transfer_mode == 0):
+        modos = ['feature_extraction', 'fine_tuning']
+    elif (transfer_mode == 1):
+        modos = ['feature_extraction']
+    elif (transfer_mode == 2):
+        modos = ['fine_tuning']
+
     for filename in os.listdir(pretrained_model_directory_path):
         if filename.endswith('.pt'):
             modelo_path = os.path.join(pretrained_model_directory_path, filename)
             modelo_nombre_base = os.path.splitext(filename)[0]
-            for modo in ['feature_extraction', 'fine_tuning']:
+            for modo in modos:
                 modelo_nombre = f"{modelo_nombre_base}_{modo}"
                 logging.info(f"Entrenando {modelo_nombre} usando {modo}")
                 modelo_guardado = transfer_train(

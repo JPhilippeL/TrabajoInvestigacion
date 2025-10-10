@@ -15,6 +15,7 @@ def main():
     parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--valid_split", type=float, default=0.2)
     parser.add_argument("--patience", type=int, default=0)
+    parser.add_argument("--transfer_mode", type = int, default = 0)  # 0: both, 1: feature extraction, 2: fine-tuning
     args = parser.parse_args()
 
     try:

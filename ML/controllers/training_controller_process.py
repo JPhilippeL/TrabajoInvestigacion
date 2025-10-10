@@ -33,7 +33,7 @@ class TrainingControllerProcess:
         self.process = QProcess()
         self.process.setProgram(sys.executable)  # ejecuta el mismo Python
         self.process.setArguments([
-            "-m", "ML.trainer_worker",
+            "-m", "ML.workers.trainer_worker",
             "--sdf_dir", sdf_dir,
             "--target_file", target_file,
             "--model_type", model_type,
@@ -72,7 +72,7 @@ class TrainingControllerProcess:
         self.process = QProcess()
         self.process.setProgram(sys.executable)
         self.process.setArguments([
-            "-m", "ML.transfer_trainer_worker",
+            "-m", "ML.workers.transfer_trainer_worker",
             "--sdf_dir", sdf_dir,
             "--target_file", target_file,
             "--pretrained_model_path", pretrained_model_path,
@@ -133,7 +133,7 @@ class TrainingControllerProcess:
         self.process = QProcess()
         self.process.setProgram(sys.executable)
         self.process.setArguments([
-            "-m", "ML.multiple_models_trainer_worker",
+            "-m", "ML.workers.multiple_models_trainer_worker",
             "--sdf_dir", sdf_dir,
             "--target_file", target_file,
             "--epochs", str(epochs),
@@ -164,7 +164,7 @@ class TrainingControllerProcess:
         self.process = QProcess()
         self.process.setProgram(sys.executable)
         self.process.setArguments([
-            "-m", "ML.multiple_transfer_trainer_worker",
+            "-m", "ML.workers.multiple_transfer_trainer_worker",
             "--pretrained_model_directory_path", pretrained_model_directory_path,
             "--sdf_dir", sdf_dir,
             "--target_file", target_file,
@@ -172,7 +172,74 @@ class TrainingControllerProcess:
             "--batch_size", str(batch_size),
             "--lr", str(lr),
             "--valid_split", str(valid_split),
-            "--patience", str(patience)
+            "--patience", str(patience),
+            "--transfer_mode", str(0)  # 0: both, 1: feature extraction, 2: fine-tuning
+        ])
+
+        self.process.readyReadStandardOutput.connect(self.on_stdout)
+        self.process.readyReadStandardError.connect(self.on_stderr)
+        self.process.start()
+
+    def feature_extraction_multiple_models(
+        self,
+        pretrained_model_directory_path,
+        sdf_dir,
+        target_file,
+        epochs,
+        batch_size=32,
+        lr=0.001,
+        valid_split=0.2,
+        patience=0,
+        transfer_mode = 1  # 0: both, 1: feature extraction, 2: fine-tuning
+    ):
+        logger.info("Inicializando entrenamiento múltiple con Feature Extraction...")
+
+        self.process = QProcess()
+        self.process.setProgram(sys.executable)
+        self.process.setArguments([
+            "-m", "ML.workers.multiple_transfer_trainer_worker",
+            "--pretrained_model_directory_path", pretrained_model_directory_path,
+            "--sdf_dir", sdf_dir,
+            "--target_file", target_file,
+            "--epochs", str(epochs),
+            "--batch_size", str(batch_size),
+            "--lr", str(lr),
+            "--valid_split", str(valid_split),
+            "--patience", str(patience),
+            "--transfer_mode", str(transfer_mode)  # 0: both, 1: feature extraction, 2: fine-tuning
+        ])
+
+        self.process.readyReadStandardOutput.connect(self.on_stdout)
+        self.process.readyReadStandardError.connect(self.on_stderr)
+        self.process.start()
+    
+    def fine_tuning_multiple_models(
+        self,
+        pretrained_model_directory_path,
+        sdf_dir,
+        target_file,
+        epochs,
+        batch_size=32,
+        lr=0.001,
+        valid_split=0.2,
+        patience=0,
+        transfer_mode = 2  # 0: both, 1: feature extraction, 2: fine-tuning
+    ):
+        logger.info("Inicializando entrenamiento múltiple con Fine Tuning...")
+
+        self.process = QProcess()
+        self.process.setProgram(sys.executable)
+        self.process.setArguments([
+            "-m", "ML.workers.multiple_transfer_trainer_worker",
+            "--pretrained_model_directory_path", pretrained_model_directory_path,
+            "--sdf_dir", sdf_dir,
+            "--target_file", target_file,
+            "--epochs", str(epochs),
+            "--batch_size", str(batch_size),
+            "--lr", str(lr),
+            "--valid_split", str(valid_split),
+            "--patience", str(patience),
+            "--transfer_mode", str(transfer_mode)  # 0: both, 1: feature extraction, 2: fine-tuning
         ])
 
         self.process.readyReadStandardOutput.connect(self.on_stdout)
