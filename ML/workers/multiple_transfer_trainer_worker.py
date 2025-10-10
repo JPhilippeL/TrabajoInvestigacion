@@ -28,7 +28,8 @@ def main():
             batch_size=args.batch_size,
             lr=args.lr,
             valid_split=args.valid_split,
-            patience=args.patience
+            patience=args.patience,
+            transfer_mode = args.transfer_mode
         )
         elapsed = time.time() - start
 
