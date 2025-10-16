@@ -5,6 +5,7 @@ import torch
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 import torch.nn.functional as TorchF
+from ui.utils import periodic_elements, hybridization_types
 
 def mol_to_graph_data_obj(mol):
     bond_type_to_int = {
@@ -14,15 +15,7 @@ def mol_to_graph_data_obj(mol):
         Chem.rdchem.BondType.AROMATIC: 3
     }
     num_bond_types = len(bond_type_to_int)
-    
-    periodic_elements = ['C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na','Ca', 'Fe',
-                     'As', 'Al', 'I', 'B', 'V', 'K', 'Tl', 'Yb','Sb', 'Sn', 'Ag', 'Pd',
-                     'Co', 'Se', 'Ti', 'Zn', 'H','Li', 'Ge', 'Cu', 'Au', 'Ni', 'Cd', 'In',
-                     'Mn', 'Zr','Cr', 'Pt', 'Hg', 'Pb','Unknown']
 
-    hybridization_types = ['S', 'SP', 'SP2', 'SP2D','SP3','SP3D', 'OTHER','UNSPECIFIED']
-
-    
     # === ÁTOMOS: usar vector completo ===
     atom_features = []
     for atom in mol.GetAtoms():

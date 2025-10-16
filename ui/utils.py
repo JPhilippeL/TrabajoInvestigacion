@@ -33,3 +33,10 @@ ATOM_TEXT_COLORS = {
 
 RESULTADOS_DIR = "Resultados"
 MODELOS_DIR = "Modelos"
+
+periodic_elements = ['C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na','Ca', 'Fe',
+                     'As', 'Al', 'I', 'B', 'V', 'K', 'Tl', 'Yb','Sb', 'Sn', 'Ag', 'Pd',
+                     'Co', 'Se', 'Ti', 'Zn', 'H','Li', 'Ge', 'Cu', 'Au', 'Ni', 'Cd', 'In',
+                     'Mn', 'Zr','Cr', 'Pt', 'Hg', 'Pb','Unknown']
+
+hybridization_types = ['S', 'SP', 'SP2', 'SP2D','SP3','SP3D', 'OTHER','UNSPECIFIED']
