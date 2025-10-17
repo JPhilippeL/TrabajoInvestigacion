@@ -50,6 +50,15 @@ class GINNet(torch.nn.Module):
         x = global_add_pool(x, batch)
         out = self.fc(x)
         return out.squeeze()
+    
+    def get_embedding(self, x, edge_index, edge_attr=None, batch=None):
+        x = self.node_encoder(x) if hasattr(self, 'node_encoder') else x
+        for conv in self.convs:
+            x = conv(x, edge_index) if edge_attr is None else conv(x, edge_index, edge_attr)
+            x = F.relu(x)
+        x = global_add_pool(x, batch)
+        return x
+
 
 
 class GINENet(torch.nn.Module):
@@ -78,6 +87,15 @@ class GINENet(torch.nn.Module):
             x = F.relu(x)
         x = global_add_pool(x, batch)
         return self.fc(x).view(-1)
+    
+    def get_embedding(self, x, edge_index, edge_attr=None, batch=None):
+        x = self.node_encoder(x) if hasattr(self, 'node_encoder') else x
+        for conv in self.convs:
+            x = conv(x, edge_index) if edge_attr is None else conv(x, edge_index, edge_attr)
+            x = F.relu(x)
+        x = global_add_pool(x, batch)
+        return x
+
 
 
 class GATNet(torch.nn.Module):
@@ -102,6 +120,14 @@ class GATNet(torch.nn.Module):
         x = global_add_pool(x, batch)
         out = self.fc(x)
         return out.squeeze()
+    
+    def get_embedding(self, x, edge_index, edge_attr=None, batch=None):
+        x = self.node_encoder(x) if hasattr(self, 'node_encoder') else x
+        for conv in self.convs:
+            x = conv(x, edge_index) if edge_attr is None else conv(x, edge_index, edge_attr)
+            x = F.relu(x)
+        x = global_add_pool(x, batch)
+        return x
     
 class EGATNet(torch.nn.Module):
     def __init__(self, input_dim, hidden_dim=64, num_layers=3, edge_dim = 1, heads=4, fc_hidden_dim=128):
@@ -131,6 +157,14 @@ class EGATNet(torch.nn.Module):
         out = self.fc(x)
         return out.squeeze()
     
+    def get_embedding(self, x, edge_index, edge_attr=None, batch=None):
+        x = self.node_encoder(x) if hasattr(self, 'node_encoder') else x
+        for conv in self.convs:
+            x = conv(x, edge_index) if edge_attr is None else conv(x, edge_index, edge_attr)
+            x = F.relu(x)
+        x = global_add_pool(x, batch)
+        return x
+    
 class GraphTransformerNet(torch.nn.Module):
     def __init__(self, input_dim, hidden_dim=64, num_layers=3, edge_dim=1, heads=4, fc_hidden_dim=128):
         super().__init__()
@@ -159,6 +193,14 @@ class GraphTransformerNet(torch.nn.Module):
         x = global_add_pool(x, batch)
         out = self.fc(x)
         return out.squeeze()
+    
+    def get_embedding(self, x, edge_index, edge_attr=None, batch=None):
+        x = self.node_encoder(x) if hasattr(self, 'node_encoder') else x
+        for conv in self.convs:
+            x = conv(x, edge_index) if edge_attr is None else conv(x, edge_index, edge_attr)
+            x = F.relu(x)
+        x = global_add_pool(x, batch)
+        return x
 
 
 # ----------------------

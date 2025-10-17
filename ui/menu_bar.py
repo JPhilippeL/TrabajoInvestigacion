@@ -1,9 +1,9 @@
 from PySide6.QtWidgets import QMenuBar, QFileDialog, QMessageBox, QInputDialog, QDialog
 from PySide6.QtGui import QAction
-from core.sdf_converter import graph_to_mol, save_graph_as_sdf
-from ML.model_tester import cargar_y_predecir
+import torch
 import os
 from rdkit import Chem
+import logging
 
 from ui.dialogs.train_config_dialog import TrainConfigDialog
 from ui.dialogs.model_test_dialog import ModelTestDialog
@@ -13,13 +13,20 @@ from ui.dialogs.split_sdf_dialog import SDFSplitDialog
 from ui.dialogs.test_all_models_dialog import BatchAllModelsTestDialog
 from ui.dialogs.train_multiple_models import TrainMultipleModelsDialog
 from ui.dialogs.transfer_learning_multiple_models import TransferLearningMultipleDialog
+from ui.dialogs.image_dialog import ImageDialog
 
 from ML.model_tester import test_model_on_directory
 from ML.model_tester import obtener_info_checkpoint
+from ML.model_explainer import obtener_lime
+from ML.model_tester import cargar_y_predecir
+from ML.data_processing import mol_to_graph_data_obj
+
 from core.sdf_converter import split_sdf
-import logging
-from ui.dialogs.image_dialog import ImageDialog
+from core.sdf_converter import graph_to_mol, save_graph_as_sdf
+
 from ui.utils import RESULTADOS_DIR
+from ui.utils import hybridization_types, periodic_elements
+
 logger = logging.getLogger(__name__)
 
 class MenuBar(QMenuBar):
@@ -107,6 +114,12 @@ class MenuBar(QMenuBar):
         consultar_params_action = QAction("Consultar modelo", self)
         consultar_params_action.triggered.connect(self.consultar_parametros_modelo)
         menu_test.addAction(consultar_params_action)
+
+        # LIME
+        menu_lime = self.addMenu("Explicador LIME")
+        lime_action =QAction("Obtener explicación LIME", self)
+        lime_action.triggered.connect(self.get_explanation_LIME)
+        menu_lime.addAction(lime_action)
 
     def nuevo_archivo(self):
         self.parent.create_new_graph()
@@ -488,7 +501,42 @@ class MenuBar(QMenuBar):
             except Exception as e:
                 logger.error("Error en testeo de todos los modelos: " + str(e))
 
+    def get_explanation_LIME(self):
+        dialog = ModelTestDialog(self.parent)
+        if dialog.exec():
+            model_path, sdf_path = dialog.get_paths()
+            try:
+                # Convertir SDF a mol
+                mol = Chem.SDMolSupplier(sdf_path, removeHs=False)[0]
+                muestra = mol_to_graph_data_obj(mol)
+                # Vector mascara: [perturbar_tipo_atomo, perturbar_grado, perturbar_aromaticidad, perturbar_hibridacion]
+                vector_mascara = [True, True, True, True]
+                Wg, feature_matrix, predicciones, pesos = obtener_lime(
+                    checkpoint_path=model_path,
+                    data_sample=muestra,
+                    feature_mask=vector_mascara,
+                    num_samples=50,
+                    noise_level=0.05,
+                    device='cpu'
+                )
 
+                Wg_numpy = Wg.detach().cpu().numpy().squeeze()  # pasar a numpy
+                feature_names = periodic_elements + ['degree', 'num_Hs', 'aromatic'] + hybridization_types
+                for name, weight in zip(feature_names, Wg_numpy):
+                    # print(f"{name}: {weight:.4f}")
+                    # mostrarlo por logger
+                    # si es 0 que no lo imprima
+                    if abs(weight) > 1e-6:
+                        logger.info(f"{name}: {weight:.4f}")
+
+                    # que diga cual es el que mas peso tiene
+                max_weight_idx = torch.argmax(torch.abs(Wg)).item()
+                max_weight_feature = feature_names[max_weight_idx]
+                logger.info(f"La característica con mayor peso es: {max_weight_feature} (peso: {Wg_numpy[max_weight_idx]:.4f})")
+
+            except Exception as e:
+                QMessageBox.critical(self.parent, "Error en explicación LIME", f"No se pudo generar la explicación LIME:\n\n{str(e)}")
+                logger.error(f"Error en explicación LIME: {str(e)}")
 
 
     def consultar_parametros_modelo(self):

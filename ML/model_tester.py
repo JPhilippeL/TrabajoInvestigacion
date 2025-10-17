@@ -75,6 +75,18 @@ def cargar_y_predecir(checkpoint_path, sdf_path):
 
     return pred, target_name
 
+# Funcion para predecir una molecula teniendo el modelo ya cargado
+# Suponemos que la molecula ya esta en formato Data de PyG
+def predecir_molecula(model, data, device):
+    data = data.to(device)
+    num_nodes = data.num_nodes if data.num_nodes is not None else (data.x.shape[0] if data.x is not None else 1)
+    batch_device = data.x.device if data.x is not None else device
+    batch = torch.zeros(num_nodes, dtype=torch.long, device=batch_device)  # todos nodos del mismo grafo
+    with torch.no_grad():
+        out = model(data.x, data.edge_index, data.edge_attr, batch)
+        pred = out.squeeze().item()
+    return pred
+
 def test_model_on_directory(checkpoint_path, sdf_dir, targets_file):
     try:
         model, device, target_name = cargar_modelo(checkpoint_path)
