@@ -165,6 +165,9 @@ def test_model_on_directory(checkpoint_path, sdf_dir, targets_file):
         logger.info(f"Scatter plot guardado en: {plot_filename}")
         logger.info(f"Predicciones guardadas en: {output_predictions_path}")
 
+        # Hacemos return del path del plot
+        return plot_filename
+
     except Exception as e:
         raise ValueError(e)
 

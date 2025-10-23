@@ -473,17 +473,10 @@ class MenuBar(QMenuBar):
             model_path, sdf_dir, targets_file = dialog.get_paths()
 
             try:
-                # Nombre del modelo
-                model_name = os.path.splitext(os.path.basename(model_path))[0]
-
                 # Ejecutar función de testeo
-                test_model_on_directory(model_path, sdf_dir, targets_file)
+                plot_path = test_model_on_directory(model_path, sdf_dir, targets_file)
 
                 # Mostrar scatter plot
-                folder_name = os.path.basename(sdf_dir.rstrip(os.sep))
-                model_results_dir = os.path.join(RESULTADOS_DIR, model_name)
-                plot_path = os.path.join(model_results_dir, f"scatter_plot_{model_name}_{folder_name}.png")
-
                 self.image_dialog = ImageDialog(plot_path, self.parent)
                 self.image_dialog.show()
 
@@ -509,34 +502,19 @@ class MenuBar(QMenuBar):
                 # Convertir SDF a mol
                 mol = Chem.SDMolSupplier(sdf_path, removeHs=False)[0]
                 muestra = mol_to_graph_data_obj(mol)
+                # Obtener explicación LIME
                 # Vector mascara: [perturbar_tipo_atomo, perturbar_grado, perturbar_aromaticidad, perturbar_hibridacion]
-                vector_mascara = [True, True, True, True]
-                Wg, feature_matrix, predicciones, pesos = obtener_lime(
-                    checkpoint_path=model_path,
-                    data_sample=muestra,
-                    feature_mask=vector_mascara,
-                    num_samples=50,
-                    noise_level=0.05,
-                    device='cpu'
-                )
+                plot_path = obtener_lime(model_path, muestra, feature_mask=[0, 0, 0, 1], num_samples=100, noise_level=0.1, device='cpu')
 
-                Wg_numpy = Wg.detach().cpu().numpy().squeeze()  # pasar a numpy
-                feature_names = periodic_elements + ['degree', 'num_Hs', 'aromatic'] + hybridization_types
-                for name, weight in zip(feature_names, Wg_numpy):
-                    # print(f"{name}: {weight:.4f}")
-                    # mostrarlo por logger
-                    # si es 0 que no lo imprima
-                    if abs(weight) > 1e-6:
-                        logger.info(f"{name}: {weight:.4f}")
+                # mostrar el sdf por pantalla
+                self.parent.load_graph_from_file(sdf_path)
 
-                    # que diga cual es el que mas peso tiene
-                max_weight_idx = torch.argmax(torch.abs(Wg)).item()
-                max_weight_feature = feature_names[max_weight_idx]
-                logger.info(f"La característica con mayor peso es: {max_weight_feature} (peso: {Wg_numpy[max_weight_idx]:.4f})")
+                # Mostrar la imagen en un diálogo
+                self.image_dialog = ImageDialog(plot_path, self.parent)
+                self.image_dialog.show()
 
             except Exception as e:
-                QMessageBox.critical(self.parent, "Error en explicación LIME", f"No se pudo generar la explicación LIME:\n\n{str(e)}")
-                logger.error(f"Error en explicación LIME: {str(e)}")
+                logger.error(f"Error en explicación LIME: {str(e)}", exc_info=True)
 
 
     def consultar_parametros_modelo(self):
