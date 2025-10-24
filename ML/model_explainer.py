@@ -4,6 +4,7 @@ from ML.model_tester import cargar_modelo, predecir_molecula
 import torch
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import matplotlib.ticker as mticker
 import numpy as np
 from ui.utils import RESULTADOS_DIR
 import os
@@ -181,64 +182,26 @@ def obtener_lime(checkpoint_path, data_sample, feature_mask, num_samples=50, noi
             # quedarnos con el indice
             info_mejor = info_perturbada
 
-    alfa = info_mejor['alfa']
-    beta = info_mejor['beta']
     beta_alfa = info_mejor['beta_alfa']
 
     # Convertir a numpy para matplotlib
-    alfa = info_mejor['alfa'].detach().cpu().numpy()          # [d]
-    beta = info_mejor['beta'].detach().cpu().numpy()          # [N,1]
     beta_alfa = info_mejor['beta_alfa'].detach().cpu().numpy()  # [N,d]
 
+    n, d = beta_alfa.shape
+    row_labels = [f'Node {i}' for i in range(n)]
+    # Obtener nombres de características
+    feature_names = get_feature_names(periodic_elements, hybridization_types)
+    
 
     # --- CREAR IMAGEN ---
-    fig = plt.figure(figsize=(16, 10))
-    gs = gridspec.GridSpec(3, 2, height_ratios=[1, 8, 0.5], width_ratios=[8, 1], 
-                        hspace=0.05, wspace=0.05)
+    # Llamar a lo de limpiar columnas
+    data_cleaned, col_labels_clean = limpiar_columnas_zero(beta_alfa, feature_names)
 
-    # Subplot para alfa (arriba, horizontal)
-    ax_alfa = fig.add_subplot(gs[0, 0])
-    im_alfa = ax_alfa.imshow(alfa.reshape(1, -1), cmap='RdYlGn', aspect='auto')
-    ax_alfa.set_title('(Feature weights)', fontsize=12, pad=10)
-    ax_alfa.set_yticks([])
-    ax_alfa.set_xlabel('Features')
-    # Añadir valores en las celdas
-    for i in range(len(alfa)):
-        ax_alfa.text(i, 0, f'{alfa[i]:.2f}', ha='center', va='center', fontsize=8)
+    fig, ax = plt.subplots(figsize=(8, 8))
+    
+    im, cbar = heatmap(data_cleaned, row_labels, col_labels_clean, ax=ax, cmap="YlGn")
 
-    # Subplot para beta*alfa (centro, matriz principal)
-    ax_main = fig.add_subplot(gs[1, 0])
-    im_main = ax_main.imshow(beta_alfa, cmap='RdYlGn', aspect='auto')
-    ax_main.set_title('β * Node-Feature importance matrix)', fontsize=12, pad=10)
-    ax_main.set_ylabel('Nodes')
-    ax_main.set_xlabel('Features')
-    # Añadir valores en celdas (solo si no son demasiadas)
-    if beta_alfa.shape[0] * beta_alfa.shape[1] < 500:
-        for i in range(beta_alfa.shape[0]):
-            for j in range(beta_alfa.shape[1]):
-                ax_main.text(j, i, f'{beta_alfa[i,j]:.2f}', 
-                            ha='center', va='center', fontsize=6)
-
-    # Subplot para beta (derecha, vertical)
-    ax_beta = fig.add_subplot(gs[1, 1])
-    im_beta = ax_beta.imshow(beta, cmap='RdYlGn', aspect='auto')
-    ax_beta.set_title('β', fontsize=12, pad=10, rotation=0)
-    ax_beta.set_xticks([])
-    ax_beta.set_ylabel('Nodes')
-    # Añadir valores en las celdas
-    for i in range(beta.shape[0]):
-        ax_beta.text(0, i, f'{beta[i,0]:.2f}', ha='center', va='center', fontsize=8)
-
-    # Colorbars
-    cbar_alfa = plt.colorbar(im_alfa, ax=ax_alfa, orientation='horizontal', 
-                            pad=0.1, fraction=0.05)
-    cbar_main = plt.colorbar(im_main, ax=ax_main, orientation='vertical', 
-                            pad=0.02, fraction=0.046)
-    cbar_beta = plt.colorbar(im_beta, ax=ax_beta, orientation='vertical', 
-                            pad=0.02, fraction=0.046)
-
-    plt.suptitle('LIME Explanation for GNN', fontsize=14, y=0.98)
-    # --- FIN CREAR IMAGEN ---
+    annotate_heatmap(im)
 
     # Obtener el nombre del checkpoint
     model_name = checkpoint_path.split('/')[-1]
@@ -257,3 +220,125 @@ def obtener_lime(checkpoint_path, data_sample, feature_mask, num_samples=50, noi
     # Return de la imagen guardada
     return plotfilename
 
+
+def heatmap(data, row_labels, col_labels, ax, **kwargs):
+    if ax is None:
+        ax = plt.gca()
+    cbar_kw = {}
+    
+    # Crear heatmap
+    cbar_kw = {}
+    im = ax.imshow(data, aspect='auto', **kwargs)
+
+    # Colorbar
+    cbar = ax.figure.colorbar(im, ax=ax, **cbar_kw)
+    cbar.ax.set_ylabel("Intensity", rotation=-90, va="bottom")
+
+    # Show all ticks and label them
+    ax.set_xticks(range(len(col_labels)), 
+                  labels=col_labels,
+                  rotation=-30, ha="right", rotation_mode="anchor")
+    ax.set_yticks(range(data.shape[0]), labels=row_labels)
+
+    # Let the horizontal axes labeling appear on top.
+    ax.tick_params(top=True, bottom=False,
+                   labeltop=True, labelbottom=False)
+
+    # Turn spines off and create white grid.
+    ax.spines[:].set_visible(False)
+
+    ax.set_xticks(np.arange(data.shape[1]+1)-.5, minor=True)
+    ax.set_yticks(np.arange(data.shape[0]+1)-.5, minor=True)
+    ax.grid(which="minor", color="w", linestyle='-', linewidth=3)
+    ax.tick_params(which="minor", bottom=False, left=False)
+
+    return im, cbar
+
+def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
+                     textcolors=("black", "white"),
+                     threshold=None, **textkw):
+    """
+    A function to annotate a heatmap.
+
+    Parameters
+    ----------
+    im
+        The AxesImage to be labeled.
+    data
+        Data used to annotate.  If None, the image's data is used.  Optional.
+    valfmt
+        The format of the annotations inside the heatmap.  This should either
+        use the string format method, e.g. "$ {x:.2f}", or be a
+        `matplotlib.ticker.Formatter`.  Optional.
+    textcolors
+        A pair of colors.  The first is used for values below a threshold,
+        the second for those above.  Optional.
+    threshold
+        Value in data units according to which the colors from textcolors are
+        applied.  If None (the default) uses the middle of the colormap as
+        separation.  Optional.
+    **kwargs
+        All other arguments are forwarded to each call to `text` used to create
+        the text labels.
+    """
+
+    if not isinstance(data, (list, np.ndarray)):
+        data = im.get_array()
+
+    # Normalize the threshold to the images color range.
+    if threshold is not None:
+        threshold = im.norm(threshold)
+    else:
+        threshold = im.norm(data.max())/2.
+
+    # Set default alignment to center, but allow it to be
+    # overwritten by textkw.
+    kw = dict(horizontalalignment="center",
+              verticalalignment="center")
+    kw.update(textkw)
+
+    # Get the formatter in case a string is supplied
+    if isinstance(valfmt, str):
+        valfmt = mticker.StrMethodFormatter(valfmt)
+
+
+    # Loop over the data and create a `Text` for each "pixel".
+    # Change the text's color depending on the data.
+    texts = []
+    for i in range(data.shape[0]):
+        for j in range(data.shape[1]):
+            kw.update(color=textcolors[int(im.norm(data[i, j]) > threshold)])
+            text = im.axes.text(j, i, valfmt(data[i, j], None), **kw)
+            texts.append(text)
+
+    return texts
+
+def get_feature_names(periodic_elements, hybridization_types):
+    feature_names = []
+
+    # 1️⃣ Tipos de átomo
+    feature_names += [f"Atom_{el}" for el in periodic_elements]
+
+    # 2️⃣ Grado
+    feature_names.append("Degree_norm")
+
+    # 3️⃣ Número de H
+    feature_names.append("TotalHs_norm")
+
+    # 4️⃣ Aromaticidad
+    feature_names.append("IsAromatic")
+
+    # 5️⃣ Hibridación
+    feature_names += [f"Hybrid_{h}" for h in hybridization_types]
+
+    return feature_names
+
+def limpiar_columnas_zero(data, col_labels):
+    # Detectar columnas que NO son todas ceros
+    mask = ~(np.all(data == 0, axis=0))
+
+    # Filtrar
+    data_limpia = data[:, mask]
+    col_labels_limpias = [label for label, keep in zip(col_labels, mask) if keep]
+
+    return data_limpia, col_labels_limpias
