@@ -197,7 +197,7 @@ def obtener_lime(checkpoint_path, data_sample, feature_mask, num_samples=50, noi
     # Llamar a lo de limpiar columnas
     data_cleaned, col_labels_clean = limpiar_columnas_zero(beta_alfa, feature_names)
 
-    fig, ax = plt.subplots(figsize=(8, 8))
+    fig, ax = plt.subplots(figsize=(20, 20))
     
     im, cbar = heatmap(data_cleaned, row_labels, col_labels_clean, ax=ax, cmap="YlGn")
 

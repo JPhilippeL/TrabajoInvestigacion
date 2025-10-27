@@ -1,6 +1,7 @@
 #data_processing.py
 import os
 from rdkit import Chem
+from rdkit.Chem import AllChem
 import torch
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
@@ -66,6 +67,20 @@ def mol_to_graph_data_obj(mol):
     data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
     return data
 
+def smiles_to_graph_data_obj(smiles):
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        raise ValueError(f"SMILES inválido: {smiles}")
+    
+    # Añadir hidrógenos explícitos
+    mol = Chem.AddHs(mol)
+    
+    # Generar coordenadas 3D
+    AllChem.EmbedMolecule(mol, randomSeed=42)
+    AllChem.UFFOptimizeMolecule(mol)
+    
+    # Reutilizar
+    return mol_to_graph_data_obj(mol)
 
 def read_targets(targets_file):
     

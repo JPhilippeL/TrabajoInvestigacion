@@ -14,6 +14,7 @@ from ui.dialogs.test_all_models_dialog import BatchAllModelsTestDialog
 from ui.dialogs.train_multiple_models import TrainMultipleModelsDialog
 from ui.dialogs.transfer_learning_multiple_models import TransferLearningMultipleDialog
 from ui.dialogs.image_dialog import ImageDialog
+from ui.dialogs.csv_training import TrainCSVConfigDialog
 
 from ML.model_tester import test_model_on_directory
 from ML.model_tester import obtener_info_checkpoint
@@ -199,29 +200,47 @@ class MenuBar(QMenuBar):
             logger.info(mensaje)
         except Exception as e:
             QMessageBox.critical(self.parent, "Error al dividir SDF", str(e))
-            logger.error(f"Error al dividir SDF: {str(e)}")
-
+            logger.error(f"Error al dividir SDF: {str(e)}", exc_info=True)
 
     def entrenar_ia(self):
-        dialog = TrainConfigDialog(self)
-        if dialog.exec_() != QDialog.Accepted:
+        # Preguntar al usuario si quiere CSV o SDF
+        opciones = ["CSV", "Directorio SDF"]
+        tipo, ok = QInputDialog.getItem(
+            self.parent, "Seleccionar tipo de entrada",
+            "Tipo de datos:", opciones, 0, False
+        )
+        if not ok:
+            return
+
+        # Abrir el formulario correspondiente
+        if tipo == "CSV":
+            dialog = TrainCSVConfigDialog(self.parent)
+        else:  # SDF
+            dialog = TrainConfigDialog(self.parent)
+
+        if dialog.exec() != QDialog.Accepted:
             return
 
         config = dialog.get_values()
 
-        # Validaciones básicas
-        if not config["sdf_dir"] or not os.path.isdir(config["sdf_dir"]):
-            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
-            return
+        # ----- Validaciones -----
+        if tipo == "SDF":
+            if not config["sdf_dir"] or not os.path.isdir(config["sdf_dir"]):
+                QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
+                return
 
-        if not config["target_file"] or not os.path.isfile(config["target_file"]):
-            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
-            return
+            if not config["target_file"] or not os.path.isfile(config["target_file"]):
+                QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
+                return
+        else:  # CSV
+            if not config["csv_file"] or not os.path.isfile(config["csv_file"]):
+                QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo CSV válido.")
+                return
 
         if not config["save_name"]:
             QMessageBox.warning(self.parent, "Nombre inválido", "El nombre del archivo no puede estar vacío.")
             return
-        
+
         # Validar early stopping y validación
         if config["early_stopping_patience"] > 0 and config["valid_split"] <= 0:
             QMessageBox.warning(
@@ -231,20 +250,35 @@ class MenuBar(QMenuBar):
             )
             return
 
-        # Ejecutar entrenamiento
-        self.parent.training_controller.entrenar(
-            sdf_dir=config["sdf_dir"],
-            target_file=config["target_file"],
-            model_type=config["modelo"],
-            epochs=config["epochs"],
-            batch_size=config["batch_size"],
-            lr=config["lr"],
-            valid_split=config["valid_split"],
-            model_name=config['save_name'],
-            hidden_dim=config["hidden_dim"],
-            num_layers=config["num_layers"],
-            patience=config["early_stopping_patience"]
-        )
+        # ----- Ejecutar entrenamiento -----
+        if tipo == "SDF":
+            self.parent.training_controller.entrenar(
+                sdf_dir=config["sdf_dir"],
+                target_file=config["target_file"],
+                model_type=config["modelo"],
+                epochs=config["epochs"],
+                batch_size=config["batch_size"],
+                lr=config["lr"],
+                valid_split=config["valid_split"],
+                model_name=config['save_name'],
+                hidden_dim=config["hidden_dim"],
+                num_layers=config["num_layers"],
+                patience=config["early_stopping_patience"]
+            )
+        else:  # CSV
+            self.parent.training_controller.entrenar_csv(
+                csv_file=config["csv_file"],
+                model_type=config["modelo"],
+                epochs=config["epochs"],
+                batch_size=config["batch_size"],
+                lr=config["lr"],
+                valid_split=config["valid_split"],
+                model_name=config['save_name'],
+                hidden_dim=config["hidden_dim"],
+                num_layers=config["num_layers"],
+                patience=config["early_stopping_patience"]
+            )
+
 
     def transfer_learning_ia(self):
         dialog = TransferLearningDialog(self)
@@ -463,8 +497,7 @@ class MenuBar(QMenuBar):
                 logger.info(msg)
 
             except Exception as e:
-                QMessageBox.critical(self.parent, "Error en predicción", f"No se pudo realizar la predicción:\n\n{str(e)}")
-                logger.error(f"Error en testear modelo: {str(e)}")
+                logger.error(f"Error en testear modelo: {str(e)}", exc_info=True)
 
     def testear_modelo_en_batch(self):
         
@@ -481,7 +514,7 @@ class MenuBar(QMenuBar):
                 self.image_dialog.show()
 
             except Exception as e:
-                logger.error("Error en testeo por lotes: " + str(e))
+                logger.error("Error en testeo por lotes: " + str(e), exc_info=True)
 
     def testear_directorio_modelos(self):
         dialog = BatchAllModelsTestDialog(self.parent)
@@ -492,7 +525,7 @@ class MenuBar(QMenuBar):
                 # Ejecutamos testing con el proceso
                 self.parent.testing_controller.testear_modelos(models_dir, sdf_dir, targets_file)
             except Exception as e:
-                logger.error("Error en testeo de todos los modelos: " + str(e))
+                logger.error("Error en testeo de todos los modelos: " + str(e), exc_info=True)
 
     def get_explanation_LIME(self):
         dialog = ModelTestDialog(self.parent)
@@ -504,7 +537,7 @@ class MenuBar(QMenuBar):
                 muestra = mol_to_graph_data_obj(mol)
                 # Obtener explicación LIME
                 # Vector mascara: [perturbar_tipo_atomo, perturbar_grado, perturbar_aromaticidad, perturbar_hibridacion]
-                plot_path = obtener_lime(model_path, muestra, feature_mask=[0, 0, 0, 1], num_samples=100, noise_level=0.1, device='cpu')
+                plot_path = obtener_lime(model_path, muestra, feature_mask=[1, 1, 0, 1], num_samples=100, noise_level=0.1, device='cpu')
 
                 # mostrar el sdf por pantalla
                 self.parent.load_graph_from_file(sdf_path)

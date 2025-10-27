@@ -3,13 +3,17 @@
 import sys
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GINConv, GINEConv, GATConv, global_add_pool, TransformerConv
-from sklearn.model_selection import train_test_split
-from ML.data_processing import read_targets, load_data_from_sdf, create_dataloader
 import matplotlib.pyplot as plt
 import os
 import logging
 import gc
+import pandas as pd
+
+from torch_geometric.nn import GINConv, GINEConv, GATConv, global_add_pool, TransformerConv
+from sklearn.model_selection import train_test_split
+
+from ML.data_processing import read_targets, load_data_from_sdf, create_dataloader, smiles_to_graph_data_obj
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -381,6 +385,99 @@ def train_and_save_model(
 
     return save_path
 
+
+def train_and_save_model_csv(
+    csv_file,
+    model_type,
+    epochs,
+    model_name,
+    batch_size=32,
+    lr=0.001,
+    valid_split=0.2,
+    hidden_dim=64,
+    num_layers=3,
+    patience=0
+):
+    # Leer CSV
+    df = pd.read_csv(csv_file)
+    # Buscar columna SMILES (insensible a mayúsculas)
+    smiles_cols = [c for c in df.columns if c.lower() == "smiles"]
+    if not smiles_cols:
+        raise ValueError("El CSV debe contener una columna con SMILES (insensible a mayúsculas).")
+    smiles_col = smiles_cols[0]
+
+    # Buscar columna target (cualquier columna que contenga 'target', insensible a mayúsculas)
+    target_cols = [c for c in df.columns if "target" in c.lower()]
+    if not target_cols:
+        raise ValueError("El CSV debe contener al menos una columna que tenga 'target' en su nombre.")
+    target_col = target_cols[0]
+        
+    data_list = []
+    for _, row in df.iterrows():
+        try:
+            graph_data = smiles_to_graph_data_obj(row[smiles_col])
+            graph_data.y = torch.tensor([row[target_col]], dtype=torch.float)
+            data_list.append(graph_data)
+        except Exception as e:
+            logging.error(f"Error con SMILES {row[smiles_col]}: {e}")
+
+    logging.info(f"Se pudieron traducir correctamente {len(data_list)} de {len(df)} moléculas.")
+
+    if not data_list:
+        raise ValueError("No se pudo generar ningún grafo a partir del CSV")
+
+    # Dividir entrenamiento/validación
+    if 0 < valid_split < 1:
+        train_data, val_data = train_test_split(data_list, test_size=valid_split, random_state=42)
+        val_loader = create_dataloader(val_data, batch_size=batch_size)
+    else:
+        train_data = data_list
+        val_loader = None
+
+    train_loader = create_dataloader(train_data, batch_size=batch_size)
+
+    # Configurar dispositivo
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Dimensiones de entrada
+    input_dim = data_list[0].x.shape[1]
+    edge_dim = data_list[0].edge_attr.shape[1]
+
+    # Crear modelo
+    model = create_model(model_type, input_dim, hidden_dim=hidden_dim, num_layers=num_layers, edge_dim=edge_dim)
+
+    # Entrenar
+    train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience, model_name=model_name)
+
+    # Guardar checkpoint
+    checkpoint = {
+        'model_state_dict': model.state_dict(),
+        'model_type': model_type,
+        'input_dim': input_dim,
+        'edge_dim': edge_dim,
+        'epochs_trained': epochs,
+        'target_name': os.path.splitext(os.path.basename(csv_file))[0],
+        'hidden_dim': hidden_dim,
+        'num_layers': num_layers,
+        'batch_size': batch_size,
+        'learning_rate': lr,
+        'valid_split': valid_split,
+        'early_stopping_patience': patience,
+    }
+
+    os.makedirs(MODELOS_DIR, exist_ok=True)
+    save_path = os.path.join(MODELOS_DIR, f"{model_name}.pt")
+    torch.save(checkpoint, save_path)
+
+    # Limpiar memoria
+    del model
+    del train_loader
+    if val_loader: del val_loader
+    torch.cuda.empty_cache()
+    gc.collect()
+
+    return save_path
+
 # Entrenar y guardar modelos cambiandole las capas
 def train_multiple_models(
     sdf_dir,
@@ -415,3 +512,36 @@ def train_multiple_models(
             )
             saved_models.append(save_path)
             logging.info(f"Modelo guardado en: {save_path}")
+
+# Entrenar y guardar modelos cambiandole las capas
+def train_multiple_models_csv(
+    csv_file,
+    epochs,
+    batch_size=32,
+    lr=0.001,
+    valid_split=0.2,
+    hidden_dim=64,
+    patience=0
+):
+    model_types = ["GIN", "GINE", "GAT", "EGAT", "GraphTransformer"]
+    capas = [2, 3, 4, 5]
+    nombreTarget = os.path.splitext(os.path.basename(csv_file))[0]
+    saved_models = []
+    for model_type in model_types:
+        for num_layers in capas:
+            model_name = f"{model_type}_{num_layers}capas_{nombreTarget}"
+            logging.info(f"Entrenando modelo: {model_name}")
+            save_path = train_and_save_model(
+                csv_file=csv_file,
+                model_type=model_type,
+                epochs=epochs,
+                model_name=model_name,
+                batch_size=batch_size,
+                lr=lr,
+                valid_split=valid_split,
+                hidden_dim=hidden_dim,
+                num_layers=num_layers,
+                patience=patience
+            )
+            saved_models.append(save_path)
+            logging.info(f"Modelo guardado en: {save_path}")            

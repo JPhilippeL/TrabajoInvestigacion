@@ -245,3 +245,42 @@ class TrainingControllerProcess:
         self.process.readyReadStandardOutput.connect(self.on_stdout)
         self.process.readyReadStandardError.connect(self.on_stderr)
         self.process.start()
+
+    def entrenar_csv(
+        self,
+        csv_file,
+        model_type,
+        epochs,
+        batch_size,
+        lr,
+        valid_split,
+        model_name,
+        hidden_dim=64,
+        num_layers=3,
+        patience=0
+    ):
+        
+        # Mostrar mensaje en GUI
+        logger.info("Inicializando entrenamiento...")
+        
+        self.process = QProcess()
+        self.process.setProgram(sys.executable)  # ejecuta el mismo Python
+        self.process.setArguments([
+            "-m", "ML.workers.csv_trainer_worker",
+            "--csv_file", csv_file,
+            "--model_type", model_type,
+            "--epochs", str(epochs),
+            "--model_name", model_name,
+            "--batch_size", str(batch_size),
+            "--lr", str(lr),
+            "--valid_split", str(valid_split),
+            "--hidden_dim", str(hidden_dim),
+            "--num_layers", str(num_layers),
+            "--patience", str(patience)
+        ])
+
+        # Conectar señales
+        self.process.readyReadStandardOutput.connect(self.on_stdout)
+        self.process.readyReadStandardError.connect(self.on_stderr)
+
+        self.process.start()
