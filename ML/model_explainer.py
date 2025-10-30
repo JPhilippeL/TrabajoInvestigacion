@@ -117,9 +117,6 @@ def compute_alfa_beta_alfa_ET_beta(data):
 
     alfa_ET_beta_scalar = torch.matmul(alfa.unsqueeze(0), res)  # [1, d] × [d, 1] → [1, 1]
 
-    # beta * alfa
-    beta_alfa = beta @ alfa.unsqueeze(0)  # [N,1] @ [1,d] => [N,d]
-
 
 
     return {
@@ -127,7 +124,6 @@ def compute_alfa_beta_alfa_ET_beta(data):
         'alfa': alfa,               # [d]
         'beta': beta,               # [N,1]
         'alfa_ET_beta_scalar': alfa_ET_beta_scalar,  # [1,1]
-        'beta_alfa': beta_alfa      # [N,d]
     }
 
 def obtener_lime(checkpoint_path, data_sample, feature_mask, num_samples=50, noise_level=0.05, device='cpu'):
@@ -181,14 +177,56 @@ def obtener_lime(checkpoint_path, data_sample, feature_mask, num_samples=50, noi
             anterior = termino
             # quedarnos con el indice
             info_mejor = info_perturbada
+    
+    alfa = info_mejor['alfa']
+    print(alfa)
 
-    beta_alfa = info_mejor['beta_alfa']
+    # Reducir los one hot encoding de alfa a una sola feature
+    alfa = info_mejor['alfa']  # [d]
+
+    # indice de los bloques one-hot
+    n_atom = len(periodic_elements)
+    n_hybrid = len(hybridization_types)
+
+    # tipo de átomo: sumamos valores absolutos
+    alfa_tipo_atom = alfa[:n_atom].abs().sum()  # un solo número
+
+    alfa_cont = alfa[n_atom:-n_hybrid]         # mantenemos las columnas intermedias
+
+    # hibridización: sumamos valores absolutos
+    alfa_hybrid = alfa[-n_hybrid:].abs().sum() # un solo número
+
+    # construimos el nuevo alfa concatenando todo
+    nuevo_alfa = torch.cat([
+        alfa_tipo_atom.unsqueeze(0),  # [1]
+        alfa_cont,                    # [num_cont_features]
+        alfa_hybrid.unsqueeze(0)      # [1]
+    ], dim=0)
+
+    print(nuevo_alfa)
+
+    beta = info_mejor['beta']
+
+    # tomamos valores absolutos
+    nueva_beta = beta.abs()
+
+    print(nueva_beta.shape)
+
+    matrizE = info_mejor['matrizE']
+    print(matrizE[:, :n_atom].sum(dim=0))   # tipo de átomo
+    #print(matrizE[:, aromatic_idx].sum())    # aromatic
+    print(matrizE[:, -n_hybrid:].sum(dim=0))# hibridización
+
+
+    # Multiplicar
+    beta_alfa = nueva_beta * nuevo_alfa.unsqueeze(0)  # [N, d']
 
     # Convertir a numpy para matplotlib
-    beta_alfa = info_mejor['beta_alfa'].detach().cpu().numpy()  # [N,d]
+    beta_alfa = beta_alfa.detach().cpu().numpy()  # [N,d]
 
     n, d = beta_alfa.shape
     row_labels = [f'Node {i}' for i in range(n)]
+    col_labels = ["Simbolo Átomico", "Degree", "Num HS", "isAromatic", "Hibridizacion"]
     # Obtener nombres de características
     feature_names = get_feature_names(periodic_elements, hybridization_types)
     
@@ -197,9 +235,10 @@ def obtener_lime(checkpoint_path, data_sample, feature_mask, num_samples=50, noi
     # Llamar a lo de limpiar columnas
     data_cleaned, col_labels_clean = limpiar_columnas_zero(beta_alfa, feature_names)
 
-    fig, ax = plt.subplots(figsize=(20, 20))
+    fig, ax = plt.subplots(figsize=(8, 8))
     
-    im, cbar = heatmap(data_cleaned, row_labels, col_labels_clean, ax=ax, cmap="YlGn")
+    #im, cbar = heatmap(data_cleaned, row_labels, col_labels_clean, ax=ax, cmap="YlGn")
+    im, cbar = heatmap(beta_alfa, row_labels, col_labels, ax=ax, cmap="YlGn")
 
     annotate_heatmap(im)
 
