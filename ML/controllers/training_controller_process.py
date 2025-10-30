@@ -284,3 +284,32 @@ class TrainingControllerProcess:
         self.process.readyReadStandardError.connect(self.on_stderr)
 
         self.process.start()
+
+    def train_multiple_models_csv(
+        self,
+        csv_file,
+        epochs,
+        batch_size=32,
+        lr=0.001,
+        valid_split=0.2,
+        hidden_dim=64,
+        patience=0
+    ):      
+        logger.info("Inicializando entrenamiento múltiple...")
+
+        self.process = QProcess()
+        self.process.setProgram(sys.executable)
+        self.process.setArguments([
+            "-m", "ML.workers.csv_multiple_trainer_worker",
+            "--csv_file", csv_file,
+            "--epochs", str(epochs),
+            "--batch_size", str(batch_size),
+            "--lr", str(lr),
+            "--valid_split", str(valid_split),
+            "--hidden_dim", str(hidden_dim),
+            "--patience", str(patience)
+        ])
+
+        self.process.readyReadStandardOutput.connect(self.on_stdout)
+        self.process.readyReadStandardError.connect(self.on_stderr)
+        self.process.start()
