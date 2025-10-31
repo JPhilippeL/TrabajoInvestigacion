@@ -13,7 +13,7 @@ import re
 from torch_geometric.nn import GINConv, GINEConv, GATConv, global_add_pool, TransformerConv
 from sklearn.model_selection import train_test_split
 
-from ML.data_processing import read_targets, load_data_from_sdf, create_dataloader, smiles_to_graph_data_obj
+from ML.data_processing import create_dataloader, smiles_to_graph_data_obj, prepare_sdf_training_data, process_csv
 
 logging.basicConfig(
     level=logging.INFO,
@@ -366,38 +366,6 @@ def save_model(
 
     return save_path
 
-def prepare_sdf_training_data(sdf_dir, target_file, batch_size=32, valid_split=0.2):
-    """
-    Prepara los datos de entrenamiento y validación a partir de un directorio SDF y archivo target.
-
-    Devuelve:
-        train_loader, val_loader, device, input_dim, edge_dim, targetname
-    """
-    # Leer targets
-    target_dict = read_targets(target_file)
-    targetname = os.path.splitext(os.path.basename(target_file))[0]
-
-    # Cargar datos desde SDF
-    data_list = load_data_from_sdf(sdf_dir, target_dict)
-
-    # Dividir entrenamiento/validación
-    if 0 < valid_split < 1:
-        train_data, val_data = train_test_split(data_list, test_size=valid_split, random_state=42)
-        val_loader = create_dataloader(val_data, batch_size=batch_size)
-    else:
-        train_data = data_list
-        val_loader = None
-
-    train_loader = create_dataloader(train_data, batch_size=batch_size)
-
-    # Configurar dispositivo
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # Dimensiones de entrada
-    input_dim = data_list[0].x.shape[1]
-    edge_dim = data_list[0].edge_attr.shape[1]
-
-    return train_loader, val_loader, device, input_dim, edge_dim, targetname
 
 def train_and_save_model(
     sdf_dir,
@@ -452,51 +420,10 @@ def train_and_save_model_csv(
     num_layers=3,
     patience=0
 ):
-    # Leer CSV
-    df = pd.read_csv(csv_file)
-    # Buscar columna SMILES (insensible a mayúsculas)
-    smiles_cols = [c for c in df.columns if c.lower() == "smiles"]
-    if not smiles_cols:
-        raise ValueError("El CSV debe contener una columna con SMILES (insensible a mayúsculas).")
-    smiles_col = smiles_cols[0]
-
-    # Buscar columna target (cualquier columna que contenga 'target', insensible a mayúsculas)
-    target_cols = [c for c in df.columns if "target" in c.lower()]
-    if not target_cols:
-        raise ValueError("El CSV debe contener al menos una columna que tenga 'target' en su nombre.")
-    target_col = target_cols[0]
-    safe_target_name = re.sub(r"[^A-Za-z0-9_\-]", "_", target_col)
-        
-    data_list = []
-    for _, row in df.iterrows():
-        try:
-            graph_data = smiles_to_graph_data_obj(row[smiles_col])
-            graph_data.y = torch.tensor([row[target_col]], dtype=torch.float)
-            data_list.append(graph_data)
-        except Exception as e:
-            logging.error(f"Error con SMILES {row[smiles_col]}: {e}")
-
-    logging.info(f"Se pudieron traducir correctamente {len(data_list)} de {len(df)} moléculas.")
-
-    if not data_list:
-        raise ValueError("No se pudo generar ningún grafo a partir del CSV")
-
-    # Dividir entrenamiento/validación
-    if 0 < valid_split < 1:
-        train_data, val_data = train_test_split(data_list, test_size=valid_split, random_state=42)
-        val_loader = create_dataloader(val_data, batch_size=batch_size)
-    else:
-        train_data = data_list
-        val_loader = None
-
-    train_loader = create_dataloader(train_data, batch_size=batch_size)
+    train_loader, val_loader, input_dim, edge_dim, target_name = process_csv(csv_file, valid_split, batch_size)
 
     # Configurar dispositivo
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # Dimensiones de entrada
-    input_dim = data_list[0].x.shape[1]
-    edge_dim = data_list[0].edge_attr.shape[1]
 
     # Crear modelo
     model = create_model(model_type, input_dim, hidden_dim=hidden_dim, num_layers=num_layers, edge_dim=edge_dim)
@@ -509,7 +436,7 @@ def train_and_save_model_csv(
         model_name=model_name,
         input_dim=input_dim,
         edge_dim=edge_dim,
-        target_name=safe_target_name,
+        target_name=target_name,
         model_type=model_type,
         epochs=epochs,
         hidden_dim=hidden_dim,
@@ -583,55 +510,14 @@ def train_multiple_models_csv(
     model_types = ["GIN", "GINE", "GAT", "EGAT", "GraphTransformer"]
     capas = [2, 3, 4, 5]
 
-    # Leer CSV
-    df = pd.read_csv(csv_file)
-    # Buscar columna SMILES (insensible a mayúsculas)
-    smiles_cols = [c for c in df.columns if c.lower() == "smiles"]
-    if not smiles_cols:
-        raise ValueError("El CSV debe contener una columna con SMILES (insensible a mayúsculas).")
-    smiles_col = smiles_cols[0]
-
-    # Buscar columna target (cualquier columna que contenga 'target', insensible a mayúsculas)
-    target_cols = [c for c in df.columns if "target" in c.lower()]
-    if not target_cols:
-        raise ValueError("El CSV debe contener al menos una columna que tenga 'target' en su nombre.")
-    target_col = target_cols[0]
-    safe_target_name = re.sub(r"[^A-Za-z0-9_\-]", "_", target_col)
-        
-    data_list = []
-    for _, row in df.iterrows():
-        try:
-            graph_data = smiles_to_graph_data_obj(row[smiles_col])
-            graph_data.y = torch.tensor([row[target_col]], dtype=torch.float)
-            data_list.append(graph_data)
-        except Exception as e:
-            logging.error(f"Error con SMILES {row[smiles_col]}: {e}")
-
-    logging.info(f"Se pudieron traducir correctamente {len(data_list)} de {len(df)} moléculas.")
-
-    if not data_list:
-        raise ValueError("No se pudo generar ningún grafo a partir del CSV")
-
-    # Dividir entrenamiento/validación
-    if 0 < valid_split < 1:
-        train_data, val_data = train_test_split(data_list, test_size=valid_split, random_state=42)
-        val_loader = create_dataloader(val_data, batch_size=batch_size)
-    else:
-        train_data = data_list
-        val_loader = None
-
-    train_loader = create_dataloader(train_data, batch_size=batch_size)
+    train_loader, val_loader, input_dim, edge_dim, target_name = process_csv(csv_file, valid_split, batch_size)
 
     # Configurar dispositivo
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Dimensiones de entrada
-    input_dim = data_list[0].x.shape[1]
-    edge_dim = data_list[0].edge_attr.shape[1]
-
     for model_type in model_types:
         for num_layers in capas:
-            model_name = f"CSV_{model_type}_{num_layers}capas_{safe_target_name}"
+            model_name = f"CSV_{model_type}_{num_layers}capas_{target_name}"
             logging.info(f"Entrenando modelo: {model_name}")
             # Crear modelo
             model = create_model(model_type, input_dim, hidden_dim=hidden_dim, num_layers=num_layers, edge_dim=edge_dim)
@@ -643,7 +529,7 @@ def train_multiple_models_csv(
                 model_name=model_name,
                 input_dim=input_dim,
                 edge_dim=edge_dim,
-                target_name=safe_target_name,
+                target_name=target_name,
                 model_type=model_type,
                 epochs=epochs,
                 hidden_dim=hidden_dim,
