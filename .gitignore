@@ -2,6 +2,7 @@ Modelos/
 data/
 Resultados/
 best_model_tmp.pt
+TO_DO.md
 # Ignorar todas las carpetas __pycache__ y archivos .pyc en el proyecto
 __pycache__/
 **/__pycache__/

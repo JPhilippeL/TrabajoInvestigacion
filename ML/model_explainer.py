@@ -9,9 +9,12 @@ import numpy as np
 from ui.utils import RESULTADOS_DIR
 import os
 import sys
+import logging
+from scipy.optimize import minimize
 
 SIGMADIST = 1
 MININICIAL = sys.float_info.max
+logger = logging.getLogger(__name__)
 
 # Función para dada una muestra (x), genere una muestra perturbada (Z)
 # Dado un vector binario de las características a perturbar
@@ -51,7 +54,7 @@ def perturb_features_sample(data, feature_mask, noise_level=0.05):
 # La distribución de las muestras aleatorias tienen que seguir una distribucion gaussiana
 def generate_perturbed_samples(data, feature_mask, num_samples=50, noise_level=0.05):
     perturbed_samples = []
-    for _ in range(num_samples):
+    for i in range(num_samples):
         perturbed_sample = perturb_features_sample(data, feature_mask, noise_level)
         perturbed_samples.append(perturbed_sample)
     return perturbed_samples
@@ -100,32 +103,6 @@ def embedding_distance_list(model, x, z_list, edge_attr_list=None, batch=None, d
 
     return distances
 
-def compute_alfa_beta_alfa_ET_beta(data):
-    
-    matrizE = data.x.clone()  # [N, d]
-
-    # --- α: suma por columnas (features) ---
-    alfa = matrizE.sum(dim=0)  # [d]
-
-    # --- β: suma por filas (nodos) ---
-    beta = matrizE.sum(dim=1, keepdim=True)  # [N,1]
-
-    # --- α * matrizE^T * β ---
-    # matrizE^T: [d, N], beta: [N,1] => matmul => [d,1]
-    matrizE_t = matrizE.t()  # [d, N]
-    res = torch.matmul(matrizE_t, beta)  # [d,1]
-
-    alfa_ET_beta_scalar = torch.matmul(alfa.unsqueeze(0), res)  # [1, d] × [d, 1] → [1, 1]
-
-
-
-    return {
-        'matrizE': matrizE,                     # [N, d]
-        'alfa': alfa,               # [d]
-        'beta': beta,               # [N,1]
-        'alfa_ET_beta_scalar': alfa_ET_beta_scalar,  # [1,1]
-    }
-
 def obtener_lime(checkpoint_path, data_sample, feature_mask, num_samples=50, noise_level=0.05, device='cpu'):
     # Generar muestras perturbadas
     perturbed_samples = generate_perturbed_samples(data_sample, feature_mask, num_samples, noise_level)
@@ -147,100 +124,46 @@ def obtener_lime(checkpoint_path, data_sample, feature_mask, num_samples=50, noi
     feature_distances = graph_feature_distance_list(data_sample, perturbed_samples, metric='euclidean')
     #feature_distances = embedding_distance_list(model, data_sample, perturbed_samples, device=device)
 
-    anterior = MININICIAL
-    # Wg = alfa, Z' = matrizE_t * beta
-    # Hacer lista de todas las Wg y Z' para cada muestra perturbada
-    for i, perturbed in enumerate(perturbed_samples):
-        info_perturbada = compute_alfa_beta_alfa_ET_beta(perturbed)
-        
-        # Calcular distancia
-        distancia = feature_distances[i]
+    # Precalcular todos los E_z^T (cada uno [d, N_z])
+    E_t_list = [data_z.x.t().to(device) for data_z in perturbed_samples]
 
-        # Distancia = e^(-d(x, z)²)/SIGMADIST
-        distancia_tensor = torch.tensor(distancia, dtype=torch.float, device=device)
-        peso_distancia = torch.exp(- (distancia_tensor ** 2) / SIGMADIST)
-
-        # Prediccion de z
-        pred_z = predicciones_perturbadas[i]  # [1,1]
-        # Wg * z' = alfa * (matrizE_t * beta)
-        Wg_z_prime = info_perturbada['alfa_ET_beta_scalar'] # [1,1]
-
-        # Restarlo y elevar al cuadrado
-        # Pc(z) - Wg * z'
-        diff = pred_z - Wg_z_prime  # [1,1]
-        diff_squared = diff ** 2  # [1,1]
-
-        # Multiplicar
-        termino = peso_distancia * diff_squared  # [1,1]
-
-        if termino < anterior:
-            anterior = termino
-            # quedarnos con el indice
-            info_mejor = info_perturbada
+    # --------------- HACERLO CON OPTIMIZACION DE PYTORCH ----------------------
+    alfa, beta, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_t_list, 0.01, 500, True)
     
-    alfa = info_mejor['alfa']
-    print(alfa)
+        # --- Convertir tensores a numpy ---
+    alfa_np = alfa.detach().cpu().numpy().reshape(-1, 1)  # d x 1  → columna
+    beta_np = beta.detach().cpu().numpy().reshape(-1, 1)  # N x 1  → columna
 
-    # Reducir los one hot encoding de alfa a una sola feature
-    alfa = info_mejor['alfa']  # [d]
-
-    # indice de los bloques one-hot
-    n_atom = len(periodic_elements)
-    n_hybrid = len(hybridization_types)
-
-    # tipo de átomo: sumamos valores absolutos
-    alfa_tipo_atom = alfa[:n_atom].abs().sum()  # un solo número
-
-    alfa_cont = alfa[n_atom:-n_hybrid]         # mantenemos las columnas intermedias
-
-    # hibridización: sumamos valores absolutos
-    alfa_hybrid = alfa[-n_hybrid:].abs().sum() # un solo número
-
-    # construimos el nuevo alfa concatenando todo
-    nuevo_alfa = torch.cat([
-        alfa_tipo_atom.unsqueeze(0),  # [1]
-        alfa_cont,                    # [num_cont_features]
-        alfa_hybrid.unsqueeze(0)      # [1]
-    ], dim=0)
-
-    print(nuevo_alfa)
-
-    beta = info_mejor['beta']
-
-    # tomamos valores absolutos
-    nueva_beta = beta.abs()
-
-    print(nueva_beta.shape)
-
-    matrizE = info_mejor['matrizE']
-    print(matrizE[:, :n_atom].sum(dim=0))   # tipo de átomo
-    #print(matrizE[:, aromatic_idx].sum())    # aromatic
-    print(matrizE[:, -n_hybrid:].sum(dim=0))# hibridización
-
-
-    # Multiplicar
-    beta_alfa = nueva_beta * nuevo_alfa.unsqueeze(0)  # [N, d']
-
-    # Convertir a numpy para matplotlib
-    beta_alfa = beta_alfa.detach().cpu().numpy()  # [N,d]
-
-    n, d = beta_alfa.shape
-    row_labels = [f'Node {i}' for i in range(n)]
-    col_labels = ["Simbolo Átomico", "Degree", "Num HS", "isAromatic", "Hibridizacion"]
-    # Obtener nombres de características
+    # --- Etiquetas ---
     feature_names = get_feature_names(periodic_elements, hybridization_types)
-    
+    row_labels_alfa = feature_names
+    col_labels_alfa = [""]
 
-    # --- CREAR IMAGEN ---
-    # Llamar a lo de limpiar columnas
-    data_cleaned, col_labels_clean = limpiar_columnas_zero(beta_alfa, feature_names)
+    row_labels_beta = [f"Node {i}" for i in range(len(beta_np))]
+    col_labels_beta = [""]
 
-    fig, ax = plt.subplots(figsize=(8, 8))
-    
-    #im, cbar = heatmap(data_cleaned, row_labels, col_labels_clean, ax=ax, cmap="YlGn")
-    im, cbar = heatmap(beta_alfa, row_labels, col_labels, ax=ax, cmap="YlGn")
+    # --- Escala común opcional ---
+    vmin = min(alfa.min().item(), beta.min().item())
+    vmax = max(alfa.max().item(), beta.max().item())
 
-    annotate_heatmap(im)
+    # --- Crear figura con 2 subplots ---
+    fig, axes = plt.subplots(1, 2, figsize=(10, 10))  # vertical (d alto)
+
+    # Heatmap de α (transpuesto visualmente)
+    im_a, cbar_a = heatmap(
+        alfa_np, row_labels_alfa, col_labels_alfa,
+        ax=axes[0], cmap="YlGn", vmin=vmin, vmax=vmax
+    )
+    axes[0].set_title("Coeficientes α (por feature)")
+    annotate_heatmap(im_a, alfa_np, valfmt="{x:.2f}")
+
+    # Heatmap de β
+    im_b, cbar_b = heatmap(
+        beta_np, row_labels_beta, col_labels_beta,
+        ax=axes[1], cmap="YlOrRd", vmin=vmin, vmax=vmax
+    )
+    axes[1].set_title("Coeficientes β (por nodo)")
+    annotate_heatmap(im_b, beta_np, valfmt="{x:.2f}")
 
     # Obtener el nombre del checkpoint
     model_name = checkpoint_path.split('/')[-1]
@@ -253,11 +176,52 @@ def obtener_lime(checkpoint_path, data_sample, feature_mask, num_samples=50, noi
     plotfilename = os.path.join(model_results_dir, f"{model_name}_lime.png")
 
     # Guardar la figura en el resultados dir de este checkpoint
+    plt.tight_layout()
     plt.savefig(plotfilename)
     plt.close(fig)
 
     # Return de la imagen guardada
     return plotfilename
+
+def obtener_argmin(feature_distances, predicciones_perturbadas, E_t_list,
+                   lr=1e-2, epochs=500, verbose=True):
+    
+    num_samples = len(E_t_list)
+    d = E_t_list[0].shape[0]
+    N = E_t_list[0].shape[1]
+    feature_distances = torch.tensor(feature_distances, dtype=torch.float, device=predicciones_perturbadas.device).unsqueeze(1)
+
+    alfa = torch.ones(d, device=E_t_list[0].device, dtype=torch.float, requires_grad=True)
+    alfa.data /= d
+
+    beta = torch.ones(N, device=E_t_list[0].device, dtype=torch.float, requires_grad=True)
+    beta.data /= N
+
+    optimizer = torch.optim.Adam([alfa, beta], lr=lr)
+
+    exp_weights = torch.exp(-feature_distances**2)
+
+    for epoch in range(epochs):
+        optimizer.zero_grad()
+        total_loss = 0.0
+
+        for i in range(num_samples):
+            E_t = E_t_list[i]
+            pred_z = predicciones_perturbadas[i]
+            w = exp_weights[i]
+
+            alfa_ET_beta = torch.matmul(alfa, torch.matmul(E_t, beta))
+            total_loss += w * (pred_z - alfa_ET_beta)**2
+
+        loss = total_loss.squeeze()
+        loss.backward()
+        optimizer.step()
+
+        if verbose and (epoch % 50 == 0 or epoch == epochs-1):
+            logger.info(f"Epoch {epoch+1}/{epochs} - Loss: {loss.item():.6f}")
+
+    return alfa.detach(), beta.detach(), loss.item()
+
 
 
 def heatmap(data, row_labels, col_labels, ax, **kwargs):

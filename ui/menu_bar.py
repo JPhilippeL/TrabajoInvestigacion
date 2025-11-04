@@ -218,6 +218,7 @@ class MenuBar(QMenuBar):
             dialog = TrainCSVConfigDialog(self.parent)
         else:  # SDF
             dialog = TrainConfigDialog(self.parent)
+            tipo = "SDF"
 
         if dialog.exec() != QDialog.Accepted:
             return
@@ -343,6 +344,7 @@ class MenuBar(QMenuBar):
             dialog = TrainMultipleModelsCSVDialog(self.parent)
         else:
             dialog = TrainMultipleModelsDialog(self.parent)
+            tipo = "SDF"
 
         if dialog.exec() != QDialog.Accepted:
             return
