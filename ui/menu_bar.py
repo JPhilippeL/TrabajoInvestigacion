@@ -16,6 +16,7 @@ from ui.dialogs.transfer_learning_multiple_models import TransferLearningMultipl
 from ui.dialogs.image_dialog import ImageDialog
 from ui.dialogs.csv_training_dialog import TrainCSVConfigDialog
 from ui.dialogs.csv_multiple_training_dialog import TrainMultipleModelsCSVDialog
+from ui.dialogs.csv_to_sdf import CSVtoSDFDialog
 
 from ML.model_tester import test_model_on_directory
 from ML.model_tester import obtener_info_checkpoint
@@ -23,8 +24,7 @@ from ML.model_explainer import obtener_lime
 from ML.model_tester import cargar_y_predecir
 from ML.data_processing import mol_to_graph_data_obj
 
-from core.sdf_converter import split_sdf
-from core.sdf_converter import graph_to_mol, save_graph_as_sdf
+from core.sdf_converter import graph_to_mol, save_graph_as_sdf, split_sdf, smiles_csv_to_sdf_dir
 
 from ui.utils import RESULTADOS_DIR
 from ui.utils import hybridization_types, periodic_elements
@@ -58,6 +58,10 @@ class MenuBar(QMenuBar):
         dividir_action = QAction("Dividir SDF", self)
         dividir_action.triggered.connect(self.dividir_sdf)
         menu_molecula.addAction(dividir_action)
+
+        dividir_csv_action = QAction("CSV a SDF", self)
+        dividir_csv_action.triggered.connect(self.csv_a_sdf)
+        menu_molecula.addAction(dividir_csv_action)
 
         # Menu de Entrenamiento
         menu_train = self.addMenu("Train GNN")
@@ -200,18 +204,44 @@ class MenuBar(QMenuBar):
             mensaje = f"SDF dividido correctamente. Archivos guardados en: {config['output_dir']}"
             logger.info(mensaje)
         except Exception as e:
-            QMessageBox.critical(self.parent, "Error al dividir SDF", str(e))
             logger.error(f"Error al dividir SDF: {str(e)}", exc_info=True)
 
-    def entrenar_ia(self):
-        # Preguntar al usuario si quiere CSV o SDF
-        opciones = ["CSV", "Directorio SDF"]
-        tipo, ok = QInputDialog.getItem(
-            self.parent, "Seleccionar tipo de entrada",
-            "Tipo de datos:", opciones, 0, False
-        )
-        if not ok:
+    def csv_a_sdf(self):
+        dialog = CSVtoSDFDialog(self.parent)
+        if dialog.exec_() != QDialog.Accepted:
             return
+
+        config = dialog.get_values()
+
+        # Validaciones
+        if not config["csv_file"] or not os.path.isfile(config["csv_file"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo CSV válido.")
+            return
+
+        if not config["output_dir"]:
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio de salida.")
+            return
+
+        try:
+            smiles_csv_to_sdf_dir(config["csv_file"], config["output_dir"])
+            mensaje = f"CSV dividido correctamente. SDFs guardados en: {config['output_dir']}"
+            logger.info(mensaje)
+        except Exception as e:
+            QMessageBox.critical(self.parent, "Error al dividir CSV", str(e))
+            logger.error(f"Error al dividir CSV: {str(e)}", exc_info=True)
+
+        
+
+    def entrenar_ia(self):
+        # # Preguntar al usuario si quiere CSV o SDF
+        # opciones = ["CSV", "Directorio SDF"]
+        # tipo, ok = QInputDialog.getItem(
+        #     self.parent, "Seleccionar tipo de entrada",
+        #     "Tipo de datos:", opciones, 0, False
+        # )
+        # if not ok:
+        #     return
+        tipo = "SDF"
 
         # Abrir el formulario correspondiente
         if tipo == "CSV":
@@ -331,13 +361,15 @@ class MenuBar(QMenuBar):
 
     def entrenar_multiples_modelos(self):
         # Preguntar al usuario si quiere CSV o SDF
-        opciones = ["CSV", "Directorio SDF"]
-        tipo, ok = QInputDialog.getItem(
-            self.parent, "Seleccionar tipo de entrada",
-            "Tipo de datos:", opciones, 0, False
-        )
-        if not ok:
-            return
+        # opciones = ["CSV", "Directorio SDF"]
+        # tipo, ok = QInputDialog.getItem(
+        #     self.parent, "Seleccionar tipo de entrada",
+        #     "Tipo de datos:", opciones, 0, False
+        # )
+        # if not ok:
+        #     return
+
+        tipo = "SDF"
 
         # Abrir el diálogo genérico (CSV o SDF)
         if tipo == "CSV":
@@ -570,12 +602,9 @@ class MenuBar(QMenuBar):
         if dialog.exec():
             model_path, sdf_path = dialog.get_paths()
             try:
-                # Convertir SDF a mol
-                mol = Chem.SDMolSupplier(sdf_path, removeHs=False)[0]
-                muestra = mol_to_graph_data_obj(mol)
                 # Obtener explicación LIME
                 # Vector mascara: [perturbar_tipo_atomo, perturbar_grado, perturbar_aromaticidad, perturbar_hibridacion]
-                plot_path = obtener_lime(model_path, muestra, feature_mask=[1, 1, 1, 1], num_samples=100, noise_level=0.1, device='cpu')
+                plot_path = obtener_lime(model_path, sdf_path, feature_mask=[1, 1, 1, 1], num_samples=100, noise_level=0.1, device='cpu')
 
                 # mostrar el sdf por pantalla
                 self.parent.load_graph_from_file(sdf_path)

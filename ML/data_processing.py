@@ -108,31 +108,40 @@ def load_data_from_sdf(sdf_dir, target_dict):
     for filename in sorted(os.listdir(sdf_dir)):
         if not filename.endswith('.sdf'):
             continue
-        
-        mol_id = os.path.splitext(filename)[0]  # nombre completo del SDF
 
-        # Quitar "_Ligand" solo si no existe exactamente en target_dict
+        mol_id = os.path.splitext(filename)[0]
+
+        # Quitar sufijos alternativos si el target no coincide exactamente
         if mol_id not in target_dict and "_" in mol_id:
             mol_id_alt = mol_id.split('_')[0]
             if mol_id_alt in target_dict:
                 mol_id = mol_id_alt
 
         if mol_id not in target_dict:
-            print(f"Warning: No se encontró target para la molécula '{mol_id}', se omite.")
+            logger.warning(f"No se encontró target para '{mol_id}', se omite.")
             continue
 
-        target = target_dict[mol_id]
         filepath = os.path.join(sdf_dir, filename)
         suppl = Chem.SDMolSupplier(filepath, removeHs=False)
         mol = next((m for m in suppl if m is not None), None)
+
         if mol is None:
-            print(f"Warning: No se pudo leer la molécula del archivo '{filename}', se omite.")
+            logger.warning(f"No se pudo leer la molécula desde '{filename}', se omite.")
             continue
 
-        data = mol_to_graph_data_obj(mol)
-        data.y = torch.tensor([target], dtype=torch.float)
-        data.name = mol_id  # nombre limpio que coincide con target
+        # Ignorar moléculas sin enlaces
+        if mol.GetNumBonds() == 0:
+            logger.warning(f"'{filename}' no tiene enlaces, se omite.")
+            continue
 
+        try:
+            data = mol_to_graph_data_obj(mol)
+        except Exception as e:
+            logger.warning(f"Error procesando '{filename}': {e}")
+            continue
+
+        data.y = torch.tensor([target_dict[mol_id]], dtype=torch.float)
+        data.name = mol_id
         data_list.append(data)
 
     if not data_list:

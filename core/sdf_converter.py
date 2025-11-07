@@ -7,6 +7,7 @@ from rdkit.Chem import AllChem
 from rdkit.Geometry import Point3D
 import networkx as nx
 import os
+import pandas as pd
 logger = logging.getLogger(__name__)
 
 
@@ -140,5 +141,55 @@ def split_sdf(sdf_file, output_dir):
         writer.close()
 
     print(f"Se han generado {len(suppl)} moléculas individuales en '{output_dir}'.")
+
+def smiles_csv_to_sdf_dir(csv_path, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+    df = pd.read_csv(csv_path)
+
+    smiles_col = next((col for col in df.columns if col.lower() == "smiles"), None)
+    if smiles_col is None:
+        raise ValueError("El CSV debe tener una columna 'SMILES'.")
+
+    name_col = next((col for col in df.columns if col.lower() in ["id", "name"]), None)
+
+    for i, row in df.iterrows():
+        smiles = str(row[smiles_col]).strip()
+        if not smiles:
+            logger.warning(f"Fila {i}: SMILES vacío, se omite.")
+            continue
+
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            logger.warning(f"Fila {i}: SMILES inválido '{smiles}', se omite.")
+            continue
+
+        mol = Chem.AddHs(mol)
+        params = AllChem.ETKDGv3()
+        success = AllChem.EmbedMolecule(mol, params)
+        if success != 0:
+            logger.warning(f"Fila {i}: Falló generación 3D, se omite.")
+            continue
+
+        AllChem.UFFOptimizeMolecule(mol)
+
+        try:
+            Chem.SanitizeMol(mol)
+        except Exception as e:
+            logger.warning(f"Fila {i}: no se pudo sanitizar ({e}), se omite.")
+            continue
+
+        name = (
+            str(row[name_col]).strip().replace(" ", "_")
+            if name_col and not pd.isna(row[name_col])
+            else f"mol_{i+1}"
+        )
+        mol.SetProp("_Name", name)
+
+        out_path = os.path.join(output_dir, f"{name}.sdf")
+        with Chem.SDWriter(out_path) as writer:
+            writer.write(mol)
+
+    print(f"SDFs generados en '{output_dir}' ({len(df)} filas procesadas).")
+
 
 
