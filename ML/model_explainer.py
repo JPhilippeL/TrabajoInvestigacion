@@ -3,14 +3,15 @@ from ui.utils import periodic_elements, hybridization_types
 from ML.model_tester import cargar_modelo, predecir_molecula
 import torch
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 import matplotlib.ticker as mticker
 import numpy as np
 from ui.utils import RESULTADOS_DIR
 import os
 import sys
 import logging
-from scipy.optimize import minimize
+from ML.data_processing import mol_to_graph_data_obj
+from rdkit import Chem
+from core.sdf_converter import parse_sdf
 
 SIGMADIST = 1
 MININICIAL = sys.float_info.max
@@ -19,7 +20,6 @@ logger = logging.getLogger(__name__)
 # Función para dada una muestra (x), genere una muestra perturbada (Z)
 # Dado un vector binario de las características a perturbar
 # Vector mascara: [perturbar_tipo_atomo, perturbar_grado, perturbar_aromaticidad, perturbar_hibridacion]
-# TO DO: VER LO DE  DISTRIBUCION GAUSSIANA DISCRETA
 def perturb_features_sample(data, feature_mask, noise_level=0.05):
     data_new = data.clone()
     x = data_new.x
@@ -103,9 +103,13 @@ def embedding_distance_list(model, x, z_list, edge_attr_list=None, batch=None, d
 
     return distances
 
-def obtener_lime(checkpoint_path, data_sample, feature_mask, num_samples=50, noise_level=0.05, device='cpu'):
+def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_level=0.05, device='cpu'):
+    
+    mol = Chem.SDMolSupplier(sdf_path, removeHs=False)[0]
+    muestra = mol_to_graph_data_obj(mol)
+    
     # Generar muestras perturbadas
-    perturbed_samples = generate_perturbed_samples(data_sample, feature_mask, num_samples, noise_level)
+    perturbed_samples = generate_perturbed_samples(muestra, feature_mask, num_samples, noise_level)
 
     # Obtener modelo
     model, device, target_name = cargar_modelo(checkpoint_path)
@@ -121,7 +125,7 @@ def obtener_lime(checkpoint_path, data_sample, feature_mask, num_samples=50, noi
     predicciones_perturbadas = torch.tensor(predicciones_perturbadas, dtype=torch.float, device=device).unsqueeze(1)
 
     # Calcular distancias entre la muestra original y las perturbaciones
-    feature_distances = graph_feature_distance_list(data_sample, perturbed_samples, metric='euclidean')
+    feature_distances = graph_feature_distance_list(muestra, perturbed_samples, metric='euclidean')
     #feature_distances = embedding_distance_list(model, data_sample, perturbed_samples, device=device)
 
     # Precalcular todos los E_z^T (cada uno [d, N_z])
@@ -146,24 +150,27 @@ def obtener_lime(checkpoint_path, data_sample, feature_mask, num_samples=50, noi
     vmin = min(alfa.min().item(), beta.min().item())
     vmax = max(alfa.max().item(), beta.max().item())
 
-    # --- Crear figura con 2 subplots ---
-    fig, axes = plt.subplots(1, 2, figsize=(10, 10))  # vertical (d alto)
+    import matplotlib.gridspec as gridspec
 
-    # Heatmap de α (transpuesto visualmente)
-    im_a, cbar_a = heatmap(
-        alfa_np, row_labels_alfa, col_labels_alfa,
-        ax=axes[0], cmap="YlGn", vmin=vmin, vmax=vmax
-    )
-    axes[0].set_title("Coeficientes α (por feature)")
-    annotate_heatmap(im_a, alfa_np, valfmt="{x:.2f}")
+    fig = plt.figure(figsize=(15, 10))
+    gs = gridspec.GridSpec(2, 3, figure=fig)
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[0, 1])
+    ax3 = fig.add_subplot(gs[1, :])  # ocupa toda la fila inferior
 
-    # Heatmap de β
-    im_b, cbar_b = heatmap(
-        beta_np, row_labels_beta, col_labels_beta,
-        ax=axes[1], cmap="YlOrRd", vmin=vmin, vmax=vmax
-    )
-    axes[1].set_title("Coeficientes β (por nodo)")
-    annotate_heatmap(im_b, beta_np, valfmt="{x:.2f}")
+    # α y β arriba
+    im_a, _ = heatmap(alfa_np, row_labels_alfa, col_labels_alfa, ax=ax1, cmap="YlGn", vmin=vmin, vmax=vmax)
+    annotate_heatmap(im_a, alfa_np)
+    im_b, _ = heatmap(beta_np, row_labels_beta, col_labels_beta, ax=ax2, cmap="YlOrRd", vmin=vmin, vmax=vmax)
+    annotate_heatmap(im_b, beta_np)
+
+    # Grafo abajo centrado y grande
+    graph = parse_sdf(sdf_path)
+    plot_graph_with_beta(graph, beta_np.flatten(), ax=ax3, cmap="YlOrRd", vmin=vmin, vmax=vmax)
+
+    plt.tight_layout()
+
+
 
     # Obtener el nombre del checkpoint
     model_name = checkpoint_path.split('/')[-1]
@@ -231,7 +238,7 @@ def heatmap(data, row_labels, col_labels, ax, **kwargs):
     
     # Crear heatmap
     cbar_kw = {}
-    im = ax.imshow(data, aspect='auto', **kwargs)
+    im = ax.imshow(data, aspect=0.2, **kwargs)
 
     # Colorbar
     cbar = ax.figure.colorbar(im, ax=ax, **cbar_kw)
@@ -345,3 +352,77 @@ def limpiar_columnas_zero(data, col_labels):
     col_labels_limpias = [label for label, keep in zip(col_labels, mask) if keep]
 
     return data_limpia, col_labels_limpias
+
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import networkx as nx
+
+def plot_graph_with_beta(graph, beta, ax=None, cmap="YlOrRd", vmin=None, vmax=None):
+    """
+    Dibuja el grafo molecular con los nodos coloreados según los valores de importancia β.
+
+    Parámetros
+    ----------
+    graph : networkx.Graph
+        Grafo molecular generado (por ejemplo, con parse_sdf()).
+        Cada nodo debe tener atributos:
+            - "pos": (x, y) para la posición 2D
+            - "element": símbolo químico (e.g., "C", "O")
+    beta : array-like
+        Importancia de cada nodo (ordenada igual que los nodos del grafo).
+    ax : matplotlib.axes.Axes, opcional
+        Eje sobre el que dibujar. Si no se pasa, se crea uno nuevo.
+    cmap : str, opcional
+        Nombre del colormap de Matplotlib (por defecto "YlOrRd").
+    vmin, vmax : float, opcional
+        Límites inferior y superior de la escala de color.
+        Si no se indican, se calculan a partir de los valores de β.
+
+    Devuelve
+    --------
+    ax : matplotlib.axes.Axes
+        Eje con el grafo dibujado.
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6, 6))
+
+    beta = np.array(beta, dtype=float)
+
+    if vmin is None:
+        vmin = float(np.min(beta))
+    if vmax is None:
+        vmax = float(np.max(beta))
+
+    pos = {n: graph.nodes[n]["pos"] for n in graph.nodes}
+    norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+    cmap = plt.cm.get_cmap(cmap)
+    node_colors = [cmap(norm(b)) for b in beta]
+
+    # Dibujar aristas
+    nx.draw_networkx_edges(graph, pos, ax=ax, width=1.5, alpha=0.4, edge_color="gray")
+
+    # Dibujar nodos coloreados por β
+    nx.draw_networkx_nodes(
+        graph,
+        pos,
+        ax=ax,
+        node_color=node_colors,
+        node_size=300,
+        edgecolors="black",
+        linewidths=0.6
+    )
+
+    # Etiquetas de elementos químicos
+    labels = {n: graph.nodes[n].get("element", str(n)) for n in graph.nodes}
+    nx.draw_networkx_labels(graph, pos, labels, font_size=9, ax=ax)
+
+    # Colorbar
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cbar = plt.colorbar(sm, ax=ax, shrink=0.8)
+    cbar.set_label("Importancia β", fontsize=10)
+
+    ax.set_title("Grafo molecular coloreado por β")
+    ax.axis("off")
+
+    return ax
