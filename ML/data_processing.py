@@ -72,20 +72,82 @@ def mol_to_graph_data_obj(mol):
     data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
     return data
 
-def smiles_to_graph_data_obj(smiles):
-    mol = Chem.MolFromSmiles(smiles)
-    if mol is None:
-        raise ValueError(f"SMILES inválido: {smiles}")
+def mol_to_graph_data_obj_embedding(mol):
+    # Mapeo de tipos de enlace a índices
+    bond_type_to_int = {
+        Chem.rdchem.BondType.SINGLE: 0,
+        Chem.rdchem.BondType.DOUBLE: 1,
+        Chem.rdchem.BondType.TRIPLE: 2,
+        Chem.rdchem.BondType.AROMATIC: 3
+    }
+
+    # === ÁTOMOS ===
+    atom_features = []
+    atom_type_to_idx = {el: i for i, el in enumerate(periodic_elements)}
+    hybrid_to_idx = {h: i for i, h in enumerate(hybridization_types)}
+
+    for atom in mol.GetAtoms():
+        symbol_idx = atom_type_to_idx.get(atom.GetSymbol(), len(atom_type_to_idx) - 1)
+        hybrid_idx = hybrid_to_idx.get(atom.GetHybridization().name, len(hybrid_to_idx) - 1)
+        degree = atom.GetDegree() / 10.0
+        num_h = atom.GetTotalNumHs() / 10.0
+        aromatic = float(atom.GetIsAromatic())
+
+        # Guardamos los índices categóricos + valores continuos
+        atom_features.append([symbol_idx, hybrid_idx, degree, num_h, aromatic])
+
+    x = torch.tensor(atom_features, dtype=torch.float)
+
+    # === Coordenadas 3D ===
+    conf = mol.GetConformer()
+    pos = []
+    for atom in mol.GetAtoms():
+        idx = atom.GetIdx()
+        p = conf.GetAtomPosition(idx)
+        pos.append([p.x, p.y, p.z])
+    pos = torch.tensor(pos, dtype=torch.float)
+
+    # === ENLACES ===
+    edge_index = []
+    edge_attr = []
+    for bond in mol.GetBonds():
+        i = bond.GetBeginAtomIdx()
+        j = bond.GetEndAtomIdx()
+
+        dist = torch.norm(pos[i] - pos[j]).unsqueeze(0)  # tensor [1]
+        bond_type = bond.GetBondType()
+        bond_type_idx = bond_type_to_int.get(bond_type, 0)
+
+        # Guardamos solo el índice y la distancia
+        edge_features = torch.tensor([bond_type_idx, dist.item()], dtype=torch.float)
+
+        edge_index.append([i, j])
+        edge_index.append([j, i])
+        edge_attr.append(edge_features)
+        edge_attr.append(edge_features)
+
+    edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
+    edge_attr = torch.stack(edge_attr).float()
+
+    # === Construir objeto Data ===
+    data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+    return data
+
+
+# def smiles_to_graph_data_obj(smiles):
+#     mol = Chem.MolFromSmiles(smiles)
+#     if mol is None:
+#         raise ValueError(f"SMILES inválido: {smiles}")
     
-    # Añadir hidrógenos explícitos
-    mol = Chem.AddHs(mol)
+#     # Añadir hidrógenos explícitos
+#     mol = Chem.AddHs(mol)
     
-    # Generar coordenadas 3D
-    AllChem.EmbedMolecule(mol, randomSeed=42)
-    AllChem.UFFOptimizeMolecule(mol)
+#     # Generar coordenadas 3D
+#     AllChem.EmbedMolecule(mol, randomSeed=42)
+#     AllChem.UFFOptimizeMolecule(mol)
     
-    # Reutilizar
-    return mol_to_graph_data_obj(mol)
+#     # Reutilizar
+#     return mol_to_graph_data_obj(mol)
 
 def read_targets(targets_file):
     
@@ -135,7 +197,7 @@ def load_data_from_sdf(sdf_dir, target_dict):
             continue
 
         try:
-            data = mol_to_graph_data_obj(mol)
+            data = mol_to_graph_data_obj_embedding(mol)
         except Exception as e:
             logger.warning(f"Error procesando '{filename}': {e}")
             continue
@@ -196,47 +258,47 @@ def prepare_sdf_training_data(sdf_dir, target_file, batch_size=32, valid_split=0
 
     return train_loader, val_loader, device, input_dim, edge_dim, targetname
 
-def process_csv(csv_file, valid_split, batch_size):
-    # Leer CSV
-    df = pd.read_csv(csv_file)
-    # Buscar columna SMILES (insensible a mayúsculas)
-    smiles_cols = [c for c in df.columns if c.lower() == "smiles"]
-    if not smiles_cols:
-        raise ValueError("El CSV debe contener una columna con SMILES (insensible a mayúsculas).")
-    smiles_col = smiles_cols[0]
+# def process_csv(csv_file, valid_split, batch_size):
+#     # Leer CSV
+#     df = pd.read_csv(csv_file)
+#     # Buscar columna SMILES (insensible a mayúsculas)
+#     smiles_cols = [c for c in df.columns if c.lower() == "smiles"]
+#     if not smiles_cols:
+#         raise ValueError("El CSV debe contener una columna con SMILES (insensible a mayúsculas).")
+#     smiles_col = smiles_cols[0]
 
-    # Buscar columna target (cualquier columna que contenga 'target', insensible a mayúsculas)
-    target_cols = [c for c in df.columns if "target" in c.lower()]
-    if not target_cols:
-        raise ValueError("El CSV debe contener al menos una columna que tenga 'target' en su nombre.")
-    target_col = target_cols[0]
-    safe_target_name = re.sub(r"[^A-Za-z0-9_\-]", "_", target_col)
+#     # Buscar columna target (cualquier columna que contenga 'target', insensible a mayúsculas)
+#     target_cols = [c for c in df.columns if "target" in c.lower()]
+#     if not target_cols:
+#         raise ValueError("El CSV debe contener al menos una columna que tenga 'target' en su nombre.")
+#     target_col = target_cols[0]
+#     safe_target_name = re.sub(r"[^A-Za-z0-9_\-]", "_", target_col)
         
-    data_list = []
-    for _, row in df.iterrows():
-        try:
-            graph_data = smiles_to_graph_data_obj(row[smiles_col])
-            graph_data.y = torch.tensor([row[target_col]], dtype=torch.float)
-            data_list.append(graph_data)
-        except Exception as e:
-            logging.warning(f"Error con SMILES {row[smiles_col]}: {e}")
+#     data_list = []
+#     for _, row in df.iterrows():
+#         try:
+#             graph_data = smiles_to_graph_data_obj(row[smiles_col])
+#             graph_data.y = torch.tensor([row[target_col]], dtype=torch.float)
+#             data_list.append(graph_data)
+#         except Exception as e:
+#             logging.warning(f"Error con SMILES {row[smiles_col]}: {e}")
 
-    logging.info(f"Se pudieron traducir correctamente {len(data_list)} de {len(df)} moléculas.")
+#     logging.info(f"Se pudieron traducir correctamente {len(data_list)} de {len(df)} moléculas.")
 
-    if not data_list:
-        raise ValueError("No se pudo generar ningún grafo a partir del CSV")
+#     if not data_list:
+#         raise ValueError("No se pudo generar ningún grafo a partir del CSV")
 
-    # Dividir entrenamiento/validación
-    if 0 < valid_split < 1:
-        train_data, val_data = train_test_split(data_list, test_size=valid_split, random_state=42)
-        val_loader = create_dataloader(val_data, batch_size=batch_size)
-    else:
-        train_data = data_list
-        val_loader = None
+#     # Dividir entrenamiento/validación
+#     if 0 < valid_split < 1:
+#         train_data, val_data = train_test_split(data_list, test_size=valid_split, random_state=42)
+#         val_loader = create_dataloader(val_data, batch_size=batch_size)
+#     else:
+#         train_data = data_list
+#         val_loader = None
 
-    train_loader = create_dataloader(train_data, batch_size=batch_size)
-    input_dim = data_list[0].x.shape[1]
-    edge_dim = data_list[0].edge_attr.shape[1]
+#     train_loader = create_dataloader(train_data, batch_size=batch_size)
+#     input_dim = data_list[0].x.shape[1]
+#     edge_dim = data_list[0].edge_attr.shape[1]
 
-    return train_loader, val_loader, input_dim, edge_dim, safe_target_name
+#     return train_loader, val_loader, input_dim, edge_dim, safe_target_name
 

@@ -1,12 +1,10 @@
 # COSAS Q HACER
-Hacer que se muestre solo alfa y beta
 Normalizar alfa y beta
-Que aparezca el grafo con colorines
-Metodo para pasar todo un csv de smiles a sdf
-Probar modelo con database grande
-Hacer lo del embedding
-Mantener el one hot en z'
+Mejorar la representacion del grafo
+ver si el index de los nodos es el mismo que el orden en el data processing
+Hacer lo del embedding para el reto de las arquitecturas
 Probar entrenar un modelo con otro target
+Hacer que no haga lo de cargar datos mil veces al hacer pruebas de muchos modelos
 
 # COSAS Q PREGUNTAR
 Me dan valores negativos en alfa, que hago?

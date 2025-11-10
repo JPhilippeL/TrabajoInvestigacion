@@ -17,6 +17,34 @@ SIGMADIST = 1
 MININICIAL = sys.float_info.max
 logger = logging.getLogger(__name__)
 
+def onehot_to_indices(data):
+    """
+    Convierte las features de nodos one-hot a indices que pueda usar EmbeddingEncoder.
+    data.x debe tener:
+        [one-hot atom | grado | numH | aromatic | one-hot hybrid]
+    """
+    x = data.x.clone()
+    num_atoms = len(periodic_elements)
+    num_hybrids = len(hybridization_types)
+
+    # Atom index
+    atom_onehot = x[:, :num_atoms]
+    atom_idx = atom_onehot.argmax(dim=1, keepdim=True)
+
+    # Continuos
+    cont_features = x[:, num_atoms:-num_hybrids]
+
+    # Hybrid index
+    hybrid_onehot = x[:, -num_hybrids:]
+    hybrid_idx = hybrid_onehot.argmax(dim=1, keepdim=True)
+
+    # Concatenar: [atom_idx, hybrid_idx, cont_features]
+    x_new = torch.cat([atom_idx, hybrid_idx, cont_features], dim=1)
+    data_new = data.clone()
+    data_new.x = x_new
+    return data_new
+
+
 # Función para dada una muestra (x), genere una muestra perturbada (Z)
 # Dado un vector binario de las características a perturbar
 # Vector mascara: [perturbar_tipo_atomo, perturbar_grado, perturbar_aromaticidad, perturbar_hibridacion]
@@ -107,6 +135,14 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
     
     mol = Chem.SDMolSupplier(sdf_path, removeHs=False)[0]
     muestra = mol_to_graph_data_obj(mol)
+
+    # Mapear node index -> atom idx
+    node_to_atomidx = {i: atom.GetIdx() for i, atom in enumerate(mol.GetAtoms())}
+
+    # Imprimir para verificación
+    for i in range(muestra.num_nodes):
+        atom = mol.GetAtomWithIdx(node_to_atomidx[i])
+        logger.info(f"Node {i} -> AtomIdx {atom.GetIdx()} ({atom.GetSymbol()})")
     
     # Generar muestras perturbadas
     perturbed_samples = generate_perturbed_samples(muestra, feature_mask, num_samples, noise_level)
@@ -118,7 +154,8 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
     predicciones_perturbadas = []
     for perturbed in perturbed_samples:
         perturbed = perturbed.to(device)
-        pred = predecir_molecula(model, perturbed, device)
+        perturbed_for_model = onehot_to_indices(perturbed)  # <-- aquí el puente
+        pred = predecir_molecula(model, perturbed_for_model, device)
         predicciones_perturbadas.append(pred)
 
     # Convertir a tensor [num_samples,1]
@@ -147,8 +184,8 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
     col_labels_beta = [""]
 
     # --- Escala común opcional ---
-    vmin = min(alfa.min().item(), beta.min().item())
-    vmax = max(alfa.max().item(), beta.max().item())
+    #vmin = min(alfa.min().item(), beta.min().item())
+    #vmax = max(alfa.max().item(), beta.max().item())
 
     import matplotlib.gridspec as gridspec
 
@@ -159,14 +196,15 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
     ax3 = fig.add_subplot(gs[1, :])  # ocupa toda la fila inferior
 
     # α y β arriba
-    im_a, _ = heatmap(alfa_np, row_labels_alfa, col_labels_alfa, ax=ax1, cmap="YlGn", vmin=vmin, vmax=vmax)
+    im_a, _ = heatmap(alfa_np, row_labels_alfa, col_labels_alfa, ax=ax1, cmap="YlGn") # , vmin=vmin, vmax=vmax)
     annotate_heatmap(im_a, alfa_np)
-    im_b, _ = heatmap(beta_np, row_labels_beta, col_labels_beta, ax=ax2, cmap="YlOrRd", vmin=vmin, vmax=vmax)
+    im_b, _ = heatmap(beta_np, row_labels_beta, col_labels_beta, ax=ax2, cmap="YlOrRd") #, vmin=vmin, vmax=vmax)
     annotate_heatmap(im_b, beta_np)
 
     # Grafo abajo centrado y grande
     graph = parse_sdf(sdf_path)
-    plot_graph_with_beta(graph, beta_np.flatten(), ax=ax3, cmap="YlOrRd", vmin=vmin, vmax=vmax)
+    node_idx_map = {str(atom.GetIdx()): atom.GetIdx() for atom in mol.GetAtoms()}
+    plot_graph_with_beta(graph, beta_np.flatten(), ax=ax3, cmap="YlOrRd", node_idx_map=node_idx_map) #, vmin=vmin, vmax=vmax, node_idx_map = node_idx_map)
 
     plt.tight_layout()
 
@@ -357,7 +395,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import networkx as nx
 
-def plot_graph_with_beta(graph, beta, ax=None, cmap="YlOrRd", vmin=None, vmax=None):
+def plot_graph_with_beta(graph, beta, ax=None, cmap="YlOrRd", vmin=None, vmax=None, node_idx_map=None):
     """
     Dibuja el grafo molecular con los nodos coloreados según los valores de importancia β.
 
@@ -369,14 +407,16 @@ def plot_graph_with_beta(graph, beta, ax=None, cmap="YlOrRd", vmin=None, vmax=No
             - "pos": (x, y) para la posición 2D
             - "element": símbolo químico (e.g., "C", "O")
     beta : array-like
-        Importancia de cada nodo (ordenada igual que los nodos del grafo).
+        Importancia de cada nodo (ordenada igual que los nodos en PyG Data).
     ax : matplotlib.axes.Axes, opcional
         Eje sobre el que dibujar. Si no se pasa, se crea uno nuevo.
     cmap : str, opcional
         Nombre del colormap de Matplotlib (por defecto "YlOrRd").
     vmin, vmax : float, opcional
         Límites inferior y superior de la escala de color.
-        Si no se indican, se calculan a partir de los valores de β.
+    node_idx_map : dict, opcional
+        Diccionario {nx_node_id: data_node_idx} para mapear correctamente los nodos
+        de networkx a los índices de beta. Si no se pasa, se asume que el orden coincide.
 
     Devuelve
     --------
@@ -387,6 +427,10 @@ def plot_graph_with_beta(graph, beta, ax=None, cmap="YlOrRd", vmin=None, vmax=No
         fig, ax = plt.subplots(figsize=(6, 6))
 
     beta = np.array(beta, dtype=float)
+
+    if node_idx_map is not None:
+        # Reordenar beta según el orden de nodos del grafo
+        beta = np.array([beta[node_idx_map[n]] for n in graph.nodes])
 
     if vmin is None:
         vmin = float(np.min(beta))
@@ -426,3 +470,4 @@ def plot_graph_with_beta(graph, beta, ax=None, cmap="YlOrRd", vmin=None, vmax=No
     ax.axis("off")
 
     return ax
+

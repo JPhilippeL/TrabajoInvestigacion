@@ -11,9 +11,8 @@ import pandas as pd
 import re
 
 from torch_geometric.nn import GINConv, GINEConv, GATConv, global_add_pool, TransformerConv
-from sklearn.model_selection import train_test_split
 
-from ML.data_processing import create_dataloader, smiles_to_graph_data_obj, prepare_sdf_training_data, process_csv
+from ML.data_processing import prepare_sdf_training_data
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,8 +21,41 @@ logging.basicConfig(
     stream=sys.stdout
 )
 
-from ui.utils import RESULTADOS_DIR, MODELOS_DIR
+from ui.utils import RESULTADOS_DIR, MODELOS_DIR, hybridization_types, periodic_elements
 HEADS = 4  # Número de cabezas para GAT y GraphTransformer
+atom_emb_dim=16
+hybrid_emb_dim=8
+bond_emb_dim=8
+hidden_dim=64
+num_layers=3
+fc_hidden_dim=128
+num_atom_types = len(periodic_elements)
+num_hybrids = len(hybridization_types)
+num_bond_types = 4
+
+
+class EmbeddingEncoder(torch.nn.Module):
+    def __init__(self, num_atom_types, num_hybrids, num_bond_types,
+                 atom_emb_dim=16, hybrid_emb_dim=8, bond_emb_dim=8):
+        super().__init__()
+        self.atom_embedding = torch.nn.Embedding(num_atom_types, atom_emb_dim)
+        self.hybrid_embedding = torch.nn.Embedding(num_hybrids, hybrid_emb_dim)
+        self.bond_embedding = torch.nn.Embedding(num_bond_types, bond_emb_dim)
+
+    def encode_nodes(self, x):
+        symbol_idx = x[:, 0].long()
+        hybrid_idx = x[:, 1].long()
+        cont_features = x[:, 2:]  # [degree, numH, aromatic]
+
+        symbol_emb = self.atom_embedding(symbol_idx)
+        hybrid_emb = self.hybrid_embedding(hybrid_idx)
+        return torch.cat([symbol_emb, hybrid_emb, cont_features], dim=1)
+
+    def encode_edges(self, edge_attr):
+        bond_idx = edge_attr[:, 0].long()
+        bond_dist = edge_attr[:, 1].unsqueeze(1)
+        bond_emb = self.bond_embedding(bond_idx)
+        return torch.cat([bond_emb, bond_dist], dim=1)
 
 
 # ----------------------
@@ -66,10 +98,53 @@ class GINNet(torch.nn.Module):
 
 
 
+# class GINENet(torch.nn.Module):
+#     def __init__(self, input_dim, edge_dim=1, hidden_dim=64, num_layers=3, fc_hidden_dim=128):
+#         super().__init__()
+#         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
+#         self.convs = torch.nn.ModuleList()
+#         for _ in range(num_layers):
+#             mlp = torch.nn.Sequential(
+#                 torch.nn.Linear(hidden_dim, hidden_dim),
+#                 torch.nn.ReLU(),
+#                 torch.nn.Linear(hidden_dim, hidden_dim)
+#             )
+#             self.convs.append(GINEConv(mlp, edge_dim=edge_dim))
+
+#         self.fc = torch.nn.Sequential(
+#             torch.nn.Linear(hidden_dim, fc_hidden_dim),
+#             torch.nn.ReLU(),
+#             torch.nn.Linear(fc_hidden_dim, 1)
+#         )
+
+#     def forward(self, x, edge_index, edge_attr, batch):
+#         x = self.node_encoder(x)
+#         for conv in self.convs:
+#             x = conv(x, edge_index, edge_attr)
+#             x = F.relu(x)
+#         x = global_add_pool(x, batch)
+#         return self.fc(x).view(-1)
+    
+#     def get_embedding(self, x, edge_index, edge_attr=None, batch=None):
+#         x = self.node_encoder(x) if hasattr(self, 'node_encoder') else x
+#         for conv in self.convs:
+#             x = conv(x, edge_index) if edge_attr is None else conv(x, edge_index, edge_attr)
+#             x = F.relu(x)
+#         x = global_add_pool(x, batch)
+#         return x
+    
+# Con embedding nuevo
 class GINENet(torch.nn.Module):
     def __init__(self, input_dim, edge_dim=1, hidden_dim=64, num_layers=3, fc_hidden_dim=128):
         super().__init__()
-        self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
+
+        self.encoder = EmbeddingEncoder(num_atom_types, num_hybrids, num_bond_types,
+                                        atom_emb_dim, hybrid_emb_dim, bond_emb_dim)
+
+        input_dim2 = atom_emb_dim + hybrid_emb_dim + 3  # 3 features continuas
+        edge_dim2 = bond_emb_dim + 1  # +1 por distancia
+
+        self.node_encoder = torch.nn.Linear(input_dim2, hidden_dim)
         self.convs = torch.nn.ModuleList()
         for _ in range(num_layers):
             mlp = torch.nn.Sequential(
@@ -77,7 +152,7 @@ class GINENet(torch.nn.Module):
                 torch.nn.ReLU(),
                 torch.nn.Linear(hidden_dim, hidden_dim)
             )
-            self.convs.append(GINEConv(mlp, edge_dim=edge_dim))
+            self.convs.append(GINEConv(mlp, edge_dim=edge_dim2))
 
         self.fc = torch.nn.Sequential(
             torch.nn.Linear(hidden_dim, fc_hidden_dim),
@@ -86,6 +161,8 @@ class GINENet(torch.nn.Module):
         )
 
     def forward(self, x, edge_index, edge_attr, batch):
+        x = self.encoder.encode_nodes(x)
+        edge_attr = self.encoder.encode_edges(edge_attr)
         x = self.node_encoder(x)
         for conv in self.convs:
             x = conv(x, edge_index, edge_attr)
@@ -407,48 +484,6 @@ def train_and_save_model(
 
     return save_path
 
-
-def train_and_save_model_csv(
-    csv_file,
-    model_type,
-    epochs,
-    model_name,
-    batch_size=32,
-    lr=0.001,
-    valid_split=0.2,
-    hidden_dim=64,
-    num_layers=3,
-    patience=0
-):
-    train_loader, val_loader, input_dim, edge_dim, target_name = process_csv(csv_file, valid_split, batch_size)
-
-    # Configurar dispositivo
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # Crear modelo
-    model = create_model(model_type, input_dim, hidden_dim=hidden_dim, num_layers=num_layers, edge_dim=edge_dim)
-
-    # Entrenar
-    train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience, model_name=model_name)
-
-    save_path = save_model(
-        model=model,
-        model_name=model_name,
-        input_dim=input_dim,
-        edge_dim=edge_dim,
-        target_name=target_name,
-        model_type=model_type,
-        epochs=epochs,
-        hidden_dim=hidden_dim,
-        num_layers=num_layers,
-        batch_size=batch_size,
-        lr=lr,
-        valid_split=valid_split,
-        patience=patience
-    )
-
-    return save_path
-
 # Entrenar y guardar modelos cambiandole las capas
 def train_multiple_models(
     sdf_dir,
@@ -493,50 +528,4 @@ def train_multiple_models(
                 valid_split=valid_split,
                 patience=patience
             )
-            logging.info(f"Modelo guardado en: {save_path}")       
-            
-
-
-# Entrenar y guardar modelos cambiandole las capas
-def train_multiple_models_csv(
-    csv_file,
-    epochs,
-    batch_size=32,
-    lr=0.001,
-    valid_split=0.2,
-    hidden_dim=64,
-    patience=0
-):
-    model_types = ["GIN", "GINE", "GAT", "EGAT", "GraphTransformer"]
-    capas = [2, 3, 4, 5]
-
-    train_loader, val_loader, input_dim, edge_dim, target_name = process_csv(csv_file, valid_split, batch_size)
-
-    # Configurar dispositivo
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    for model_type in model_types:
-        for num_layers in capas:
-            model_name = f"CSV_{model_type}_{num_layers}capas_{target_name}"
-            logging.info(f"Entrenando modelo: {model_name}")
-            # Crear modelo
-            model = create_model(model_type, input_dim, hidden_dim=hidden_dim, num_layers=num_layers, edge_dim=edge_dim)
-            # Entrenar
-            train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience, model_name=model_name)
-            # Guardar
-            save_path = save_model(
-                model=model,
-                model_name=model_name,
-                input_dim=input_dim,
-                edge_dim=edge_dim,
-                target_name=target_name,
-                model_type=model_type,
-                epochs=epochs,
-                hidden_dim=hidden_dim,
-                num_layers=num_layers,
-                batch_size=batch_size,
-                lr=lr,
-                valid_split=valid_split,
-                patience=patience
-            )
-            logging.info(f"Modelo guardado en: {save_path}")            
+            logging.info(f"Modelo guardado en: {save_path}")
