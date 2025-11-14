@@ -21,26 +21,18 @@ logging.basicConfig(
     stream=sys.stdout
 )
 
-from ui.utils import RESULTADOS_DIR, MODELOS_DIR, hybridization_types, periodic_elements
+from ui.utils import RESULTADOS_DIR, MODELOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, ATOM_EMB_DIM, HYBRID_EMB_DIM, BOND_EMB_DIM, INPUT_DIM, EDGE_DIM
 HEADS = 4  # Número de cabezas para GAT y GraphTransformer
-atom_emb_dim=16
-hybrid_emb_dim=8
-bond_emb_dim=8
-hidden_dim=64
-num_layers=3
-fc_hidden_dim=128
-num_atom_types = len(periodic_elements)
-num_hybrids = len(hybridization_types)
-num_bond_types = 4
 
 
 class EmbeddingEncoder(torch.nn.Module):
-    def __init__(self, num_atom_types, num_hybrids, num_bond_types,
-                 atom_emb_dim=16, hybrid_emb_dim=8, bond_emb_dim=8):
+    def __init__(self):
         super().__init__()
-        self.atom_embedding = torch.nn.Embedding(num_atom_types, atom_emb_dim)
-        self.hybrid_embedding = torch.nn.Embedding(num_hybrids, hybrid_emb_dim)
-        self.bond_embedding = torch.nn.Embedding(num_bond_types, bond_emb_dim)
+        # El embedding del atomo con el numero de atomos diferentes y la dimnension del vector que queremos
+        self.atom_embedding = torch.nn.Embedding(len(periodic_elements), ATOM_EMB_DIM)
+        # Lo mismo con lo demás
+        self.hybrid_embedding = torch.nn.Embedding(len(hybridization_types), HYBRID_EMB_DIM)
+        self.bond_embedding = torch.nn.Embedding(N_BOND_TYPES, BOND_EMB_DIM)
 
     def encode_nodes(self, x):
         symbol_idx = x[:, 0].long()
@@ -60,15 +52,18 @@ class EmbeddingEncoder(torch.nn.Module):
 
 # ----------------------
 # Modelos GNN
-# ----------------------
-
+# ----------------------    
 class GINNet(torch.nn.Module):
-    def __init__(self, input_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=128):
+    def __init__(self, hidden_dim=64, num_layers=3, fc_hidden_dim=128):
         super().__init__()
+
+        self.encoder = EmbeddingEncoder()
+        self.node_encoder = torch.nn.Linear(INPUT_DIM, hidden_dim)
         self.convs = torch.nn.ModuleList()
+
         for i in range(num_layers):
             mlp = torch.nn.Sequential(
-                torch.nn.Linear(input_dim if i == 0 else hidden_dim, hidden_dim),
+                torch.nn.Linear(hidden_dim, hidden_dim),
                 torch.nn.ReLU(),
                 torch.nn.Linear(hidden_dim, hidden_dim)
             )
@@ -80,14 +75,16 @@ class GINNet(torch.nn.Module):
             torch.nn.Linear(fc_hidden_dim, 1)
         )
 
-    def forward(self, x, edge_index, edge_attr=None, batch=None):
+    def forward(self, x, edge_index, edge_attr = None, batch = None):
+        x = self.encoder.encode_nodes(x)
+        x = self.node_encoder(x)
         for conv in self.convs:
             x = conv(x, edge_index)
             x = F.relu(x)
         x = global_add_pool(x, batch)
         out = self.fc(x)
         return out.squeeze()
-    
+        
     def get_embedding(self, x, edge_index, edge_attr=None, batch=None):
         x = self.node_encoder(x) if hasattr(self, 'node_encoder') else x
         for conv in self.convs:
@@ -95,64 +92,23 @@ class GINNet(torch.nn.Module):
             x = F.relu(x)
         x = global_add_pool(x, batch)
         return x
-
-
-
-# class GINENet(torch.nn.Module):
-#     def __init__(self, input_dim, edge_dim=1, hidden_dim=64, num_layers=3, fc_hidden_dim=128):
-#         super().__init__()
-#         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
-#         self.convs = torch.nn.ModuleList()
-#         for _ in range(num_layers):
-#             mlp = torch.nn.Sequential(
-#                 torch.nn.Linear(hidden_dim, hidden_dim),
-#                 torch.nn.ReLU(),
-#                 torch.nn.Linear(hidden_dim, hidden_dim)
-#             )
-#             self.convs.append(GINEConv(mlp, edge_dim=edge_dim))
-
-#         self.fc = torch.nn.Sequential(
-#             torch.nn.Linear(hidden_dim, fc_hidden_dim),
-#             torch.nn.ReLU(),
-#             torch.nn.Linear(fc_hidden_dim, 1)
-#         )
-
-#     def forward(self, x, edge_index, edge_attr, batch):
-#         x = self.node_encoder(x)
-#         for conv in self.convs:
-#             x = conv(x, edge_index, edge_attr)
-#             x = F.relu(x)
-#         x = global_add_pool(x, batch)
-#         return self.fc(x).view(-1)
-    
-#     def get_embedding(self, x, edge_index, edge_attr=None, batch=None):
-#         x = self.node_encoder(x) if hasattr(self, 'node_encoder') else x
-#         for conv in self.convs:
-#             x = conv(x, edge_index) if edge_attr is None else conv(x, edge_index, edge_attr)
-#             x = F.relu(x)
-#         x = global_add_pool(x, batch)
-#         return x
     
 # Con embedding nuevo
 class GINENet(torch.nn.Module):
-    def __init__(self, input_dim, edge_dim=1, hidden_dim=64, num_layers=3, fc_hidden_dim=128):
+    def __init__(self, hidden_dim=64, num_layers=3, fc_hidden_dim=128):
         super().__init__()
 
-        self.encoder = EmbeddingEncoder(num_atom_types, num_hybrids, num_bond_types,
-                                        atom_emb_dim, hybrid_emb_dim, bond_emb_dim)
-
-        input_dim2 = atom_emb_dim + hybrid_emb_dim + 3  # 3 features continuas
-        edge_dim2 = bond_emb_dim + 1  # +1 por distancia
-
-        self.node_encoder = torch.nn.Linear(input_dim2, hidden_dim)
+        self.encoder = EmbeddingEncoder()
+        self.node_encoder = torch.nn.Linear(INPUT_DIM, hidden_dim)
         self.convs = torch.nn.ModuleList()
+
         for _ in range(num_layers):
             mlp = torch.nn.Sequential(
                 torch.nn.Linear(hidden_dim, hidden_dim),
                 torch.nn.ReLU(),
                 torch.nn.Linear(hidden_dim, hidden_dim)
             )
-            self.convs.append(GINEConv(mlp, edge_dim=edge_dim2))
+            self.convs.append(GINEConv(mlp, edge_dim = EDGE_DIM))
 
         self.fc = torch.nn.Sequential(
             torch.nn.Linear(hidden_dim, fc_hidden_dim),
@@ -162,13 +118,14 @@ class GINENet(torch.nn.Module):
 
     def forward(self, x, edge_index, edge_attr, batch):
         x = self.encoder.encode_nodes(x)
-        edge_attr = self.encoder.encode_edges(edge_attr)
         x = self.node_encoder(x)
+        edge_attr = self.encoder.encode_edges(edge_attr)
         for conv in self.convs:
             x = conv(x, edge_index, edge_attr)
             x = F.relu(x)
         x = global_add_pool(x, batch)
-        return self.fc(x).view(-1)
+        out = self.fc(x)
+        return out.squeeze()
     
     def get_embedding(self, x, edge_index, edge_attr=None, batch=None):
         x = self.node_encoder(x) if hasattr(self, 'node_encoder') else x
@@ -291,9 +248,9 @@ class GraphTransformerNet(torch.nn.Module):
 
 def create_model(model_name, input_dim, hidden_dim, num_layers, edge_dim):
     if model_name == "GIN":
-        return GINNet(input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers)
+        return GINNet(hidden_dim=hidden_dim, num_layers=num_layers)
     elif model_name == "GINE":
-        return GINENet(input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, edge_dim=edge_dim)
+        return GINENet(hidden_dim=hidden_dim, num_layers=num_layers)
     elif model_name == "GAT":
         return GATNet(input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, heads=HEADS)
     elif model_name == "GraphTransformer":

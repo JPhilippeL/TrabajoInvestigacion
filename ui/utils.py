@@ -40,3 +40,14 @@ periodic_elements = ['C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na',
                      'Mn', 'Zr','Cr', 'Pt', 'Hg', 'Pb','Unknown']
 
 hybridization_types = ['S', 'SP', 'SP2', 'SP2D','SP3','SP3D', 'OTHER','UNSPECIFIED']
+
+N_BOND_TYPES = 4
+ATOM_EMB_DIM = 16
+HYBRID_EMB_DIM = 8
+OTHER_NODE_FEATURES = 3
+BOND_EMB_DIM = 4
+OTHER_EDGE_FEATURES = 1
+
+INPUT_DIM = ATOM_EMB_DIM + HYBRID_EMB_DIM + OTHER_NODE_FEATURES
+EDGE_DIM = BOND_EMB_DIM + OTHER_EDGE_FEATURES
+
