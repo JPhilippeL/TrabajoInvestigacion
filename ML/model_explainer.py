@@ -12,6 +12,7 @@ import logging
 from ML.data_processing import mol_to_graph_data_obj
 from rdkit import Chem
 from core.sdf_converter import parse_sdf
+import matplotlib.gridspec as gridspec
 
 SIGMADIST = 1
 MININICIAL = sys.float_info.max
@@ -183,12 +184,6 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
     row_labels_beta = [f"Node {i}" for i in range(len(beta_np))]
     col_labels_beta = [""]
 
-    # --- Escala común opcional ---
-    #vmin = min(alfa.min().item(), beta.min().item())
-    #vmax = max(alfa.max().item(), beta.max().item())
-
-    import matplotlib.gridspec as gridspec
-
     fig = plt.figure(figsize=(15, 10))
     gs = gridspec.GridSpec(2, 3, figure=fig)
     ax1 = fig.add_subplot(gs[0, 0])
@@ -196,15 +191,15 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
     ax3 = fig.add_subplot(gs[1, :])  # ocupa toda la fila inferior
 
     # α y β arriba
-    im_a, _ = heatmap(alfa_np, row_labels_alfa, col_labels_alfa, ax=ax1, cmap="YlGn") # , vmin=vmin, vmax=vmax)
+    im_a, _ = heatmap(alfa_np, row_labels_alfa, col_labels_alfa, ax=ax1, cmap="YlGn")
     annotate_heatmap(im_a, alfa_np)
-    im_b, _ = heatmap(beta_np, row_labels_beta, col_labels_beta, ax=ax2, cmap="YlOrRd") #, vmin=vmin, vmax=vmax)
+    im_b, _ = heatmap(beta_np, row_labels_beta, col_labels_beta, ax=ax2, cmap="YlOrRd")
     annotate_heatmap(im_b, beta_np)
 
     # Grafo abajo centrado y grande
     graph = parse_sdf(sdf_path)
     node_idx_map = {str(atom.GetIdx()): atom.GetIdx() for atom in mol.GetAtoms()}
-    plot_graph_with_beta(graph, beta_np.flatten(), ax=ax3, cmap="YlOrRd", node_idx_map=node_idx_map) #, vmin=vmin, vmax=vmax, node_idx_map = node_idx_map)
+    plot_graph_with_beta(graph, beta_np.flatten(), ax=ax3, cmap="YlOrRd", node_idx_map=node_idx_map)
 
     plt.tight_layout()
 
