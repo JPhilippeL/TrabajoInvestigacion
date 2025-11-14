@@ -83,7 +83,7 @@ class GINNet(torch.nn.Module):
             x = F.relu(x)
         x = global_add_pool(x, batch)
         out = self.fc(x)
-        return out.squeeze()
+        return out.view(-1)
         
     def get_embedding(self, x, edge_index, edge_attr=None, batch=None):
         x = self.node_encoder(x) if hasattr(self, 'node_encoder') else x
@@ -93,7 +93,6 @@ class GINNet(torch.nn.Module):
         x = global_add_pool(x, batch)
         return x
     
-# Con embedding nuevo
 class GINENet(torch.nn.Module):
     def __init__(self, hidden_dim=64, num_layers=3, fc_hidden_dim=128):
         super().__init__()
@@ -125,7 +124,7 @@ class GINENet(torch.nn.Module):
             x = F.relu(x)
         x = global_add_pool(x, batch)
         out = self.fc(x)
-        return out.squeeze()
+        return out.view(-1)
     
     def get_embedding(self, x, edge_index, edge_attr=None, batch=None):
         x = self.node_encoder(x) if hasattr(self, 'node_encoder') else x
@@ -134,15 +133,17 @@ class GINENet(torch.nn.Module):
             x = F.relu(x)
         x = global_add_pool(x, batch)
         return x
-
-
-
+    
 class GATNet(torch.nn.Module):
-    def __init__(self, input_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128):
+    def __init__(self, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128):
         super().__init__()
+
+        self.encoder = EmbeddingEncoder()
+        self.node_encoder = torch.nn.Linear(INPUT_DIM, hidden_dim)
         self.convs = torch.nn.ModuleList()
+
         for i in range(num_layers):
-            in_channels = input_dim if i == 0 else hidden_dim * heads
+            in_channels = hidden_dim if i == 0 else hidden_dim * heads
             conv = GATConv(in_channels, hidden_dim, heads=heads, concat=True)
             self.convs.append(conv)
 
@@ -153,12 +154,14 @@ class GATNet(torch.nn.Module):
         )
 
     def forward(self, x, edge_index, edge_attr=None, batch=None):
+        x = self.encoder.encode_nodes(x)
+        x = self.node_encoder(x)
         for conv in self.convs:
             x = conv(x, edge_index)
             x = F.elu(x)
         x = global_add_pool(x, batch)
         out = self.fc(x)
-        return out.squeeze()
+        return out.view(-1)
     
     def get_embedding(self, x, edge_index, edge_attr=None, batch=None):
         x = self.node_encoder(x) if hasattr(self, 'node_encoder') else x
@@ -252,7 +255,7 @@ def create_model(model_name, input_dim, hidden_dim, num_layers, edge_dim):
     elif model_name == "GINE":
         return GINENet(hidden_dim=hidden_dim, num_layers=num_layers)
     elif model_name == "GAT":
-        return GATNet(input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, heads=HEADS)
+        return GATNet(hidden_dim=hidden_dim, num_layers=num_layers, heads=HEADS)
     elif model_name == "GraphTransformer":
         return GraphTransformerNet(input_dim=input_dim, hidden_dim=hidden_dim, num_layers=num_layers, edge_dim=edge_dim, heads=HEADS)
     elif model_name == "EGAT":
