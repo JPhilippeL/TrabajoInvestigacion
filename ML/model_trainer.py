@@ -495,16 +495,28 @@ def train_multiple_models(
     lr=0.001,
     valid_split=0.2,
     hidden_dim=64,
-    patience=0
+    patience=0,
+    atom_emb_dim = ATOM_EMB_PR,
+    hibrid_emb_dim = HYBRID_EMB_PR,
+    bond_emb_dim = BOND_EMB_PR
 ):
     model_types = ["GIN", "GINE", "GAT", "EGAT", "GraphTransformer"]
     capas = [2, 3, 4, 5]
     nombreTarget = os.path.splitext(os.path.basename(target_file))[0]
 
     # Preparar datos
-    train_loader, val_loader, device, input_dim, edge_dim, targetname = prepare_sdf_training_data(
+    train_loader, val_loader, device, targetname = prepare_sdf_training_data(
         sdf_dir, target_file, batch_size=batch_size, valid_split=valid_split
     )
+
+    calc_atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)
+    calc_hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
+    calc_bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
+
+    # Son porcentajes por los que se multiplican las dimensiones reales, 
+    # de esta manera el usuario elige si quiere desde 1 dimension sola hasta el 100%
+    input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
+    edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
 
     for model_type in model_types:
         for num_layers in capas:
@@ -528,7 +540,10 @@ def train_multiple_models(
                 batch_size=batch_size,
                 lr=lr,
                 valid_split=valid_split,
-                patience=patience
+                patience=patience,
+                atom_emb_dim = atom_emb_dim,
+                hibrid_emb_dim = hibrid_emb_dim,
+                bond_emb_dim = bond_emb_dim
             )
             logging.info(f"Modelo guardado en: {save_path}")
 

@@ -323,7 +323,10 @@ class MenuBar(QMenuBar):
             lr=config["lr"],
             valid_split=config["valid_split"],
             model_name=config["save_name"],
-            patience=config["early_stopping_patience"]
+            patience=config["early_stopping_patience"],
+            atom_emb_dim = config["atom_emb_pr"],
+            hibrid_emb_dim = config["hibrid_emb_pr"],
+            bond_emb_dim = config["bond_emb_pr"]
         )
 
     def entrenar_multiples_modelos(self):

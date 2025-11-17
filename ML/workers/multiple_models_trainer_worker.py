@@ -15,6 +15,9 @@ def main():
     parser.add_argument("--valid_split", type=float, default=0.2)
     parser.add_argument("--hidden_dim", type=int, default=64)
     parser.add_argument("--patience", type=int, default=0)
+    parser.add_argument("--atom_emb_dim", type=float)
+    parser.add_argument("--hibrid_emb_dim", type=float)
+    parser.add_argument("--bond_emb_dim", type=float)
     args = parser.parse_args()
 
     try:
@@ -27,7 +30,10 @@ def main():
             lr=args.lr,
             valid_split=args.valid_split,
             hidden_dim=args.hidden_dim,
-            patience=args.patience
+            patience=args.patience,
+            atom_emb_dim=args.atom_emb_dim,
+            hibrid_emb_dim=args.hibrid_emb_dim,
+            bond_emb_dim=args.bond_emb_dim
         )
         elapsed = time.time() - start
 

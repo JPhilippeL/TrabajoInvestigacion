@@ -3,6 +3,8 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox, QDialogButtonBox, QPushButton, QFileDialog, QHBoxLayout
 )
 from PySide6.QtCore import QSettings
+from ui.utils import ATOM_EMB_PR, HYBRID_EMB_PR, BOND_EMB_PR
+
 
 class TrainMultipleModelsDialog(QDialog):
     session_defaults = {
@@ -67,12 +69,37 @@ class TrainMultipleModelsDialog(QDialog):
         self.patience_input.setRange(0, 100)
         self.patience_input.setValue(int(self.settings.value("train_multi/patience", 0)))
 
+        # ---------- NUEVOS: Porcentajes de embedding ----------
+        self.atom_emb_pr_input = QDoubleSpinBox()
+        self.atom_emb_pr_input.setDecimals(3)
+        self.atom_emb_pr_input.setRange(0.0, 1.0)
+        self.atom_emb_pr_input.setSingleStep(0.01)
+        self.atom_emb_pr_input.setValue(float(self.settings.value("train_multi/atom_emb_pr", ATOM_EMB_PR)))
+
+        self.hibrid_emb_pr_input = QDoubleSpinBox()
+        self.hibrid_emb_pr_input.setDecimals(3)
+        self.hibrid_emb_pr_input.setRange(0.0, 1.0)
+        self.hibrid_emb_pr_input.setSingleStep(0.01)
+        self.hibrid_emb_pr_input.setValue(float(self.settings.value("train_multi/hibrid_emb_pr", HYBRID_EMB_PR)))
+
+        self.bond_emb_pr_input = QDoubleSpinBox()
+        self.bond_emb_pr_input.setDecimals(3)
+        self.bond_emb_pr_input.setRange(0.0, 1.0)
+        self.bond_emb_pr_input.setSingleStep(0.01)
+        self.bond_emb_pr_input.setValue(float(self.settings.value("train_multi/bond_emb_pr", BOND_EMB_PR)))
+
+        # ---------- Añadir al formulario ----------
         form_layout.addRow("Épocas:", self.epochs_input)
         form_layout.addRow("Batch size:", self.batch_input)
         form_layout.addRow("Learning rate:", self.lr_input)
         form_layout.addRow("Porcentaje validación:", self.valid_split_input)
         form_layout.addRow("Hidden dim:", self.hidden_dim_input)
         form_layout.addRow("Paciencia Early Stopping (0 desactiva):", self.patience_input)
+
+        # ---- NUEVOS ----
+        form_layout.addRow("Atom Embedding %:", self.atom_emb_pr_input)
+        form_layout.addRow("Hybrid Embedding %:", self.hibrid_emb_pr_input)
+        form_layout.addRow("Bond Embedding %:", self.bond_emb_pr_input)
 
         layout.addLayout(form_layout)
 
@@ -84,6 +111,10 @@ class TrainMultipleModelsDialog(QDialog):
 
         self.setLayout(layout)
 
+    # --------------------
+    # Selección de archivos
+    # --------------------
+
     def select_sdf_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta con SDFs")
         if folder:
@@ -94,8 +125,11 @@ class TrainMultipleModelsDialog(QDialog):
         if file:
             self.target_file_input.setText(file)
 
+    # --------------------
+    # Guardar configuraciones
+    # --------------------
+
     def accept(self):
-        # Guardar configuraciones
         self.settings.setValue("train_multi/sdf_dir", self.sdf_path_input.text())
         self.settings.setValue("train_multi/target_file", self.target_file_input.text())
         self.settings.setValue("train_multi/epochs", self.epochs_input.value())
@@ -104,7 +138,17 @@ class TrainMultipleModelsDialog(QDialog):
         self.settings.setValue("train_multi/valid_split", self.valid_split_input.value())
         self.settings.setValue("train_multi/hidden_dim", self.hidden_dim_input.value())
         self.settings.setValue("train_multi/patience", self.patience_input.value())
+
+        # Nuevos
+        self.settings.setValue("train_multi/atom_emb_pr", self.atom_emb_pr_input.value())
+        self.settings.setValue("train_multi/hibrid_emb_pr", self.hibrid_emb_pr_input.value())
+        self.settings.setValue("train_multi/bond_emb_pr", self.bond_emb_pr_input.value())
+
         super().accept()
+
+    # --------------------
+    # Devolver valores
+    # --------------------
 
     def get_values(self):
         return {
@@ -115,5 +159,8 @@ class TrainMultipleModelsDialog(QDialog):
             "lr": self.lr_input.value(),
             "valid_split": self.valid_split_input.value(),
             "hidden_dim": self.hidden_dim_input.value(),
-            "patience": self.patience_input.value()
+            "patience": self.patience_input.value(),
+            "atom_emb_pr": self.atom_emb_pr_input.value(),
+            "hibrid_emb_pr": self.hibrid_emb_pr_input.value(),
+            "bond_emb_pr": self.bond_emb_pr_input.value()
         }

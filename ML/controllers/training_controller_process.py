@@ -132,7 +132,10 @@ class TrainingControllerProcess:
         lr,
         valid_split,
         hidden_dim,
-        patience
+        patience,
+        atom_emb_dim,
+        hibrid_emb_dim,
+        bond_emb_dim
     ):      
         logger.info("Inicializando entrenamiento múltiple...")
 
@@ -147,7 +150,10 @@ class TrainingControllerProcess:
             "--lr", str(lr),
             "--valid_split", str(valid_split),
             "--hidden_dim", str(hidden_dim),
-            "--patience", str(patience)
+            "--patience", str(patience),
+            "--atom_emb_dim", str(atom_emb_dim),
+            "--hibrid_emb_dim", str(hibrid_emb_dim),
+            "--bond_emb_dim", str(bond_emb_dim)
         ])
 
         self.process.readyReadStandardOutput.connect(self.on_stdout)
