@@ -198,23 +198,37 @@ def obtener_info_checkpoint(model_path):
 
     try:
         checkpoint = torch.load(model_path, map_location='cpu')
+
         info = (
             f"Modelo: {checkpoint.get('model_type', 'Desconocido')}\n"
-            f"\tÉpocas entrenadas: {checkpoint.get('epochs_trained', 'Desconocido')}\n"
             f"\tTarget: {checkpoint.get('target_name', 'Desconocido')}\n"
+            f"\tÉpocas entrenadas: {checkpoint.get('epochs_trained', 'Desconocido')}\n"
+            f"\n"
+            f"Dimensiones:\n"
+            f"\tInput dim: {checkpoint.get('input_dim', 'Desconocido')}\n"
+            f"\tEdge dim: {checkpoint.get('edge_dim', 'Desconocido')}\n"
+            f"\tAtom emb %: {checkpoint.get('atom_emb_dim', 'Desconocido')}\n"
+            f"\tHybrid emb %: {checkpoint.get('hibrid_emb_dim', 'Desconocido')}\n"
+            f"\tBond emb %: {checkpoint.get('bond_emb_dim', 'Desconocido')}\n"
+            f"\n"
+            f"Hiperparámetros:\n"
             f"\tHidden dim: {checkpoint.get('hidden_dim', 'Desconocido')}\n"
             f"\tNúmero de capas: {checkpoint.get('num_layers', 'Desconocido')}\n"
             f"\tBatch size: {checkpoint.get('batch_size', 'Desconocido')}\n"
             f"\tLearning rate: {checkpoint.get('learning_rate', 'Desconocido')}\n"
             f"\tValid split: {checkpoint.get('valid_split', 'Desconocido')}\n"
             f"\tEarly stopping paciencia: {checkpoint.get('early_stopping_patience', 'No especificada')}\n"
-            f"\tTransfer mode: {checkpoint.get('transfer_mode', 'No especificado')}"
+            f"\n"
+            f"Transfer mode: {checkpoint.get('transfer_mode', 'No especificado')}"
         )
+
         return info
+
     except Exception as e:
         error_msg = f"Error al consultar parámetros del modelo: {str(e)}"
         logger.error(error_msg)
         return error_msg
+
 
 logger = logging.getLogger(__name__)
 
