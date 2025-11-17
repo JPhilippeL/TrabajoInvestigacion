@@ -22,9 +22,12 @@ class TrainingControllerProcess:
         lr,
         valid_split,
         model_name,
-        hidden_dim=64,
-        num_layers=3,
-        patience=0
+        hidden_dim,
+        num_layers,
+        patience,
+        atom_emb_dim,
+        hibrid_emb_dim,
+        bond_emb_dim
     ):
         
         # Mostrar mensaje en GUI
@@ -44,7 +47,10 @@ class TrainingControllerProcess:
             "--valid_split", str(valid_split),
             "--hidden_dim", str(hidden_dim),
             "--num_layers", str(num_layers),
-            "--patience", str(patience)
+            "--patience", str(patience),
+            "--atom_emb_dim", str(atom_emb_dim),
+            "--hibrid_emb_dim", str(hibrid_emb_dim),
+            "--bond_emb_dim", str(bond_emb_dim)
         ])
 
         # Conectar señales
@@ -65,7 +71,7 @@ class TrainingControllerProcess:
         lr,
         valid_split,
         model_name,
-        patience=0
+        patience
     ):
         logger.info("Inicializando Transfer Learning...")
 
@@ -122,11 +128,11 @@ class TrainingControllerProcess:
         sdf_dir,
         target_file,
         epochs,
-        batch_size=32,
-        lr=0.001,
-        valid_split=0.2,
-        hidden_dim=64,
-        patience=0
+        batch_size,
+        lr,
+        valid_split,
+        hidden_dim,
+        patience
     ):      
         logger.info("Inicializando entrenamiento múltiple...")
 
@@ -154,10 +160,10 @@ class TrainingControllerProcess:
         sdf_dir,
         target_file,
         epochs,
-        batch_size=32,
-        lr=0.001,
-        valid_split=0.2,
-        patience=0
+        batch_size,
+        lr,
+        valid_split,
+        patience
     ):
         logger.info("Inicializando entrenamiento múltiple con Transfer Learning...")
 
@@ -186,10 +192,10 @@ class TrainingControllerProcess:
         sdf_dir,
         target_file,
         epochs,
-        batch_size=32,
-        lr=0.001,
-        valid_split=0.2,
-        patience=0,
+        batch_size,
+        lr,
+        valid_split,
+        patience,
         transfer_mode = 1  # 0: both, 1: feature extraction, 2: fine-tuning
     ):
         logger.info("Inicializando entrenamiento múltiple con Feature Extraction...")
@@ -219,10 +225,10 @@ class TrainingControllerProcess:
         sdf_dir,
         target_file,
         epochs,
-        batch_size=32,
-        lr=0.001,
-        valid_split=0.2,
-        patience=0,
+        batch_size,
+        lr,
+        valid_split,
+        patience,
         transfer_mode = 2  # 0: both, 1: feature extraction, 2: fine-tuning
     ):
         logger.info("Inicializando entrenamiento múltiple con Fine Tuning...")
@@ -240,74 +246,6 @@ class TrainingControllerProcess:
             "--valid_split", str(valid_split),
             "--patience", str(patience),
             "--transfer_mode", str(transfer_mode)  # 0: both, 1: feature extraction, 2: fine-tuning
-        ])
-
-        self.process.readyReadStandardOutput.connect(self.on_stdout)
-        self.process.readyReadStandardError.connect(self.on_stderr)
-        self.process.start()
-
-    def entrenar_csv(
-        self,
-        csv_file,
-        model_type,
-        epochs,
-        batch_size,
-        lr,
-        valid_split,
-        model_name,
-        hidden_dim=64,
-        num_layers=3,
-        patience=0
-    ):
-        
-        # Mostrar mensaje en GUI
-        logger.info("Inicializando entrenamiento...")
-        
-        self.process = QProcess()
-        self.process.setProgram(sys.executable)  # ejecuta el mismo Python
-        self.process.setArguments([
-            "-m", "ML.workers.csv_trainer_worker",
-            "--csv_file", csv_file,
-            "--model_type", model_type,
-            "--epochs", str(epochs),
-            "--model_name", model_name,
-            "--batch_size", str(batch_size),
-            "--lr", str(lr),
-            "--valid_split", str(valid_split),
-            "--hidden_dim", str(hidden_dim),
-            "--num_layers", str(num_layers),
-            "--patience", str(patience)
-        ])
-
-        # Conectar señales
-        self.process.readyReadStandardOutput.connect(self.on_stdout)
-        self.process.readyReadStandardError.connect(self.on_stderr)
-
-        self.process.start()
-
-    def train_multiple_models_csv(
-        self,
-        csv_file,
-        epochs,
-        batch_size=32,
-        lr=0.001,
-        valid_split=0.2,
-        hidden_dim=64,
-        patience=0
-    ):      
-        logger.info("Inicializando entrenamiento múltiple...")
-
-        self.process = QProcess()
-        self.process.setProgram(sys.executable)
-        self.process.setArguments([
-            "-m", "ML.workers.csv_multiple_trainer_worker",
-            "--csv_file", csv_file,
-            "--epochs", str(epochs),
-            "--batch_size", str(batch_size),
-            "--lr", str(lr),
-            "--valid_split", str(valid_split),
-            "--hidden_dim", str(hidden_dim),
-            "--patience", str(patience)
         ])
 
         self.process.readyReadStandardOutput.connect(self.on_stdout)

@@ -12,13 +12,16 @@ def main():
     parser.add_argument("--target_file")
     parser.add_argument("--model_type")
     parser.add_argument("--epochs", type=int)
-    parser.add_argument("--model_name", type=str, default="model")
-    parser.add_argument("--batch_size", type=int, default=32)
-    parser.add_argument("--lr", type=float, default=0.001)
-    parser.add_argument("--valid_split", type=float, default=0.2)
-    parser.add_argument("--hidden_dim", type=int, default=64)
-    parser.add_argument("--num_layers", type=int, default=3)
-    parser.add_argument("--patience", type=int, default=0)
+    parser.add_argument("--model_name", type=str)
+    parser.add_argument("--batch_size", type=int)
+    parser.add_argument("--lr", type=float)
+    parser.add_argument("--valid_split", type=float)
+    parser.add_argument("--hidden_dim", type=int)
+    parser.add_argument("--num_layers", type=int)
+    parser.add_argument("--patience", type=int)
+    parser.add_argument("--atom_emb_dim", type=float)
+    parser.add_argument("--hibrid_emb_dim", type=float)
+    parser.add_argument("--bond_emb_dim", type=float)
     args = parser.parse_args()
 
     try:
@@ -34,7 +37,10 @@ def main():
             valid_split=args.valid_split,
             hidden_dim=args.hidden_dim,
             num_layers=args.num_layers,
-            patience=args.patience
+            patience=args.patience,
+            atom_emb_dim=args.atom_emb_dim,
+            hibrid_emb_dim=args.hibrid_emb_dim,
+            bond_emb_dim=args.bond_emb_dim
         )
         elapsed = time.time() - start
 

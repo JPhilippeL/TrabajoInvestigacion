@@ -7,8 +7,7 @@ import matplotlib.pyplot as plt
 import os
 import logging
 import gc
-import pandas as pd
-import re
+import math
 
 from torch_geometric.nn import GINConv, GINEConv, GATConv, global_add_pool, TransformerConv
 
@@ -21,18 +20,18 @@ logging.basicConfig(
     stream=sys.stdout
 )
 
-from ui.utils import RESULTADOS_DIR, MODELOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, ATOM_EMB_DIM, HYBRID_EMB_DIM, BOND_EMB_DIM, INPUT_DIM, EDGE_DIM
+from ui.utils import RESULTADOS_DIR, MODELOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, ATOM_EMB_PR, HYBRID_EMB_PR, BOND_EMB_PR, OTHER_EDGE_FEATURES, OTHER_NODE_FEATURES
 HEADS = 4  # Número de cabezas para GAT y GraphTransformer
 
 
 class EmbeddingEncoder(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, atom_emb_dim, hybrid_emb_dim, bond_emb_dim):
         super().__init__()
         # El embedding del atomo con el numero de atomos diferentes y la dimnension del vector que queremos
-        self.atom_embedding = torch.nn.Embedding(len(periodic_elements), ATOM_EMB_DIM)
+        self.atom_embedding = torch.nn.Embedding(len(periodic_elements), atom_emb_dim)
         # Lo mismo con lo demás
-        self.hybrid_embedding = torch.nn.Embedding(len(hybridization_types), HYBRID_EMB_DIM)
-        self.bond_embedding = torch.nn.Embedding(N_BOND_TYPES, BOND_EMB_DIM)
+        self.hybrid_embedding = torch.nn.Embedding(len(hybridization_types), hybrid_emb_dim)
+        self.bond_embedding = torch.nn.Embedding(N_BOND_TYPES, bond_emb_dim)
 
     def encode_nodes(self, x):
         symbol_idx = x[:, 0].long()
@@ -54,11 +53,11 @@ class EmbeddingEncoder(torch.nn.Module):
 # Modelos GNN
 # ----------------------    
 class GINNet(torch.nn.Module):
-    def __init__(self, hidden_dim=64, num_layers=3, fc_hidden_dim=128):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=128):
         super().__init__()
 
-        self.encoder = EmbeddingEncoder()
-        self.node_encoder = torch.nn.Linear(INPUT_DIM, hidden_dim)
+        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
+        self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
         self.convs = torch.nn.ModuleList()
 
         for i in range(num_layers):
@@ -94,11 +93,11 @@ class GINNet(torch.nn.Module):
         return x
     
 class GINENet(torch.nn.Module):
-    def __init__(self, hidden_dim=64, num_layers=3, fc_hidden_dim=128):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=128):
         super().__init__()
 
-        self.encoder = EmbeddingEncoder()
-        self.node_encoder = torch.nn.Linear(INPUT_DIM, hidden_dim)
+        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
+        self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
         self.convs = torch.nn.ModuleList()
 
         for _ in range(num_layers):
@@ -107,7 +106,7 @@ class GINENet(torch.nn.Module):
                 torch.nn.ReLU(),
                 torch.nn.Linear(hidden_dim, hidden_dim)
             )
-            self.convs.append(GINEConv(mlp, edge_dim = EDGE_DIM))
+            self.convs.append(GINEConv(mlp, edge_dim = edge_dim))
 
         self.fc = torch.nn.Sequential(
             torch.nn.Linear(hidden_dim, fc_hidden_dim),
@@ -135,11 +134,11 @@ class GINENet(torch.nn.Module):
         return x
     
 class GATNet(torch.nn.Module):
-    def __init__(self, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128):
         super().__init__()
 
-        self.encoder = EmbeddingEncoder()
-        self.node_encoder = torch.nn.Linear(INPUT_DIM, hidden_dim)
+        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
+        self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
         self.convs = torch.nn.ModuleList()
 
         for i in range(num_layers):
@@ -172,11 +171,11 @@ class GATNet(torch.nn.Module):
         return x
     
 class EGATNet(torch.nn.Module):
-    def __init__(self, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128):
         super().__init__()
 
-        self.encoder = EmbeddingEncoder()
-        self.node_encoder = torch.nn.Linear(INPUT_DIM, hidden_dim)
+        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
+        self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
         self.convs = torch.nn.ModuleList()
 
         for i in range(num_layers):
@@ -185,7 +184,7 @@ class EGATNet(torch.nn.Module):
                 in_channels,
                 hidden_dim, 
                 heads=heads,
-                edge_dim=EDGE_DIM, 
+                edge_dim=edge_dim, 
                 concat=True)
             self.convs.append(conv)
 
@@ -215,11 +214,11 @@ class EGATNet(torch.nn.Module):
         return x
     
 class GraphTransformerNet(torch.nn.Module):
-    def __init__(self, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128):
         super().__init__()
 
-        self.encoder = EmbeddingEncoder()
-        self.node_encoder = torch.nn.Linear(INPUT_DIM, hidden_dim)
+        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
+        self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
         self.convs = torch.nn.ModuleList()
 
         for i in range(num_layers):
@@ -228,7 +227,7 @@ class GraphTransformerNet(torch.nn.Module):
                 in_channels=in_channels,
                 out_channels=hidden_dim,
                 heads=heads,
-                edge_dim=EDGE_DIM,
+                edge_dim=edge_dim,
                 concat=True
             )
             self.convs.append(conv)
@@ -263,17 +262,17 @@ class GraphTransformerNet(torch.nn.Module):
 # Función para crear modelo según elección
 # ----------------------
 
-def create_model(model_name, input_dim, hidden_dim, num_layers, edge_dim):
+def create_model(model_name, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim, num_layers, edge_dim):
     if model_name == "GIN":
-        return GINNet(hidden_dim=hidden_dim, num_layers=num_layers)
+        return GINNet(input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim, num_layers)
     elif model_name == "GINE":
-        return GINENet(hidden_dim=hidden_dim, num_layers=num_layers)
+        return GINENet(input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim, num_layers)
     elif model_name == "GAT":
-        return GATNet(hidden_dim=hidden_dim, num_layers=num_layers, heads=HEADS)
+        return GATNet(input_dim,atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim, num_layers, HEADS)
     elif model_name == "GraphTransformer":
-        return GraphTransformerNet(hidden_dim=hidden_dim, num_layers=num_layers, heads=HEADS)
+        return GraphTransformerNet(input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim, num_layers, HEADS)
     elif model_name == "EGAT":
-        return EGATNet(hidden_dim=hidden_dim, num_layers=num_layers, heads=HEADS)
+        return EGATNet(input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim, num_layers, HEADS)
     else:
         raise ValueError(f"Modelo desconocido: {model_name}")
 
@@ -386,7 +385,10 @@ def save_model(
     lr=0.001,
     valid_split=0.2,
     patience=0,
-    modelos_dir=MODELOS_DIR
+    modelos_dir=MODELOS_DIR,
+    atom_emb_pr = ATOM_EMB_PR,
+    hibrid_emb_pr = HYBRID_EMB_PR,
+    bond_emb_pr = BOND_EMB_PR
 ):
     """
     Guarda un checkpoint de PyTorch con el estado del modelo y metadatos.
@@ -395,6 +397,9 @@ def save_model(
         'model_state_dict': model.state_dict(),
         'model_type': model_type,
         'input_dim': input_dim,
+        "atom_emb_pr" : atom_emb_pr,
+        "hibrid_emb_pr" : hibrid_emb_pr,
+        "bond_emb_pr" : bond_emb_pr,
         'edge_dim': edge_dim,
         'epochs_trained': epochs,
         'target_name': target_name,
@@ -429,13 +434,24 @@ def train_and_save_model(
     valid_split=0.2,
     hidden_dim=64,
     num_layers=3,
-    patience=0
+    patience=0,
+    atom_emb_dim = ATOM_EMB_PR,
+    hibrid_emb_dim = HYBRID_EMB_PR,
+    bond_emb_dim = BOND_EMB_PR
 ):
-    train_loader, val_loader, device, input_dim, edge_dim, targetname = prepare_sdf_training_data(
+    train_loader, val_loader, device, targetname = prepare_sdf_training_data(
         sdf_dir, target_file, batch_size=batch_size, valid_split=valid_split
     )
+    
+    atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)
+    hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
+    bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
 
-    model = create_model(model_type, input_dim, hidden_dim=hidden_dim, num_layers=num_layers, edge_dim=edge_dim)
+    # Son porcentajes por los que se multiplican las dimensiones reales, de esta manera el usuario elige si quiere desde 1 dimension sola hasta el 100%
+    input_dim = atom_emb_dim + hibrid_emb_dim + OTHER_NODE_FEATURES
+    edge_dim = bond_emb_dim + OTHER_EDGE_FEATURES
+
+    model = create_model(model_type, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=hidden_dim, num_layers=num_layers, edge_dim=edge_dim)
 
     train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience, model_name=model_name)
 
@@ -503,3 +519,6 @@ def train_multiple_models(
                 patience=patience
             )
             logging.info(f"Modelo guardado en: {save_path}")
+
+def calc_dim(x):
+    return max(1, math.ceil(x))

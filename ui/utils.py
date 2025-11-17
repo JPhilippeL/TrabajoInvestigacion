@@ -42,12 +42,11 @@ periodic_elements = ['C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na',
 hybridization_types = ['S', 'SP', 'SP2', 'SP2D','SP3','SP3D', 'OTHER','UNSPECIFIED']
 
 N_BOND_TYPES = 4
-ATOM_EMB_DIM = 16
-HYBRID_EMB_DIM = 8
-OTHER_NODE_FEATURES = 3
-BOND_EMB_DIM = 4
-OTHER_EDGE_FEATURES = 1
+# Porcentaje Estandard de Reduccion del Embedding (40 * 0.4 = 16), (8 * 0.5 = 4), (4 * 1 = 4)
+ATOM_EMB_PR = 0.4
+HYBRID_EMB_PR = 0.5
+BOND_EMB_PR = 1
 
-INPUT_DIM = ATOM_EMB_DIM + HYBRID_EMB_DIM + OTHER_NODE_FEATURES
-EDGE_DIM = BOND_EMB_DIM + OTHER_EDGE_FEATURES
+OTHER_NODE_FEATURES = 3
+OTHER_EDGE_FEATURES = 1
 

@@ -14,8 +14,6 @@ from ui.dialogs.test_all_models_dialog import BatchAllModelsTestDialog
 from ui.dialogs.train_multiple_models import TrainMultipleModelsDialog
 from ui.dialogs.transfer_learning_multiple_models import TransferLearningMultipleDialog
 from ui.dialogs.image_dialog import ImageDialog
-from ui.dialogs.csv_training_dialog import TrainCSVConfigDialog
-from ui.dialogs.csv_multiple_training_dialog import TrainMultipleModelsCSVDialog
 from ui.dialogs.csv_to_sdf import CSVtoSDFDialog
 
 from ML.model_tester import test_model_on_directory
@@ -233,22 +231,7 @@ class MenuBar(QMenuBar):
         
 
     def entrenar_ia(self):
-        # # Preguntar al usuario si quiere CSV o SDF
-        # opciones = ["CSV", "Directorio SDF"]
-        # tipo, ok = QInputDialog.getItem(
-        #     self.parent, "Seleccionar tipo de entrada",
-        #     "Tipo de datos:", opciones, 0, False
-        # )
-        # if not ok:
-        #     return
-        tipo = "SDF"
-
-        # Abrir el formulario correspondiente
-        if tipo == "CSV":
-            dialog = TrainCSVConfigDialog(self.parent)
-        else:  # SDF
-            dialog = TrainConfigDialog(self.parent)
-            tipo = "SDF"
+        dialog = TrainConfigDialog(self.parent)
 
         if dialog.exec() != QDialog.Accepted:
             return
@@ -256,18 +239,13 @@ class MenuBar(QMenuBar):
         config = dialog.get_values()
 
         # ----- Validaciones -----
-        if tipo == "SDF":
-            if not config["sdf_dir"] or not os.path.isdir(config["sdf_dir"]):
-                QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
-                return
+        if not config["sdf_dir"] or not os.path.isdir(config["sdf_dir"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
+            return
 
-            if not config["target_file"] or not os.path.isfile(config["target_file"]):
-                QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
-                return
-        else:  # CSV
-            if not config["csv_file"] or not os.path.isfile(config["csv_file"]):
-                QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo CSV válido.")
-                return
+        if not config["target_file"] or not os.path.isfile(config["target_file"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
+            return
 
         if not config["save_name"]:
             QMessageBox.warning(self.parent, "Nombre inválido", "El nombre del archivo no puede estar vacío.")
@@ -283,33 +261,22 @@ class MenuBar(QMenuBar):
             return
 
         # ----- Ejecutar entrenamiento -----
-        if tipo == "SDF":
-            self.parent.training_controller.entrenar(
-                sdf_dir=config["sdf_dir"],
-                target_file=config["target_file"],
-                model_type=config["modelo"],
-                epochs=config["epochs"],
-                batch_size=config["batch_size"],
-                lr=config["lr"],
-                valid_split=config["valid_split"],
-                model_name=config['save_name'],
-                hidden_dim=config["hidden_dim"],
-                num_layers=config["num_layers"],
-                patience=config["early_stopping_patience"]
-            )
-        else:  # CSV
-            self.parent.training_controller.entrenar_csv(
-                csv_file=config["csv_file"],
-                model_type=config["modelo"],
-                epochs=config["epochs"],
-                batch_size=config["batch_size"],
-                lr=config["lr"],
-                valid_split=config["valid_split"],
-                model_name=config['save_name'],
-                hidden_dim=config["hidden_dim"],
-                num_layers=config["num_layers"],
-                patience=config["early_stopping_patience"]
-            )
+        self.parent.training_controller.entrenar(
+            sdf_dir=config["sdf_dir"],
+            target_file=config["target_file"],
+            model_type=config["modelo"],
+            epochs=config["epochs"],
+            batch_size=config["batch_size"],
+            lr=config["lr"],
+            valid_split=config["valid_split"],
+            model_name=config['save_name'],
+            hidden_dim=config["hidden_dim"],
+            num_layers=config["num_layers"],
+            patience=config["early_stopping_patience"],
+            atom_emb_dim = config["atom_emb_pr"],
+            hibrid_emb_dim = config["hibrid_emb_pr"],
+            bond_emb_dim = config["bond_emb_pr"]
+        )
 
 
     def transfer_learning_ia(self):
@@ -360,23 +327,7 @@ class MenuBar(QMenuBar):
         )
 
     def entrenar_multiples_modelos(self):
-        # Preguntar al usuario si quiere CSV o SDF
-        # opciones = ["CSV", "Directorio SDF"]
-        # tipo, ok = QInputDialog.getItem(
-        #     self.parent, "Seleccionar tipo de entrada",
-        #     "Tipo de datos:", opciones, 0, False
-        # )
-        # if not ok:
-        #     return
-
-        tipo = "SDF"
-
-        # Abrir el diálogo genérico (CSV o SDF)
-        if tipo == "CSV":
-            dialog = TrainMultipleModelsCSVDialog(self.parent)
-        else:
-            dialog = TrainMultipleModelsDialog(self.parent)
-            tipo = "SDF"
+        dialog = TrainMultipleModelsDialog(self.parent)
 
         if dialog.exec() != QDialog.Accepted:
             return
@@ -384,17 +335,12 @@ class MenuBar(QMenuBar):
         config = dialog.get_values()
 
         # ----- Validaciones -----
-        if tipo == "SDF":
-            if not config.get("sdf_dir") or not os.path.isdir(config["sdf_dir"]):
-                QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
-                return
-            if not config.get("target_file") or not os.path.isfile(config["target_file"]):
-                QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
-                return
-        else:  # CSV
-            if not config.get("csv_file") or not os.path.isfile(config["csv_file"]):
-                QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo CSV válido.")
-                return
+        if not config.get("sdf_dir") or not os.path.isdir(config["sdf_dir"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
+            return
+        if not config.get("target_file") or not os.path.isfile(config["target_file"]):
+            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
+            return
 
         # Validar early stopping y porcentaje de validación
         if config.get("patience", 0) > 0 and config.get("valid_split", 0) <= 0:
@@ -406,27 +352,16 @@ class MenuBar(QMenuBar):
             return
 
         # ----- Ejecutar entrenamiento múltiple -----
-        if tipo == "SDF":
-            self.parent.training_controller.train_multiple_models(
-                sdf_dir=config["sdf_dir"],
-                target_file=config["target_file"],
-                epochs=config["epochs"],
-                batch_size=config["batch_size"],
-                lr=config["lr"],
-                valid_split=config["valid_split"],
-                hidden_dim=config["hidden_dim"],
-                patience=config["patience"]
-            )
-        else:  # CSV
-            self.parent.training_controller.train_multiple_models_csv(
-                csv_file=config["csv_file"],
-                epochs=config["epochs"],
-                batch_size=config["batch_size"],
-                lr=config["lr"],
-                valid_split=config["valid_split"],
-                hidden_dim=config["hidden_dim"],
-                patience=config["patience"]
-            )
+        self.parent.training_controller.train_multiple_models(
+            sdf_dir=config["sdf_dir"],
+            target_file=config["target_file"],
+            epochs=config["epochs"],
+            batch_size=config["batch_size"],
+            lr=config["lr"],
+            valid_split=config["valid_split"],
+            hidden_dim=config["hidden_dim"],
+            patience=config["patience"]
+        )
 
 
     def transfer_learning_multiple_modelos(self):
