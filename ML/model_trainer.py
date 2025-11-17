@@ -386,9 +386,9 @@ def save_model(
     valid_split=0.2,
     patience=0,
     modelos_dir=MODELOS_DIR,
-    atom_emb_pr = ATOM_EMB_PR,
-    hibrid_emb_pr = HYBRID_EMB_PR,
-    bond_emb_pr = BOND_EMB_PR
+    atom_emb_dim = ATOM_EMB_PR,
+    hibrid_emb_dim = HYBRID_EMB_PR,
+    bond_emb_dim = BOND_EMB_PR
 ):
     """
     Guarda un checkpoint de PyTorch con el estado del modelo y metadatos.
@@ -397,9 +397,9 @@ def save_model(
         'model_state_dict': model.state_dict(),
         'model_type': model_type,
         'input_dim': input_dim,
-        "atom_emb_pr" : atom_emb_pr,
-        "hibrid_emb_pr" : hibrid_emb_pr,
-        "bond_emb_pr" : bond_emb_pr,
+        "atom_emb_dim" : atom_emb_dim,
+        "hibrid_emb_dim" : hibrid_emb_dim,
+        "bond_emb_dim" : bond_emb_dim,
         'edge_dim': edge_dim,
         'epochs_trained': epochs,
         'target_name': target_name,
@@ -443,15 +443,24 @@ def train_and_save_model(
         sdf_dir, target_file, batch_size=batch_size, valid_split=valid_split
     )
     
-    atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)
-    hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
-    bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
+    calc_atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)
+    calc_hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
+    calc_bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
 
-    # Son porcentajes por los que se multiplican las dimensiones reales, de esta manera el usuario elige si quiere desde 1 dimension sola hasta el 100%
-    input_dim = atom_emb_dim + hibrid_emb_dim + OTHER_NODE_FEATURES
-    edge_dim = bond_emb_dim + OTHER_EDGE_FEATURES
+    # Son porcentajes por los que se multiplican las dimensiones reales, 
+    # de esta manera el usuario elige si quiere desde 1 dimension sola hasta el 100%
+    input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
+    edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
 
-    model = create_model(model_type, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=hidden_dim, num_layers=num_layers, edge_dim=edge_dim)
+    model = create_model(
+        model_type,
+        input_dim,
+        calc_atom_emb_dim,
+        calc_hibrid_emb_dim, 
+        calc_bond_emb_dim, 
+        hidden_dim=hidden_dim, 
+        num_layers=num_layers, 
+        edge_dim=edge_dim)
 
     train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience, model_name=model_name)
 
@@ -468,7 +477,10 @@ def train_and_save_model(
         batch_size=batch_size,
         lr=lr,
         valid_split=valid_split,
-        patience=patience
+        patience=patience,
+        atom_emb_dim = atom_emb_dim,
+        hibrid_emb_dim = hibrid_emb_dim,
+        bond_emb_dim = bond_emb_dim
     )
     logging.info(f"Modelo guardado en: {save_path}")
 

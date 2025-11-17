@@ -3,7 +3,7 @@
 import torch
 from rdkit import Chem
 from torch_geometric.data import Data
-from ML.model_trainer import create_model
+from ML.model_trainer import create_model, calc_dim
 from ML.data_processing import mol_to_graph_data_obj
 import os
 import matplotlib.pyplot as plt
@@ -12,7 +12,7 @@ from math import sqrt
 from ML.data_processing import read_targets, load_data_from_sdf
 import logging
 import sys
-from ui.utils import RESULTADOS_DIR
+from ui.utils import RESULTADOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, OTHER_EDGE_FEATURES, OTHER_NODE_FEATURES
 import csv
 from scipy.stats import pearsonr
 
@@ -37,15 +37,30 @@ def cargar_modelo(checkpoint_path):
     hidden_dim = checkpoint.get('hidden_dim', 64)
     num_layers = checkpoint.get('num_layers', 3)
     target_name = checkpoint.get('target_name', 'target')
+    atom_emb_dim = checkpoint.get('atom_emb_dim')
+    hibrid_emb_dim = checkpoint.get('hibrid_emb_dim')
+    bond_emb_dim = checkpoint.get('bond_emb_dim')
+
+    calc_atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)
+    calc_hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
+    calc_bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
+
+    # Son porcentajes por los que se multiplican las dimensiones reales, 
+    # de esta manera el usuario elige si quiere desde 1 dimension sola hasta el 100%
+    input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
+    edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
 
     # Crear modelo con los parámetros guardados
     model = create_model(
         model_type,
-        input_dim=input_dim,
-        edge_dim=edge_dim,
-        hidden_dim=hidden_dim,
-        num_layers=num_layers
-    )
+        input_dim,
+        calc_atom_emb_dim,
+        calc_hibrid_emb_dim, 
+        calc_bond_emb_dim, 
+        hidden_dim=hidden_dim, 
+        num_layers=num_layers, 
+        edge_dim=edge_dim)
+    
     model.load_state_dict(checkpoint['model_state_dict'])
     model.to(device)
     model.eval()
