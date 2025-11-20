@@ -43,6 +43,21 @@ def onehot_to_indices(data):
     x_new = torch.cat([atom_idx, hybrid_idx, cont_features], dim=1)
     data_new = data.clone()
     data_new.x = x_new
+
+    # --- 2. CONVERSIÓN DE ARISTAS (El error oculto) ---
+    # Estructura entrada: [BondOneHot (4 cols) | Distancia]
+    # Estructura salida:  [BondIdx (1 col) | Distancia]
+    if data_new.edge_attr is not None and data_new.edge_attr.shape[1] > 2:
+        edge_attr = data_new.edge_attr
+        # Asumimos que la distancia es la ÚLTIMA columna
+        dist = edge_attr[:, -1].unsqueeze(1)
+        
+        # El one-hot son todas las columnas menos la última
+        bond_onehot = edge_attr[:, :-1]
+        bond_idx = bond_onehot.argmax(dim=1, keepdim=True).float()
+        
+        data_new.edge_attr = torch.cat([bond_idx, dist], dim=1)
+
     return data_new
 
 
@@ -153,10 +168,10 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
     model, device, target_name = cargar_modelo(checkpoint_path)
 
     # Nombre y prediccion para el plot
-    prediccion_og = predecir_molecula(model, muestra_embedding, device)
+    #prediccion_og = predecir_molecula(model, muestra_embedding, device)
 
-    #muestra_for_model = onehot_to_indices(muestra.to(device))
-    #prediccion_original = predecir_molecula(model, muestra_for_model, device)
+    muestra_for_model = onehot_to_indices(muestra.to(device))
+    prediccion_original = predecir_molecula(model, muestra_for_model, device)
 
     mol_name = mol.GetProp("_Name") if mol.HasProp("_Name") else os.path.basename(sdf_path).split('.')[0]
 
@@ -198,7 +213,7 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
 
     # --- Nuevo: Añadir título principal a la figura ---
     # Crear el título principal de la figura
-    main_title = f"LIME Explanation for: **{mol_name}**\nModel Prediction: **{prediccion_og:.4f}** ({target_name})"
+    main_title = f"LIME Explanation for: **{mol_name}**\nModel Prediction: **{prediccion_original:.4f}** ({target_name})"
     fig.suptitle(main_title, fontsize=14, fontweight='bold')
 
     ax1 = fig.add_subplot(gs[0, 0])

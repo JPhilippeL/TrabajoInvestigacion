@@ -5,7 +5,7 @@ Ver si funciona bien lo de pasar de onehot a embedding en lime
 Añadir lo de calcular la interpretabilidad con los edges
 
 
-# Nimiedades
+# Miscelaneo
 Hacer que no haga lo de cargar datos mil veces al hacer pruebas de muchos modelos
 Ordenar el código de menu bar dividiendolo
 
