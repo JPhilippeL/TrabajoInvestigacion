@@ -54,7 +54,7 @@ class TrainConfigDialog(QDialog):
         self.valid_split_input.setValue(float(self.settings.value("train/valid_split", 0.2)))
 
         self.early_stopping_patience_input = QSpinBox()
-        self.early_stopping_patience_input.setRange(0, 100)
+        self.early_stopping_patience_input.setRange(0, 1000)
         self.early_stopping_patience_input.setValue(int(self.settings.value("train/early_stopping_patience", 0)))
 
         self.batch_input = QSpinBox()

@@ -363,7 +363,10 @@ class MenuBar(QMenuBar):
             lr=config["lr"],
             valid_split=config["valid_split"],
             hidden_dim=config["hidden_dim"],
-            patience=config["patience"]
+            patience=config["patience"],
+            atom_emb_dim = config["atom_emb_pr"],
+            hibrid_emb_dim = config["hibrid_emb_pr"],
+            bond_emb_dim = config["bond_emb_pr"]
         )
 
 

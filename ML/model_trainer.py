@@ -523,7 +523,15 @@ def train_multiple_models(
             model_name = f"{model_type}_{num_layers}capas_{nombreTarget}"
             logging.info(f"Entrenando modelo: {model_name}")
             # Crear modelo
-            model = create_model(model_type, input_dim, hidden_dim=hidden_dim, num_layers=num_layers, edge_dim=edge_dim)
+            model = create_model(
+                model_type,
+                input_dim,
+                calc_atom_emb_dim,
+                calc_hibrid_emb_dim, 
+                calc_bond_emb_dim, 
+                hidden_dim=hidden_dim, 
+                num_layers=num_layers, 
+                edge_dim=edge_dim)
             # Entrenar
             train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience, model_name=model_name)
             # Guardar

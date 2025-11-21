@@ -66,7 +66,7 @@ class TrainMultipleModelsDialog(QDialog):
         self.hidden_dim_input.setValue(int(self.settings.value("train_multi/hidden_dim", 64)))
 
         self.patience_input = QSpinBox()
-        self.patience_input.setRange(0, 100)
+        self.patience_input.setRange(0, 1000)
         self.patience_input.setValue(int(self.settings.value("train_multi/patience", 0)))
 
         # ---------- NUEVOS: Porcentajes de embedding ----------
