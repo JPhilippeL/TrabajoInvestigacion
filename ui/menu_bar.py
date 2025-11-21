@@ -544,8 +544,8 @@ class MenuBar(QMenuBar):
             model_path, sdf_path = dialog.get_paths()
             try:
                 # Obtener explicación LIME
-                # Vector mascara: [perturbar_tipo_atomo, perturbar_grado, perturbar_aromaticidad, perturbar_hibridacion]
-                plot_path = obtener_lime(model_path, sdf_path, feature_mask=[1, 1, 1, 1], num_samples=100, noise_level=0.1, device='cpu')
+                # feature_mask espera: [Atom, Degree, Arom, Hybrid, BondType, BondDist]
+                plot_path = obtener_lime(model_path, sdf_path, feature_mask=[1, 1, 1, 1, 1, 1], num_samples=100, noise_level=0.1, device='cpu')
 
                 # mostrar el sdf por pantalla
                 self.parent.load_graph_from_file(sdf_path)

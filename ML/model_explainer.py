@@ -1,11 +1,10 @@
 # model_explainer.py
-from ui.utils import periodic_elements, hybridization_types
 from ML.model_tester import cargar_modelo, predecir_molecula
 import torch
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
-from ui.utils import RESULTADOS_DIR
+from ui.utils import RESULTADOS_DIR, periodic_elements, hybridization_types, N_BOND_TYPES
 import os
 import sys
 import logging
@@ -63,35 +62,102 @@ def onehot_to_indices(data):
 
 # Función para dada una muestra (x), genere una muestra perturbada (Z)
 # Dado un vector binario de las características a perturbar
-# Vector mascara: [perturbar_tipo_atomo, perturbar_grado, perturbar_aromaticidad, perturbar_hibridacion]
+# feature_mask espera: [Atom, Degree, Arom, Hybrid, BondType, BondDist]
 def perturb_features_sample(data, feature_mask, noise_level=0.05):
     data_new = data.clone()
+    
+    # ==========================================
+    # 1. PERTURBACIÓN DE NODOS (Igual que antes)
+    # ==========================================
     x = data_new.x
-    # Definir slices de features según tu vector
     start_atom, end_atom = 0, len(periodic_elements)
     start_degree, end_degree = end_atom, end_atom+1
     start_hs, end_hs = end_degree, end_degree+1
     aromatic_idx = end_hs
     start_hybrid, end_hybrid = aromatic_idx+1, aromatic_idx+1+len(hybridization_types)
-    auxiliar = x.shape[0]
+    
+    num_nodes = x.shape[0]
 
-    for i in range(auxiliar):
-        if feature_mask[0]:  # Perturbar tipo de átomo
+    # Rellenar máscara si falta
+    if len(feature_mask) < 6:
+        feature_mask = list(feature_mask) + [False] * (6 - len(feature_mask))
+
+    for i in range(num_nodes):
+        if feature_mask[0]:  # Átomo
             onehot = x[i, start_atom:end_atom]
             onehot[:] = 0
             new_idx = torch.randint(0, len(periodic_elements), (1,))
             onehot[new_idx] = 1
-        if feature_mask[1]:  # Perturbar grado
+        if feature_mask[1]:  # Grado
             x[i, start_degree:end_hs] += noise_level * torch.randn_like(x[i, start_degree:end_hs])
-        if feature_mask[2]:  # Perturbar aromaticidad
-            x[i, aromatic_idx] = 1 - x[i, aromatic_idx]  # flip
-        if feature_mask[3]:  # Perturbar hibridación
+        if feature_mask[2]:  # Aromaticidad
+            x[i, aromatic_idx] = 1 - x[i, aromatic_idx]
+        if feature_mask[3]:  # Hibridación
             onehot = x[i, start_hybrid:end_hybrid]
             onehot[:] = 0
             new_idx = torch.randint(0, len(hybridization_types), (1,))
             onehot[new_idx] = 1
 
     data_new.x = x
+
+    # ==========================================
+    # 2. PERTURBACIÓN DE ARISTAS (SIMÉTRICA)
+    # ==========================================
+    if data_new.edge_attr is not None:
+        edge_attr = data_new.edge_attr
+        edge_index = data_new.edge_index
+        num_edges = edge_attr.shape[0]
+        
+        # 1. Crear mapa para buscar el reverso rápido: (u, v) -> index
+        # Esto nos permite encontrar dónde está B->A sabiendo A->B
+        edge_map = {}
+        for i in range(num_edges):
+            u = edge_index[0, i].item()
+            v = edge_index[1, i].item()
+            edge_map[(u, v)] = i
+
+        # Definir slices
+        num_bond_cols = N_BOND_TYPES 
+        slice_bond = slice(0, num_bond_cols)
+        idx_dist = -1
+
+        for i in range(num_edges):
+            u = edge_index[0, i].item()
+            v = edge_index[1, i].item()
+
+            # --- TRUCO DE SIMETRÍA ---
+            # Solo calculamos el ruido si u < v.
+            # Si u > v, significa que ya procesamos este par cuando estábamos en (v, u)
+            # y ya copiamos los datos, así que saltamos.
+            if u > v:
+                continue
+
+            # --- APLICAR PERTURBACIÓN AL ENLACE 'i' ---
+            modified = False
+            
+            # Perturbar Tipo de Enlace
+            if feature_mask[4]:
+                onehot_bond = edge_attr[i, slice_bond]
+                onehot_bond[:] = 0
+                new_bond_idx = torch.randint(0, num_bond_cols, (1,))
+                onehot_bond[new_bond_idx] = 1
+                modified = True
+            
+            # Perturbar Distancia
+            if feature_mask[5]:
+                edge_attr[i, idx_dist] += noise_level * torch.randn_like(edge_attr[i, idx_dist])
+                modified = True
+
+            # --- SINCRONIZAR CON EL ENLACE REVERSO ---
+            if modified:
+                # Buscamos el índice del enlace (v, u)
+                if (v, u) in edge_map:
+                    sym_idx = edge_map[(v, u)]
+                    # Copiamos exactamente los mismos valores
+                    edge_attr[sym_idx] = edge_attr[i].clone()
+
+        data_new.edge_attr = edge_attr
+
     return data_new
 
 # Función para generar múltiples muestras perturbadas
@@ -193,12 +259,23 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
     # Precalcular todos los E_z^T (cada uno [d, N_z])
     E_t_list = [data_z.x.t().to(device) for data_z in perturbed_samples]
 
+    # Lo mismo con los edges
+    A_t_list = []
+    for data_z in perturbed_samples:
+        if data_z.edge_attr is not None:
+            # Transponemos para que quede [Features x NumeroEdges]
+            A_t_list.append(data_z.edge_attr.t().to(device))
+
     # --------------- HACERLO CON OPTIMIZACION DE PYTORCH ----------------------
-    alfa, beta, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_t_list, 0.01, 500, True)
+    alfa, beta, gamma, delta, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_t_list, A_t_list, 0.01, 500, True)
     
-        # --- Convertir tensores a numpy ---
+    # --- Convertir tensores a numpy ---
     alfa_np = alfa.detach().cpu().numpy().reshape(-1, 1)  # d x 1  → columna
     beta_np = beta.detach().cpu().numpy().reshape(-1, 1)  # N x 1  → columna
+
+    # Nuevos tensores
+    gamma_np = gamma.cpu().numpy().reshape(-1, 1) # Importancia de features de edge (e.g., Doble vs Simple)
+    delta_np = delta.cpu().numpy().reshape(-1, 1) # Importancia de cada enlace específico
 
     # --- Etiquetas ---
     feature_names = get_feature_names(periodic_elements, hybridization_types)
@@ -221,15 +298,26 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
     ax3 = fig.add_subplot(gs[1, :])  # ocupa toda la fila inferior
 
     # α y β arriba
-    im_a, _ = heatmap(alfa_np, row_labels_alfa, col_labels_alfa, ax=ax1, cmap="YlGn")
-    annotate_heatmap(im_a, alfa_np)
-    im_b, _ = heatmap(beta_np, row_labels_beta, col_labels_beta, ax=ax2, cmap="YlOrRd")
-    annotate_heatmap(im_b, beta_np)
+    im_a, _ = heatmap(alfa_np, row_labels_alfa, col_labels_alfa, ax=ax1, cmap="plasma")
+    annotate_heatmap(im_a, alfa_np, textcolors=("white", "black"))
+    im_b, _ = heatmap(beta_np, row_labels_beta, col_labels_beta, ax=ax2, cmap="plasma")
+    annotate_heatmap(im_b, beta_np, textcolors=("white", "black"))
 
     # Grafo abajo centrado y grande
     graph = parse_sdf(sdf_path)
     node_idx_map = {str(atom.GetIdx()): atom.GetIdx() for atom in mol.GetAtoms()}
-    plot_graph_with_beta(graph, beta_np.flatten(), ax=ax3, cmap="YlOrRd", node_idx_map=node_idx_map)
+    #plot_graph_with_beta(graph, beta_np.flatten(), ax=ax3, cmap="YlOrRd", node_idx_map=node_idx_map)
+    
+    # Llamada actualizada al plotter
+    plot_graph_with_importance(
+        graph, 
+        node_importance=beta_np.flatten(), 
+        edge_importance=delta_np.flatten(), 
+        edge_index=muestra.edge_index,  # <--- IMPORTANTE: Necesario para mapear delta
+        ax=ax3, 
+        node_idx_map=node_idx_map,
+        cmap="plasma"  # <--- CAMBIO AQUÍ (o "plasma", "cividis")
+    )
 
     plt.tight_layout()
 
@@ -253,44 +341,121 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
     # Return de la imagen guardada
     return plotfilename
 
-def obtener_argmin(feature_distances, predicciones_perturbadas, E_t_list,
-                   lr=1e-2, epochs=500, verbose=True):
+def obtener_argmin(feature_distances, predicciones_perturbadas, 
+                   E_t_list, A_t_list, 
+                   lr=0.05, 
+                   epochs=2000, 
+                   verbose=True):
     
+    device = predicciones_perturbadas.device  # Alias para escribir menos
     num_samples = len(E_t_list)
-    d = E_t_list[0].shape[0]
-    N = E_t_list[0].shape[1]
-    feature_distances = torch.tensor(feature_distances, dtype=torch.float, device=predicciones_perturbadas.device).unsqueeze(1)
+    d_nodes = E_t_list[0].shape[0]
+    N_nodes = E_t_list[0].shape[1]
+    
+    # Manejo si no hay aristas
+    if len(A_t_list) > 0:
+        d_edges = A_t_list[0].shape[0]
+        M_edges = A_t_list[0].shape[1]
+        has_edges = True
+    else:
+        d_edges = 1
+        M_edges = 1
+        has_edges = False
 
-    alfa = torch.ones(d, device=E_t_list[0].device, dtype=torch.float, requires_grad=True)
-    alfa.data /= d
+    feature_distances = torch.tensor(feature_distances, dtype=torch.float, device=device).unsqueeze(1)
 
-    beta = torch.ones(N, device=E_t_list[0].device, dtype=torch.float, requires_grad=True)
-    beta.data /= N
+    # --- CORRECCIÓN DE INICIALIZACIÓN ---
+    # Creamos los datos aleatorios, los movemos al device, *detach()* para olvidar la operación,
+    # y finalmente activamos el gradiente.
 
-    optimizer = torch.optim.Adam([alfa, beta], lr=lr)
+    # 1. ALFA
+    alfa_init = torch.randn(d_nodes, device=device, dtype=torch.float) * 0.1
+    alfa = alfa_init.detach().requires_grad_(True)
+
+    # 2. BETA
+    beta_init = torch.randn(N_nodes, device=device, dtype=torch.float) * 0.1
+    beta = beta_init.detach().requires_grad_(True)
+    
+    # 3. BIAS (MU)
+    mean_pred = predicciones_perturbadas.mean().item()
+    # Crear tensor directamente con el valor float (es seguro)
+    mu = torch.tensor([mean_pred], device=device, dtype=torch.float, requires_grad=True)
+
+    if has_edges:
+        # 4. GAMMA
+        gamma_init = torch.randn(d_edges, device=device, dtype=torch.float) * 0.1
+        gamma = gamma_init.detach().requires_grad_(True)
+        
+        # 5. DELTA
+        delta_init = torch.randn(M_edges, device=device, dtype=torch.float) * 0.1
+        delta = delta_init.detach().requires_grad_(True)
+        
+        params = [alfa, beta, gamma, delta, mu]
+    else:
+        # Dummies que no requieren gradiente para evitar errores si no se usan
+        gamma = torch.tensor(0.0, device=device)
+        delta = torch.tensor(0.0, device=device)
+        params = [alfa, beta, mu]
+
+    # Optimizador
+    optimizer = torch.optim.Adam(params, lr=lr, weight_decay=0) 
+    
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, verbose=False)
 
     exp_weights = torch.exp(-feature_distances**2)
+    
+    best_loss = float('inf')
+    patience_counter = 0
+    early_stopping_limit = 200 
 
     for epoch in range(epochs):
         optimizer.zero_grad()
         total_loss = 0.0
 
         for i in range(num_samples):
-            E_t = E_t_list[i]
+            # Término Nodos
+            term_nodes = torch.matmul(alfa, torch.matmul(E_t_list[i], beta))
+            
+            approx_pred = mu + term_nodes
+            
+            # Término Edges
+            if has_edges:
+                term_edges = torch.matmul(gamma, torch.matmul(A_t_list[i], delta))
+                approx_pred += term_edges
+            
             pred_z = predicciones_perturbadas[i]
             w = exp_weights[i]
+            
+            total_loss += w * (pred_z - approx_pred)**2
 
-            alfa_ET_beta = torch.matmul(alfa, torch.matmul(E_t, beta))
-            total_loss += w * (pred_z - alfa_ET_beta)**2 # menos (gamma_VT(edges)_delta)
+        # Regularización L1 Suave
+        l1_lambda = 0.001 
+        l1_norm = torch.norm(beta, 1) + (torch.norm(delta, 1) if has_edges else 0)
+        
+        final_loss = total_loss + l1_lambda * l1_norm
 
-        loss = total_loss.squeeze()
-        loss.backward()
+        final_loss.backward()
         optimizer.step()
+        
+        current_loss_val = total_loss.item()
+        scheduler.step(current_loss_val)
 
-        if verbose and (epoch % 50 == 0 or epoch == epochs-1):
-            logger.info(f"Epoch {epoch+1}/{epochs} - Loss: {loss.item():.6f}")
+        # Early Stopping
+        if current_loss_val < best_loss - 1e-4:
+            best_loss = current_loss_val
+            patience_counter = 0
+        else:
+            patience_counter += 1
+            
+        if patience_counter >= early_stopping_limit:
+            if verbose:
+                logger.info(f"Converged early at epoch {epoch}. Loss: {best_loss:.4f}")
+            break
 
-    return alfa.detach(), beta.detach(), loss.item()
+        if verbose and (epoch % 100 == 0 or epoch == epochs-1):
+            logger.info(f"Epoch {epoch}/{epochs} - Loss: {current_loss_val:.4f} - Bias: {mu.item():.2f}")
+
+    return alfa.detach(), beta.detach(), gamma.detach(), delta.detach(), best_loss
 
 
 
@@ -496,3 +661,109 @@ def plot_graph_with_beta(graph, beta, ax=None, cmap="YlOrRd", vmin=None, vmax=No
 
     return ax
 
+def plot_graph_with_importance(graph, node_importance, edge_importance=None, edge_index=None, ax=None, cmap="YlOrRd", node_idx_map=None):
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6, 6))
+
+    # --- 1. PREPARACIÓN DE NODOS ---
+    beta = np.array(node_importance, dtype=float)
+    if node_idx_map is not None:
+        # Reordenar beta para que coincida con los nodos del grafo NX
+        beta_mapped = []
+        for n in graph.nodes:
+            # node_idx_map[n] da el índice en PyG
+            idx = node_idx_map.get(n) if isinstance(n, str) else node_idx_map.get(str(n))
+            # Si no encuentra (caso raro), usa 0
+            val = beta[idx] if idx is not None and idx < len(beta) else 0.0
+            beta_mapped.append(val)
+        beta = np.array(beta_mapped)
+
+    pos = {n: graph.nodes[n]["pos"] for n in graph.nodes}
+    
+    # Normalización Nodos
+    vmin_n, vmax_n = beta.min(), beta.max()
+    norm_n = mcolors.Normalize(vmin=vmin_n, vmax=vmax_n)
+    cmap_obj = plt.cm.get_cmap(cmap)
+    node_colors = [cmap_obj(norm_n(b)) for b in beta]
+
+    # --- 2. PREPARACIÓN DE ARISTAS ---
+    edge_colors = []
+    edge_widths = []
+    
+    if edge_importance is not None and edge_index is not None:
+        delta = np.array(edge_importance, dtype=float)
+        
+        # A) Crear mapa: (u_idx, v_idx) -> delta_value
+        # edge_index debe ser tensor o array de shape [2, M]
+        if isinstance(edge_index, torch.Tensor):
+            edge_index = edge_index.cpu().numpy()
+            
+        imp_dict = {}
+        for i in range(len(delta)):
+            u = int(edge_index[0, i])
+            v = int(edge_index[1, i])
+            val = delta[i]
+            # Guardamos ambas direcciones por seguridad
+            imp_dict[(u, v)] = val
+            imp_dict[(v, u)] = val
+
+        # B) Normalización para aristas
+        # Si todo es 0, evitamos división por cero
+        if delta.max() > delta.min():
+            norm_e = mcolors.Normalize(vmin=delta.min(), vmax=delta.max())
+        else:
+            norm_e = mcolors.Normalize(vmin=0, vmax=1)
+
+        # C) Asignar color a cada arista de NetworkX
+        nx_edges = list(graph.edges())
+        
+        for u, v in nx_edges:
+            # Obtener índices reales de PyG
+            # graph.nodes son strings '0', '1'... o ints 0, 1...
+            u_real = node_idx_map.get(str(u)) if node_idx_map else int(u)
+            v_real = node_idx_map.get(str(v)) if node_idx_map else int(v)
+
+            # Buscar valor en el diccionario
+            val = imp_dict.get((u_real, v_real), 0.0)
+            
+            # Obtener color
+            rgba = cmap_obj(norm_e(val))
+            edge_colors.append(rgba)
+            
+            # Opcional: Grosor basado en importancia
+            # width = 1.0 + 4.0 * norm_e(val) 
+            edge_widths.append(2.0) 
+
+        # Dibujar aristas coloreadas
+        nx.draw_networkx_edges(
+            graph, pos, ax=ax, 
+            edgelist=nx_edges,
+            edge_color=edge_colors, 
+            width=edge_widths,
+            alpha=0.8
+        )
+        
+        # Colorbar auxiliar para aristas (opcional, o usamos la misma)
+        # sm_e = plt.cm.ScalarMappable(cmap=cmap_obj, norm=norm_e)
+        # sm_e.set_array([])
+        # plt.colorbar(sm_e, ax=ax, shrink=0.6, label="Edge Importance")
+
+    else:
+        # Fallback: Aristas grises si no hay datos
+        nx.draw_networkx_edges(graph, pos, ax=ax, width=1.5, alpha=0.4, edge_color="gray")
+
+    # --- 3. DIBUJAR RESTO ---
+    # Dibujar Nodos (encima de las aristas)
+    nx.draw_networkx_nodes(graph, pos, ax=ax, node_color=node_colors, node_size=300, edgecolors="black")
+
+    # Etiquetas
+    labels = {n: graph.nodes[n].get("element", str(n)) for n in graph.nodes}
+    nx.draw_networkx_labels(graph, pos, labels, font_size=9, ax=ax)
+    
+    # Colorbar principal
+    sm = plt.cm.ScalarMappable(cmap=cmap_obj, norm=norm_n)
+    sm.set_array([])
+    plt.colorbar(sm, ax=ax, shrink=0.8, label="Importance (Alpha/Beta)")
+    
+    ax.axis("off")
+    return ax
