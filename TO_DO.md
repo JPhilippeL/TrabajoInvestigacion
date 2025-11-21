@@ -1,4 +1,5 @@
 # COSAS Q HACER
+ARREGLAR FORMULA ARGMIN
 Hacer que al imprimir la imagen se ponga el grafo primero y después se imprima la tabla de valores y ocupe el espacio q haga falta para q sea legible
 Que la perturbacion sea con todas las features, pero solo muestre las que hay (si no hay Fs, que pueda perturbar como F, pero no lo muestre al final)
 Ver que no permito que se pase de 1 las features numericas al perturbarlas
@@ -17,6 +18,7 @@ Ordenar el código de menu bar dividiendolo
 
 # COSAS Q PREGUNTAR
 Me dan valores negativos en alfa, que hago?
+Normalizo alfa y beta no?
 Preguntar si lo de grid search es de cara al tfm o lo hago ahora
 Hago el producto de Features * Nodos para visualizar?
 averiguar que es eso del desentanglment

@@ -285,56 +285,72 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
     row_labels_beta = [f"Node {i}" for i in range(len(beta_np))]
     col_labels_beta = [""]
 
-    fig = plt.figure(figsize=(15, 10))
-    gs = gridspec.GridSpec(2, 3, figure=fig)
+    # ==========================================================================
+    # CÁLCULO DE TAMAÑO DINÁMICO
+    # ==========================================================================
+    # Definimos una altura fija para el grafo (grande) y una altura por fila para las tablas
+    HEIGHT_GRAPH = 10.0   # Pulgadas para el grafo
+    HEIGHT_PER_ROW = 0.4  # Pulgadas por cada fila de la tabla (ajusta si quieres más espacio)
+    
+    num_rows_alfa = alfa_np.shape[0]
+    num_rows_beta = beta_np.shape[0]
+    max_rows = max(num_rows_alfa, num_rows_beta)
+    
+    # Altura necesaria para los heatmaps (+ un margen para títulos)
+    height_heatmaps = (max_rows * HEIGHT_PER_ROW) + 2.0 
+    
+    # Altura total de la figura
+    total_height = HEIGHT_GRAPH + height_heatmaps
 
-    # --- Nuevo: Añadir título principal a la figura ---
-    # Crear el título principal de la figura
+    fig = plt.figure(figsize=(16, total_height))
+    
     main_title = f"LIME Explanation for: **{mol_name}**\nModel Prediction: **{prediccion_original:.4f}** ({target_name})"
-    fig.suptitle(main_title, fontsize=14, fontweight='bold')
+    fig.suptitle(main_title, fontsize=16, fontweight='bold', y=0.99) # y=0.99 para ponerlo arriba del todo
 
-    ax1 = fig.add_subplot(gs[0, 0])
-    ax2 = fig.add_subplot(gs[0, 1])
-    ax3 = fig.add_subplot(gs[1, :])  # ocupa toda la fila inferior
+    # GridSpec: 2 Filas. 
+    # Fila 0: Grafo (ocupa HEIGHT_GRAPH)
+    # Fila 1: Heatmaps (ocupa height_heatmaps)
+    gs = gridspec.GridSpec(2, 2, figure=fig, height_ratios=[HEIGHT_GRAPH, height_heatmaps], hspace=0.2)
 
-    # α y β arriba
-    im_a, _ = heatmap(alfa_np, row_labels_alfa, col_labels_alfa, ax=ax1, cmap="plasma")
-    annotate_heatmap(im_a, alfa_np, textcolors=("white", "black"))
-    im_b, _ = heatmap(beta_np, row_labels_beta, col_labels_beta, ax=ax2, cmap="plasma")
-    annotate_heatmap(im_b, beta_np, textcolors=("white", "black"))
+    # 1. GRAFO (Fila 0, ocupa todas las columnas)
+    ax_graph = fig.add_subplot(gs[0, :])
+    
+    # 2. HEATMAPS (Fila 1, columnas separadas)
+    ax_alfa = fig.add_subplot(gs[1, 0])
+    ax_beta = fig.add_subplot(gs[1, 1])
 
-    # Grafo abajo centrado y grande
+    # --- Plot Grafo ---
     graph = parse_sdf(sdf_path)
     node_idx_map = {str(atom.GetIdx()): atom.GetIdx() for atom in mol.GetAtoms()}
-    #plot_graph_with_beta(graph, beta_np.flatten(), ax=ax3, cmap="YlOrRd", node_idx_map=node_idx_map)
     
-    # Llamada actualizada al plotter
     plot_graph_with_importance(
         graph, 
         node_importance=beta_np.flatten(), 
         edge_importance=delta_np.flatten(), 
-        edge_index=muestra.edge_index,  # <--- IMPORTANTE: Necesario para mapear delta
-        ax=ax3, 
+        edge_index=muestra.edge_index,
+        ax=ax_graph, 
         node_idx_map=node_idx_map,
-        cmap="plasma"  # <--- CAMBIO AQUÍ (o "plasma", "cividis")
+        cmap="plasma"
     )
+    # --- Plot Heatmaps ---
+    # Pasamos aspect='auto' para que use la altura física que hemos calculado
+    im_a, _ = heatmap(alfa_np, row_labels_alfa, col_labels_alfa, ax=ax_alfa, cmap="plasma", aspect='auto')
+    annotate_heatmap(im_a, alfa_np, textcolors=("white", "black"))
+    ax_alfa.set_title("Feature Importance (Alpha)", fontsize=14)
 
-    plt.tight_layout()
+    im_b, _ = heatmap(beta_np, row_labels_beta, col_labels_beta, ax=ax_beta, cmap="plasma", aspect='auto')
+    annotate_heatmap(im_b, beta_np, textcolors=("white", "black"))
+    ax_beta.set_title("Node Importance (Beta)", fontsize=14)
 
+    plt.tight_layout(rect=[0, 0, 1, 0.98]) # Ajuste para no tapar el título principal
 
-
-    # Obtener el nombre del checkpoint
-    model_name = checkpoint_path.split('/')[-1]
-    # quitarle la extension
-    model_name = model_name.split('.')[0]
-
+    # Guardar
+    model_name = checkpoint_path.split('/')[-1].split('.')[0]
     os.makedirs(RESULTADOS_DIR, exist_ok=True)
     model_results_dir = os.path.join(RESULTADOS_DIR, model_name)
     os.makedirs(model_results_dir, exist_ok=True)
     plotfilename = os.path.join(model_results_dir, f"{model_name}_for_{mol_name}_lime.png")
 
-    # Guardar la figura en el resultados dir de este checkpoint
-    plt.tight_layout()
     plt.savefig(plotfilename)
     plt.close(fig)
 
@@ -459,24 +475,28 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
 
 
 
-def heatmap(data, row_labels, col_labels, ax, **kwargs):
+def heatmap(data, row_labels, col_labels, ax, aspect='auto', **kwargs):
+    """
+    Crea un heatmap a partir de un array numpy y dos listas de etiquetas.
+    Se ha añadido el parámetro 'aspect' para controlar la proporción de celdas.
+    """
     if ax is None:
         ax = plt.gca()
-    cbar_kw = {}
     
     # Crear heatmap
-    cbar_kw = {}
-    im = ax.imshow(data, aspect=0.2, **kwargs)
+    # aspect='auto' permite que las celdas se estiren para llenar el eje
+    im = ax.imshow(data, aspect=aspect, **kwargs)
 
     # Colorbar
-    cbar = ax.figure.colorbar(im, ax=ax, **cbar_kw)
+    cbar = ax.figure.colorbar(im, ax=ax)
     cbar.ax.set_ylabel("Intensity", rotation=-90, va="bottom")
 
     # Show all ticks and label them
-    ax.set_xticks(range(len(col_labels)), 
-                  labels=col_labels,
-                  rotation=-30, ha="right", rotation_mode="anchor")
-    ax.set_yticks(range(data.shape[0]), labels=row_labels)
+    ax.set_xticks(range(len(col_labels)))
+    ax.set_xticklabels(col_labels, rotation=0, ha="center")
+    
+    ax.set_yticks(range(data.shape[0]))
+    ax.set_yticklabels(row_labels)
 
     # Let the horizontal axes labeling appear on top.
     ax.tick_params(top=True, bottom=False,
