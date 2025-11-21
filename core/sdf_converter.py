@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 SCALE = 50
+MINNODES = 2
 
 def parse_sdf(file_path):
     suppl = Chem.SDMolSupplier(file_path, removeHs=False)
@@ -140,56 +141,125 @@ def split_sdf(sdf_file, output_dir):
         writer.write(mol)
         writer.close()
 
-    print(f"Se han generado {len(suppl)} moléculas individuales en '{output_dir}'.")
+    logger.info(f"Se han generado {len(suppl)} moléculas individuales en '{output_dir}'.")
 
-def smiles_csv_to_sdf_dir(csv_path, output_dir):
+def smiles_csv_to_sdf_dir(csv_path, output_dir, minimoNodos = MINNODES):
     os.makedirs(output_dir, exist_ok=True)
     df = pd.read_csv(csv_path)
+    if minimoNodos < MINNODES: minimoNodos = MINNODES
 
+    # 1. Identificar columnas clave
     smiles_col = next((col for col in df.columns if col.lower() == "smiles"), None)
     if smiles_col is None:
         raise ValueError("El CSV debe tener una columna 'SMILES'.")
 
     name_col = next((col for col in df.columns if col.lower() in ["id", "name"]), None)
+    
+    # Buscamos la columna que contenga la palabra 'target'. Si no existe, avisaremos.
+    target_col = next((col for col in df.columns if "target" in col.lower()), None)
+    if target_col is None:
+        logger.warning("No se encontró ninguna columna que contenga 'target'. El .txt tendrá 'N/A' en ese campo.")
 
-    for i, row in df.iterrows():
-        smiles = str(row[smiles_col]).strip()
-        if not smiles:
-            logger.warning(f"Fila {i}: SMILES vacío, se omite.")
-            continue
+    # 2. Preparar el archivo de texto de salida
+    # Obtenemos el nombre base del archivo (ej: 'dataset.csv' -> 'dataset')
+    csv_basename = os.path.splitext(os.path.basename(csv_path))[0]
+    txt_filename = f"targets_{csv_basename}.txt"
+    txt_path = os.path.join(output_dir, txt_filename)
 
-        mol = Chem.MolFromSmiles(smiles)
-        if mol is None:
-            logger.warning(f"Fila {i}: SMILES inválido '{smiles}', se omite.")
-            continue
+    files_created = 0
 
-        mol = Chem.AddHs(mol)
-        params = AllChem.ETKDGv3()
-        success = AllChem.EmbedMolecule(mol, params)
-        if success != 0:
-            logger.warning(f"Fila {i}: Falló generación 3D, se omite.")
-            continue
+    logger.info(f"Generando SDFs y archivo de reporte en: {txt_path}")
 
-        AllChem.UFFOptimizeMolecule(mol)
+    # Abrimos el archivo de texto. Usamos 'w' para escribir (sobrescribe si existe).
+    with open(txt_path, "w", encoding="utf-8") as f_txt:
+        
+        # Escribimos cabecera (opcional, pero recomendado)
+        # f_txt.write("ID\tTarget\n")
 
-        try:
-            Chem.SanitizeMol(mol)
-        except Exception as e:
-            logger.warning(f"Fila {i}: no se pudo sanitizar ({e}), se omite.")
-            continue
+        for i, row in df.iterrows():
+            smiles = str(row[smiles_col]).strip()
+            if not smiles:
+                logger.warning(f"Fila {i}: SMILES vacío, se omite.")
+                continue
 
-        name = (
-            str(row[name_col]).strip().replace(" ", "_")
-            if name_col and not pd.isna(row[name_col])
-            else f"mol_{i+1}"
-        )
-        mol.SetProp("_Name", name)
+            mol = Chem.MolFromSmiles(smiles)
+            if mol is None:
+                logger.warning(f"Fila {i}: SMILES inválido '{smiles}', se omite.")
+                continue
 
-        out_path = os.path.join(output_dir, f"{name}.sdf")
-        with Chem.SDWriter(out_path) as writer:
-            writer.write(mol)
+            # ---------------------------------------------------------
+            # ### BLOQUE DE LIMPIEZA (Keep Largest Fragment) ###
+            # ---------------------------------------------------------
 
-    print(f"SDFs generados en '{output_dir}' ({len(df)} filas procesadas).")
+            # Obtener todos los fragmentos individuales
+            frags = Chem.GetMolFrags(mol, asMols=True, sanitizeFrags=False)
+
+            if len(frags) > 1:
+                # Si hay más de un fragmento, nos quedamos con el que tenga más átomos
+                mol_principal = max(frags, key=lambda m: m.GetNumAtoms())
+                
+                # (Opcional) Log para saber qué pasó
+                logger.info(f"Fila {i}: Se eliminaron fragmentos pequeños/desconectados (Sales/Iones).")
+                
+                mol = mol_principal
+            
+            # Validamos de nuevo si lo que quedó es válido (tiene átomos y enlaces)
+            if mol.GetNumAtoms() < minimoNodos:
+                logger.warning(f"Fila {i}: Es menor que el threshold de nodos tras limpieza, se omite.")
+                continue
+
+            # Nota: Un átomo único (como metano 'C') tiene 0 enlaces. 
+            if mol.GetNumBonds() == 0:
+                # Si tiene >1 átomo pero 0 enlaces, es raro (ej: mezcla de gases nobles), lo quitamos.
+                logger.warning(f"Fila {i}: Molécula sin conexiones tras limpieza, se omite.")
+                continue
+                
+            # ---------------------------------------------------------
+            # ### FIN BLOQUE DE LIMPIEZA ###
+            # ---------------------------------------------------------
+
+            # Procesamiento 3D
+            mol = Chem.AddHs(mol)
+            params = AllChem.ETKDGv3()
+            success = AllChem.EmbedMolecule(mol, params)
+            if success != 0:
+                logger.warning(f"Fila {i}: Falló generación 3D, se omite.")
+                continue
+
+            AllChem.UFFOptimizeMolecule(mol)
+
+            try:
+                Chem.SanitizeMol(mol)
+            except Exception as e:
+                logger.warning(f"Fila {i}: Error sanitización ({e}), se omite.")
+                continue
+
+            # Definir Nombre (ID)
+            name = (
+                str(row[name_col]).strip().replace(" ", "_")
+                if name_col and not pd.isna(row[name_col])
+                else f"mol_{i+1}"
+            )
+            mol.SetProp("_Name", name)
+
+            # Definir Target
+            target_val = "N/A"
+            if target_col and not pd.isna(row[target_col]):
+                # Convertimos a string y reemplazamos espacios para no romper el formato
+                target_val = str(row[target_col]).strip()
+
+            # 3. Escribir SDF
+            out_path = os.path.join(output_dir, f"{name}.sdf")
+            with Chem.SDWriter(out_path) as writer:
+                writer.write(mol)
+            
+            # 4. Escribir en el .txt (Solo si llegamos hasta aquí)
+            # Usamos tabulador (\t) como separador, es más seguro que el espacio.
+            f_txt.write(f"{name}\t{target_val}\n")
+            
+            files_created += 1
+
+    logger.info(f"Proceso finalizado. {files_created} moléculas procesadas exitosamente.")
 
 
 

@@ -342,7 +342,7 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
     return plotfilename
 
 def obtener_argmin(feature_distances, predicciones_perturbadas, 
-                   E_t_list, A_t_list, 
+                   E_t_list, A_t_list, constNodos = 1, constEdges = 1,
                    lr=0.05, 
                    epochs=2000, 
                    verbose=True):
@@ -416,12 +416,12 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
             # Término Nodos
             term_nodes = torch.matmul(alfa, torch.matmul(E_t_list[i], beta))
             
-            approx_pred = mu + term_nodes
+            approx_pred = mu +  constNodos * term_nodes
             
             # Término Edges
             if has_edges:
                 term_edges = torch.matmul(gamma, torch.matmul(A_t_list[i], delta))
-                approx_pred += term_edges
+                approx_pred += constEdges * term_edges
             
             pred_z = predicciones_perturbadas[i]
             w = exp_weights[i]
