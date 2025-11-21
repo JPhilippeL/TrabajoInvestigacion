@@ -9,7 +9,7 @@ from ui.utils import RESULTADOS_DIR
 import os
 import sys
 import logging
-from ML.data_processing import mol_to_graph_data_obj
+from ML.data_processing import mol_to_graph_data_obj, mol_to_graph_data_obj_embedding
 from rdkit import Chem
 from core.sdf_converter import parse_sdf
 import matplotlib.gridspec as gridspec
@@ -43,6 +43,21 @@ def onehot_to_indices(data):
     x_new = torch.cat([atom_idx, hybrid_idx, cont_features], dim=1)
     data_new = data.clone()
     data_new.x = x_new
+
+    # --- 2. CONVERSIÓN DE ARISTAS (El error oculto) ---
+    # Estructura entrada: [BondOneHot (4 cols) | Distancia]
+    # Estructura salida:  [BondIdx (1 col) | Distancia]
+    if data_new.edge_attr is not None and data_new.edge_attr.shape[1] > 2:
+        edge_attr = data_new.edge_attr
+        # Asumimos que la distancia es la ÚLTIMA columna
+        dist = edge_attr[:, -1].unsqueeze(1)
+        
+        # El one-hot son todas las columnas menos la última
+        bond_onehot = edge_attr[:, :-1]
+        bond_idx = bond_onehot.argmax(dim=1, keepdim=True).float()
+        
+        data_new.edge_attr = torch.cat([bond_idx, dist], dim=1)
+
     return data_new
 
 
@@ -136,6 +151,7 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
     
     mol = Chem.SDMolSupplier(sdf_path, removeHs=False)[0]
     muestra = mol_to_graph_data_obj(mol)
+    muestra_embedding = mol_to_graph_data_obj_embedding(mol)
 
     # Mapear node index -> atom idx
     node_to_atomidx = {i: atom.GetIdx() for i, atom in enumerate(mol.GetAtoms())}
@@ -150,6 +166,14 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
 
     # Obtener modelo
     model, device, target_name = cargar_modelo(checkpoint_path)
+
+    # Nombre y prediccion para el plot
+    #prediccion_og = predecir_molecula(model, muestra_embedding, device)
+
+    muestra_for_model = onehot_to_indices(muestra.to(device))
+    prediccion_original = predecir_molecula(model, muestra_for_model, device)
+
+    mol_name = mol.GetProp("_Name") if mol.HasProp("_Name") else os.path.basename(sdf_path).split('.')[0]
 
     # Predecir las muestras perturbadas
     predicciones_perturbadas = []
@@ -186,6 +210,12 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
 
     fig = plt.figure(figsize=(15, 10))
     gs = gridspec.GridSpec(2, 3, figure=fig)
+
+    # --- Nuevo: Añadir título principal a la figura ---
+    # Crear el título principal de la figura
+    main_title = f"LIME Explanation for: **{mol_name}**\nModel Prediction: **{prediccion_original:.4f}** ({target_name})"
+    fig.suptitle(main_title, fontsize=14, fontweight='bold')
+
     ax1 = fig.add_subplot(gs[0, 0])
     ax2 = fig.add_subplot(gs[0, 1])
     ax3 = fig.add_subplot(gs[1, :])  # ocupa toda la fila inferior
@@ -213,7 +243,7 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
     os.makedirs(RESULTADOS_DIR, exist_ok=True)
     model_results_dir = os.path.join(RESULTADOS_DIR, model_name)
     os.makedirs(model_results_dir, exist_ok=True)
-    plotfilename = os.path.join(model_results_dir, f"{model_name}_lime.png")
+    plotfilename = os.path.join(model_results_dir, f"{model_name}_for_{mol_name}_lime.png")
 
     # Guardar la figura en el resultados dir de este checkpoint
     plt.tight_layout()
@@ -251,7 +281,7 @@ def obtener_argmin(feature_distances, predicciones_perturbadas, E_t_list,
             w = exp_weights[i]
 
             alfa_ET_beta = torch.matmul(alfa, torch.matmul(E_t, beta))
-            total_loss += w * (pred_z - alfa_ET_beta)**2
+            total_loss += w * (pred_z - alfa_ET_beta)**2 # menos (gamma_VT(edges)_delta)
 
         loss = total_loss.squeeze()
         loss.backward()
