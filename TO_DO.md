@@ -1,7 +1,6 @@
 # COSAS Q HACER
-ARREGLAR FORMULA ARGMIN
-Hacer que al imprimir la imagen se ponga el grafo primero y después se imprima la tabla de valores y ocupe el espacio q haga falta para q sea legible
-Que la perturbacion sea con todas las features, pero solo muestre las que hay (si no hay Fs, que pueda perturbar como F, pero no lo muestre al final)
+COMPROBAR Y COMENTAR FORMULA ARGMIN
+mejorar codigo obtener mol_to_graph_data
 Ver que no permito que se pase de 1 las features numericas al perturbarlas
 Añadir las features que dijeron los bios en el mail
 Agarrar (por ejemplo) las primeras 500 moléculas que tengan las caracteristicas que dijimos

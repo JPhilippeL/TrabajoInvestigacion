@@ -5,6 +5,8 @@ import torch.nn as nn
 import torch.optim as optim
 import math
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import networkx as nx
 import matplotlib.ticker as mticker
 import numpy as np
 from ui.utils import RESULTADOS_DIR, periodic_elements, hybridization_types, N_BOND_TYPES
@@ -92,7 +94,10 @@ def perturb_features_sample(data, feature_mask, noise_level=0.05):
             new_idx = torch.randint(0, len(periodic_elements), (1,))
             onehot[new_idx] = 1
         if feature_mask[1]:  # Grado
-            x[i, start_degree:end_hs] += noise_level * torch.randn_like(x[i, start_degree:end_hs])
+            noise = noise_level * torch.randn_like(x[i, start_degree:end_hs])
+            x[i, start_degree:end_hs] += noise
+            # Asegurarse q no se pasa de 1
+            x[i, start_degree:end_hs] = torch.clamp(x[i, start_degree:end_hs], 0.0, 1.0)
         if feature_mask[2]:  # Aromaticidad
             x[i, aromatic_idx] = 1 - x[i, aromatic_idx]
         if feature_mask[3]:  # Hibridación
@@ -147,9 +152,11 @@ def perturb_features_sample(data, feature_mask, noise_level=0.05):
                 modified = True
             
             # Perturbar Distancia
-            if feature_mask[5]:
-                edge_attr[i, idx_dist] += noise_level * torch.randn_like(edge_attr[i, idx_dist])
-                modified = True
+            if feature_mask[5]: # Distancia
+                noise = noise_level * torch.randn_like(edge_attr[i, idx_dist])
+                edge_attr[i, idx_dist] += noise
+                # AGREGAR ESTO:
+                edge_attr[i, idx_dist] = torch.clamp(edge_attr[i, idx_dist], 0.0, 1.0)
 
             # --- SINCRONIZAR CON EL ENLACE REVERSO ---
             if modified:
@@ -290,7 +297,7 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
 
     # --- Etiquetas ---
     feature_names = get_feature_names(periodic_elements, hybridization_types)
-    row_labels_alfa = feature_names
+    alfa_np, row_labels_alfa = filtrar_features_presentes(alfa_np, feature_names, muestra.x)
     col_labels_alfa = [""]
 
     row_labels_beta = [f"Node {i}" for i in range(len(beta_np))]
@@ -648,9 +655,33 @@ def limpiar_columnas_zero(data, col_labels):
 
     return data_limpia, col_labels_limpias
 
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-import networkx as nx
+def filtrar_features_presentes(alfa_np, feature_names, muestra_x):
+    """
+    Filtra la matriz de importancia (alfa) y los nombres de features
+    para quedarse solo con aquellas que existen en la molécula original.
+    """
+    # 1. Asegurar que tenemos numpy array
+    if hasattr(muestra_x, 'cpu'):
+        x = muestra_x.cpu().numpy()
+    else:
+        x = muestra_x
+
+    # 2. Crear máscara: True si la columna (feature) tiene algún valor != 0 en algún nodo
+    # x tiene forma [Num_Nodos, Num_Features]
+    mask = np.any(x != 0, axis=0)
+
+    # 3. Verificación de seguridad de dimensiones
+    if len(feature_names) != len(mask):
+        logging.warning(f"Dimensión incorrecta: Nombres ({len(feature_names)}) vs Features ({len(mask)}). No se filtra.")
+        return alfa_np, feature_names
+
+    # 4. Filtrar nombres
+    feature_names_filtered = [name for name, present in zip(feature_names, mask) if present]
+
+    # 5. Filtrar matriz alfa
+    alfa_np_filtered = alfa_np[mask]
+
+    return alfa_np_filtered, feature_names_filtered
 
 def plot_graph_with_beta(graph, beta, ax=None, cmap="YlOrRd", vmin=None, vmax=None, node_idx_map=None):
     """
