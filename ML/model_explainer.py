@@ -1,6 +1,9 @@
 # model_explainer.py
 from ML.model_tester import cargar_modelo, predecir_molecula
 import torch
+import torch.nn as nn
+import torch.optim as optim
+import math
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
@@ -223,9 +226,9 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
     node_to_atomidx = {i: atom.GetIdx() for i, atom in enumerate(mol.GetAtoms())}
 
     # Imprimir para verificación
-    for i in range(muestra.num_nodes):
-        atom = mol.GetAtomWithIdx(node_to_atomidx[i])
-        logger.info(f"Node {i} -> AtomIdx {atom.GetIdx()} ({atom.GetSymbol()})")
+    # for i in range(muestra.num_nodes):
+    #    atom = mol.GetAtomWithIdx(node_to_atomidx[i])
+    #    logger.info(f"Node {i} -> AtomIdx {atom.GetIdx()} ({atom.GetSymbol()})")
     
     # Generar muestras perturbadas
     perturbed_samples = generate_perturbed_samples(muestra, feature_mask, num_samples, noise_level)
@@ -267,15 +270,23 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
             A_t_list.append(data_z.edge_attr.t().to(device))
 
     # --------------- HACERLO CON OPTIMIZACION DE PYTORCH ----------------------
-    alfa, beta, gamma, delta, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_t_list, A_t_list, 0.01, 500, True)
+    alfa, beta, gamma, delta, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_t_list, A_t_list, 0.01)
+    # Verificar que aprendimos algo distinto de cero
+    print(f"Max Alfa: {alfa.max().item():.4f}, Min Alfa: {alfa.min().item():.4f}")
+    print(f"Max Beta: {beta.max().item():.4f}, Min Beta: {beta.min().item():.4f}")
     
-    # --- Convertir tensores a numpy ---
-    alfa_np = alfa.detach().cpu().numpy().reshape(-1, 1)  # d x 1  → columna
-    beta_np = beta.detach().cpu().numpy().reshape(-1, 1)  # N x 1  → columna
+    # --- Convertir y Normalizar (0 a 1) ---
+    # Esto aplica: Tensor -> Numpy -> Abs -> MinMaxScaling
+    alfa_np = procesar_y_normalizar(alfa)  # Importancia features nodo
+    beta_np = procesar_y_normalizar(beta)  # Importancia nodos (grafo)
 
-    # Nuevos tensores
-    gamma_np = gamma.cpu().numpy().reshape(-1, 1) # Importancia de features de edge (e.g., Doble vs Simple)
-    delta_np = delta.cpu().numpy().reshape(-1, 1) # Importancia de cada enlace específico
+    # Si usas edges, normalizamos, si no, dejamos arrays vacíos/nulos
+    if gamma is not None and gamma.numel() > 0:
+        gamma_np = procesar_y_normalizar(gamma)
+        delta_np = procesar_y_normalizar(delta)
+    else:
+        gamma_np = np.array([])
+        delta_np = np.array([])
 
     # --- Etiquetas ---
     feature_names = get_feature_names(periodic_elements, hybridization_types)
@@ -342,7 +353,7 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
     annotate_heatmap(im_b, beta_np, textcolors=("white", "black"))
     ax_beta.set_title("Node Importance (Beta)", fontsize=14)
 
-    plt.tight_layout(rect=[0, 0, 1, 0.98]) # Ajuste para no tapar el título principal
+    # plt.tight_layout(rect=[0, 0, 1, 0.98]) # Ajuste para no tapar el título principal
 
     # Guardar
     model_name = checkpoint_path.split('/')[-1].split('.')[0]
@@ -358,122 +369,158 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
     return plotfilename
 
 def obtener_argmin(feature_distances, predicciones_perturbadas, 
-                   E_t_list, A_t_list, constNodos = 1, constEdges = 1,
+                   E_t_list, A_t_list, 
                    lr=0.05, 
                    epochs=2000, 
                    verbose=True):
     
-    device = predicciones_perturbadas.device  # Alias para escribir menos
-    num_samples = len(E_t_list)
-    d_nodes = E_t_list[0].shape[0]
-    N_nodes = E_t_list[0].shape[1]
+    device = predicciones_perturbadas.device
     
-    # Manejo si no hay aristas
-    if len(A_t_list) > 0:
-        d_edges = A_t_list[0].shape[0]
-        M_edges = A_t_list[0].shape[1]
-        has_edges = True
+    # --- DIAGNÓSTICO DE VARIANZA ---
+    # Si esto es 0 o muy bajo, LIME no puede aprender nada porque el modelo
+    # predice lo mismo para todas las perturbaciones.
+    std_preds = predicciones_perturbadas.std().item()
+    if verbose:
+        logger.info(f"Desviación estándar de las predicciones: {std_preds:.6f}")
+        if std_preds < 1e-5:
+            logger.warning("¡CUIDADO! El modelo predice casi lo mismo para todas las muestras. Aumenta el noise_level.")
+
+    # 1. Stack
+    E_stack = torch.stack(E_t_list).to(device) 
+    has_edges = len(A_t_list) > 0 and A_t_list[0] is not None
+    if has_edges:
+        A_stack = torch.stack(A_t_list).to(device)
+        d_edges, M_edges = A_stack.shape[1], A_stack.shape[2]
     else:
-        d_edges = 1
-        M_edges = 1
-        has_edges = False
+        d_edges, M_edges = 1, 1
 
-    feature_distances = torch.tensor(feature_distances, dtype=torch.float, device=device).unsqueeze(1)
+    num_samples, d_nodes, N_nodes = E_stack.shape
 
-    # --- CORRECCIÓN DE INICIALIZACIÓN ---
-    # Creamos los datos aleatorios, los movemos al device, *detach()* para olvidar la operación,
-    # y finalmente activamos el gradiente.
-
-    # 1. ALFA
-    alfa_init = torch.randn(d_nodes, device=device, dtype=torch.float) * 0.1
-    alfa = alfa_init.detach().requires_grad_(True)
-
-    # 2. BETA
-    beta_init = torch.randn(N_nodes, device=device, dtype=torch.float) * 0.1
-    beta = beta_init.detach().requires_grad_(True)
+    # 2. CAMBIO CLAVE: ELIMINAMOS LA NORMALIZACIÓN AGRESIVA AQUÍ
+    # Dejamos que los pesos aprendan su magnitud natural.
+    # La normalización visual la haces tú después con 'procesar_y_normalizar'.
+    # Para Nodos
+    scale_nodes = 1.0 / math.sqrt(d_nodes * N_nodes)
     
-    # 3. BIAS (MU)
+    # Para Edges
+    if has_edges:
+        # Evitamos división por cero si N_edges es muy pequeño
+        denom_edges = d_edges * M_edges
+        scale_edges = 1.0 / math.sqrt(denom_edges) if denom_edges > 0 else 1.0
+    else:
+        scale_edges = 0.0
+
+    # 3. Inicialización (Un poco más grande para ayudar al gradiente)
+    alfa = nn.Parameter(torch.randn(d_nodes, 1, device=device) * 0.1)
+    beta = nn.Parameter(torch.randn(N_nodes, 1, device=device) * 0.1)
+    
     mean_pred = predicciones_perturbadas.mean().item()
-    # Crear tensor directamente con el valor float (es seguro)
-    mu = torch.tensor([mean_pred], device=device, dtype=torch.float, requires_grad=True)
+    mu = nn.Parameter(torch.tensor([mean_pred], device=device, dtype=torch.float))
+
+    params = [alfa, beta, mu]
+    
+    gamma = None
+    delta = None
 
     if has_edges:
-        # 4. GAMMA
-        gamma_init = torch.randn(d_edges, device=device, dtype=torch.float) * 0.1
-        gamma = gamma_init.detach().requires_grad_(True)
-        
-        # 5. DELTA
-        delta_init = torch.randn(M_edges, device=device, dtype=torch.float) * 0.1
-        delta = delta_init.detach().requires_grad_(True)
-        
-        params = [alfa, beta, gamma, delta, mu]
-    else:
-        # Dummies que no requieren gradiente para evitar errores si no se usan
-        gamma = torch.tensor(0.0, device=device)
-        delta = torch.tensor(0.0, device=device)
-        params = [alfa, beta, mu]
-
-    # Optimizador
-    optimizer = torch.optim.Adam(params, lr=lr, weight_decay=0) 
+        gamma = nn.Parameter(torch.randn(d_edges, 1, device=device) * 0.1)
+        delta = nn.Parameter(torch.randn(M_edges, 1, device=device) * 0.1)
+        params.extend([gamma, delta])
     
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, verbose=False)
+    optimizer = torch.optim.Adam(params, lr=lr)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=100)
 
-    exp_weights = torch.exp(-feature_distances**2)
+    # ... dentro de obtener_argmin ...
+
+    dists = torch.tensor(feature_distances, dtype=torch.float, device=device).view(-1, 1)
     
-    best_loss = float('inf')
-    patience_counter = 0
-    early_stopping_limit = 200 
+    # --- CORRECCIÓN CRÍTICA AQUÍ ---
+    # NO usar .std() porque tus distancias son muy similares entre sí.
+    # Usamos la media para asegurar que el kernel cubra tus datos.
+    # Un buen heurístico es sigma = media * 0.75
+    dist_mean = dists.mean()
+    sigma = dist_mean if dist_mean > 0 else 1.0
+    
+    # Calculamos pesos.
+    # Nota: Eliminamos el cuadrado del denominador dentro del exp para suavizar,
+    # o usamos 2*sigma^2 si sigma es suficientemente grande.
+    # Probemos esta forma robusta:
+    weights = torch.exp(-(dists**2) / (2 * sigma**2))
+    
+    # IMPORTANTE: Re-escalar los pesos para que sumen 'num_samples'.
+    # Esto evita que el Loss sea pequeñísimo (0.0001) y que los gradientes mueran.
+    weights = weights / weights.sum() * num_samples
+
+    targets = predicciones_perturbadas.view(-1, 1)
+
+    # Bajamos un poco más el learning rate si ahora los gradientes son fuertes
+    # O lo dejamos igual, pero vigilando.
+    
+    # ... (resto del código sigue igual)
+
+    # --- CAMBIO CLAVE: MENOS REGULARIZACIÓN INICIAL ---
+    l1_lambda = 1e-4  # Antes quizás era muy alto comparado con el gradiente
 
     for epoch in range(epochs):
         optimizer.zero_grad()
-        total_loss = 0.0
-
-        for i in range(num_samples):
-            # Término Nodos
-            term_nodes = torch.matmul(alfa, torch.matmul(E_t_list[i], beta))
-            
-            approx_pred = mu +  constNodos * term_nodes
-            
-            # Término Edges
-            if has_edges:
-                term_edges = torch.matmul(gamma, torch.matmul(A_t_list[i], delta))
-                approx_pred += constEdges * term_edges
-            
-            pred_z = predicciones_perturbadas[i]
-            w = exp_weights[i]
-            
-            total_loss += w * (pred_z - approx_pred)**2
-
-        # Regularización L1 Suave
-        l1_lambda = 0.001 
-        l1_norm = torch.norm(beta, 1) + (torch.norm(delta, 1) if has_edges else 0)
         
-        final_loss = total_loss + l1_lambda * l1_norm
+        # --- Nodos ---
+        Eb = torch.matmul(E_stack, beta) 
+        term_nodes = torch.matmul(alfa.t(), Eb).view(-1, 1)
+        
+        pred_approx = mu + (term_nodes * scale_nodes)
 
-        final_loss.backward()
+        # --- Edges ---
+        if has_edges:
+            Ad = torch.matmul(A_stack, delta)
+            term_edges = torch.matmul(gamma.t(), Ad).view(-1, 1)
+            pred_approx += (term_edges * scale_edges)
+
+        squared_error = (targets - pred_approx)**2
+        loss = (weights * squared_error).mean() # Usar mean ayuda a estabilizar respecto al batch size
+        
+        l1_reg = torch.norm(beta, 1) + torch.norm(alfa, 1) 
+        if has_edges:
+             l1_reg += torch.norm(delta, 1) + torch.norm(gamma, 1)
+             
+        total_loss = loss + (l1_lambda * l1_reg)
+
+        total_loss.backward()
         optimizer.step()
         
-        current_loss_val = total_loss.item()
-        scheduler.step(current_loss_val)
+        loss_val = total_loss.item()
+        scheduler.step(loss_val)
+        
+        if verbose and epoch % 200 == 0:
+             # Imprimimos también el bias para ver si se mueve
+             logger.info(f"Epoch {epoch}: Loss {loss_val:.5f} | Mu: {mu.item():.3f}")
 
-        # Early Stopping
-        if current_loss_val < best_loss - 1e-4:
-            best_loss = current_loss_val
-            patience_counter = 0
-        else:
-            patience_counter += 1
-            
-        if patience_counter >= early_stopping_limit:
-            if verbose:
-                logger.info(f"Converged early at epoch {epoch}. Loss: {best_loss:.4f}")
-            break
+    return alfa.detach(), beta.detach(), (gamma.detach() if has_edges else None), (delta.detach() if has_edges else None), loss_val
 
-        if verbose and (epoch % 100 == 0 or epoch == epochs-1):
-            logger.info(f"Epoch {epoch}/{epochs} - Loss: {current_loss_val:.4f} - Bias: {mu.item():.2f}")
-
-    return alfa.detach(), beta.detach(), gamma.detach(), delta.detach(), best_loss
-
-
+def procesar_y_normalizar(tensor):
+    # 1. Convertir Tensor a Numpy (Maneja si ya es None)
+    if tensor is None:
+        return None
+    
+    # .detach() para sacar del grafo, .cpu() para mover a RAM
+    arr = tensor.detach().cpu().numpy().reshape(-1, 1)
+    
+    # 2. Valor Absoluto (Magnitud de la importancia)
+    arr_abs = np.abs(arr)
+    
+    # 3. Escalar entre 0 y 1 (Min-Max Scaling)
+    val_min = arr_abs.min()
+    val_max = arr_abs.max()
+    
+    # Evitar división por cero si todos los valores son iguales (ej. todos 0)
+    if val_max - val_min == 0:
+        # Si max y min son iguales, devolvemos ceros (o unos si prefieres)
+        return np.zeros_like(arr_abs)
+    
+    # Fórmula: (x - min) / (max - min)
+    arr_norm = (arr_abs - val_min) / (val_max - val_min)
+    
+    return arr_norm
 
 def heatmap(data, row_labels, col_labels, ax, aspect='auto', **kwargs):
     """
