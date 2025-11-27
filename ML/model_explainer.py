@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 
 # Función para dada una muestra (x), genere una muestra perturbada (Z)
 # Dado un vector binario de las características a perturbar
-# feature_mask espera: [Atom, Degree, Arom, Hybrid, BondType, BondDist]
 def perturb_features_sample(data, feature_mask = [1, 1, 1, 1, 1, 1], noise_level=0.05):
     data_new = data.clone()
     x = data_new.x
@@ -460,6 +459,18 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
     # --- CAMBIO CLAVE: MENOS REGULARIZACIÓN INICIAL ---
     l1_lambda = 1e-4  # Antes quizás era muy alto comparado con el gradiente
 
+    # MEJORA 1: Usar AdamW en lugar de Adam estándar
+    # weight_decay ayuda a mantener los pesos controlados sin ser tan agresivo como L1
+    optimizer = torch.optim.AdamW(params, lr=lr, weight_decay=1e-4)
+    
+    # MEJORA 2: Scheduler tipo Coseno
+    # Esto baja el LR suavemente desde 0.05 hasta 0 al final de las epochs.
+    # Evita que se estanque tan pronto.
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+
+    # Variables para calcular R^2 al final
+    initial_loss = None
+
     for epoch in range(epochs):
         optimizer.zero_grad()
         
@@ -478,6 +489,10 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
         squared_error = (targets - pred_approx)**2
         loss = (weights * squared_error).mean() # Usar mean ayuda a estabilizar respecto al batch size
         
+        # Guardamos el loss inicial real (sin regularización) para comparar
+        if epoch == 0:
+            initial_loss = loss.item()
+
         l1_reg = torch.norm(beta, 1) + torch.norm(alfa, 1) 
         if has_edges:
              l1_reg += torch.norm(delta, 1) + torch.norm(gamma, 1)
@@ -488,11 +503,18 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
         optimizer.step()
         
         loss_val = total_loss.item()
-        scheduler.step(loss_val)
+        scheduler.step()
         
         if verbose and epoch % 200 == 0:
              # Imprimimos también el bias para ver si se mueve
              logger.info(f"Epoch {epoch}: Loss {loss_val:.5f} | Mu: {mu.item():.3f}")
+    
+    # --- MEJORA 3: CÁLCULO DE R^2 FINAL ---
+    # R^2 = 1 - (Loss Final / Loss Inicial)
+    # Esto te dice el % de la varianza explicada.
+    r_squared = 1.0 - (loss_val / (initial_loss + 1e-8))
+    logger.info(f"--- Entrenamiento Finalizado ---")
+    logger.info(f"R² (Varianza Explicada): {r_squared:.2%} (Ideal > 80%)")
 
     return alfa.detach(), beta.detach(), (gamma.detach() if has_edges else None), (delta.detach() if has_edges else None), loss_val
 
