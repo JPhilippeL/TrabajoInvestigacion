@@ -5,149 +5,215 @@ from rdkit.Chem import AllChem
 import torch
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-import torch.nn.functional as TorchF
 from ui.utils import periodic_elements, hybridization_types
-import pandas as pd
 from sklearn.model_selection import train_test_split
-import re
+import math
 import logging
 logger = logging.getLogger(__name__)
 
-def mol_to_graph_data_obj(mol):
-    bond_type_to_int = {
-        Chem.rdchem.BondType.SINGLE: 0,
-        Chem.rdchem.BondType.DOUBLE: 1,
-        Chem.rdchem.BondType.TRIPLE: 2,
-        Chem.rdchem.BondType.AROMATIC: 3
-    }
-    num_bond_types = len(bond_type_to_int)
+import torch
+import torch.nn.functional as F
+from torch_geometric.data import Data
+from rdkit import Chem
 
-    # === ÁTOMOS: usar vector completo ===
+# --- Configuraciones Globales ---
+# Asegúrate de tener definidas 'periodic_elements' y 'hybridization_types' fuera o aquí mismo
+# periodic_elements = [...] 
+# hybridization_types = [...]
+
+BOND_TYPE_TO_INT = {
+    Chem.rdchem.BondType.SINGLE: 0,
+    Chem.rdchem.BondType.DOUBLE: 1,
+    Chem.rdchem.BondType.TRIPLE: 2,
+    Chem.rdchem.BondType.AROMATIC: 3
+}
+
+# Pre-calculamos mapas para búsqueda rápida (usado en modo embedding)
+ATOM_TYPE_TO_IDX = {el: i for i, el in enumerate(periodic_elements)}
+HYBRID_TO_IDX = {h: i for i, h in enumerate(hybridization_types)}
+
+# --- Definiciones de Patrones SMARTS para H-Bonds ---
+# Donador: Generalmente N u O con al menos un H unido
+HBD_PATTERN = Chem.MolFromSmarts('[$([N;!H0;v3,v4&+1]),$([O,S;H1;+0]),n&H1&+0]')
+
+# Aceptor: N u O con pares libres disponibles (definición estándar de Lipinski)
+HBA_PATTERN = Chem.MolFromSmarts('[$([O,S;H1;v2;!$(*-*=[O,N,P,S])]),$([O,S;H0;v2]),$([O,S;-]),$([N;v3;!$(N-*=[O,N,P,S])]),n&H0&+0,$([o,s;+0;!$([o,s]:n);!$([o,s]:c:n)])]')
+
+def get_atom_features(atom, is_donor, is_acceptor, mode='one_hot'):
+    # 1. Features básicas
+    degree = atom.GetDegree() / 10.0
+    num_h = atom.GetTotalNumHs() / 10.0
+    is_aromatic = float(atom.GetIsAromatic())
+    
+    # 2. Cargas (Formal y Gasteiger)
+    formal_charge = float(atom.GetFormalCharge())
+    try:
+        gasteiger_charge = atom.GetDoubleProp('_GasteigerCharge')
+        if math.isnan(gasteiger_charge) or math.isinf(gasteiger_charge):
+            gasteiger_charge = 0.0
+    except KeyError:
+        gasteiger_charge = 0.0
+        
+    # 3. H-Bonds (Convertimos bool a float 1.0/0.0)
+    is_donor_feat = float(is_donor)
+    is_acceptor_feat = float(is_acceptor)
+
+    if mode == 'one_hot':
+        return (one_of_k_encoding_unk(atom.GetSymbol(), periodic_elements) + 
+                [degree, num_h, is_aromatic, formal_charge, gasteiger_charge] + 
+                [is_donor_feat, is_acceptor_feat] +  # <--- NUEVO
+                one_of_k_encoding_unk(atom.GetHybridization().name, hybridization_types))
+    
+    elif mode == 'embedding':
+        symbol_idx = ATOM_TYPE_TO_IDX.get(atom.GetSymbol(), len(ATOM_TYPE_TO_IDX) - 1)
+        hybrid_idx = HYBRID_TO_IDX.get(atom.GetHybridization().name, len(HYBRID_TO_IDX) - 1)
+        
+        # Añadimos al final de las features continuas
+        return [symbol_idx, hybrid_idx, degree, num_h, is_aromatic, 
+                formal_charge, gasteiger_charge, is_donor_feat, is_acceptor_feat]
+    
+    else:
+        raise ValueError(f"Modo desconocido: {mode}")
+
+def get_edge_features(bond_type_idx, dist, num_bond_types, mode='one_hot'):
+    """Construye el vector de características del enlace."""
+    
+    if mode == 'one_hot':
+        # One-hot encoding del tipo de enlace + distancia
+        bond_onehot = F.one_hot(torch.tensor(bond_type_idx), num_classes=num_bond_types).float()
+        return torch.cat([bond_onehot, dist], dim=0)
+        
+    elif mode == 'embedding':
+        # Índice del tipo de enlace + distancia
+        return torch.tensor([bond_type_idx, dist.item()], dtype=torch.float)
+
+def mol_to_graph_data(mol, mode='embedding'):
+    """
+    Función unificada para convertir molécula a data
+    Args:
+        mol: Objeto molécula de RDKit.
+        mode: 'one_hot' (para el primer caso) o 'embedding' (para el segundo).
+    """
+    
+    # A. Cargas Gasteiger
+    AllChem.ComputeGasteigerCharges(mol)
+    
+    # B. Identificar Donadores y Aceptores (Indices)
+    # GetSubstructMatches devuelve tuplas de tuplas ((idx1,), (idx2,), ...), lo aplanamos a un set
+    hbd_matches = mol.GetSubstructMatches(HBD_PATTERN)
+    hbd_indices = {idx[0] for idx in hbd_matches} # Usamos set para búsqueda rápida O(1)
+
+    hba_matches = mol.GetSubstructMatches(HBA_PATTERN)
+    hba_indices = {idx[0] for idx in hba_matches}
+
+    # === 1. ÁTOMOS ===
     atom_features = []
-    for atom in mol.GetAtoms():
-        features = one_of_k_encoding_unk(atom.GetSymbol(), periodic_elements) + \
-                   [atom.GetDegree()/10.0] + \
-                   [atom.GetTotalNumHs()/10.0] + \
-                   [atom.GetIsAromatic()] + \
-                   one_of_k_encoding_unk(atom.GetHybridization().name, hybridization_types)
-        atom_features.append(features)
-
-    x = torch.tensor(atom_features, dtype=torch.float)
-
-    # Coordenadas 3D
-    conf = mol.GetConformer()
-    pos = []
-    for atom in mol.GetAtoms():
-       idx = atom.GetIdx()
-       p = conf.GetAtomPosition(idx)
-       pos.append([p.x, p.y, p.z])
-    pos = torch.tensor(pos, dtype=torch.float)
-
-    # Indices y atributos de los enlaces
-    edge_index = []
-    edge_attr = []
-    for bond in mol.GetBonds():
-        i = bond.GetBeginAtomIdx()
-        j = bond.GetEndAtomIdx()
-
-        # Distancia Euclidiana
-        dist = torch.norm(pos[i] - pos[j]).unsqueeze(0)  # tensor de tamaño [1]
-
-        bond_type = bond.GetBondType()
-        bond_type_idx = bond_type_to_int.get(bond_type, 0)  # default a 0
-        bond_onehot = TorchF.one_hot(torch.tensor(bond_type_idx), num_classes=num_bond_types).float()
-
-        # Concatenar tipo de enlace + distancia
-        edge_features = torch.cat([bond_onehot, dist], dim=0)
-
-        edge_index.append([i, j])
-        edge_index.append([j, i])
-        edge_attr.append(edge_features)
-        edge_attr.append(edge_features)
-
-    edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
-    edge_attr = torch.stack(edge_attr).float()
-
-    # Construir objeto Data
-    data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
-    return data
-
-def mol_to_graph_data_obj_embedding(mol):
-    # Mapeo de tipos de enlace a índices
-    bond_type_to_int = {
-        Chem.rdchem.BondType.SINGLE: 0,
-        Chem.rdchem.BondType.DOUBLE: 1,
-        Chem.rdchem.BondType.TRIPLE: 2,
-        Chem.rdchem.BondType.AROMATIC: 3
-    }
-
-    # === ÁTOMOS ===
-    atom_features = []
-    atom_type_to_idx = {el: i for i, el in enumerate(periodic_elements)}
-    hybrid_to_idx = {h: i for i, h in enumerate(hybridization_types)}
-
-    for atom in mol.GetAtoms():
-        symbol_idx = atom_type_to_idx.get(atom.GetSymbol(), len(atom_type_to_idx) - 1)
-        hybrid_idx = hybrid_to_idx.get(atom.GetHybridization().name, len(hybrid_to_idx) - 1)
-        degree = atom.GetDegree() / 10.0
-        num_h = atom.GetTotalNumHs() / 10.0
-        aromatic = float(atom.GetIsAromatic())
-
-        # Guardamos los índices categóricos + valores continuos
-        atom_features.append([symbol_idx, hybrid_idx, degree, num_h, aromatic])
-
-    x = torch.tensor(atom_features, dtype=torch.float)
-
-    # === Coordenadas 3D ===
-    conf = mol.GetConformer()
-    pos = []
     for atom in mol.GetAtoms():
         idx = atom.GetIdx()
-        p = conf.GetAtomPosition(idx)
+        
+        # Chequeamos si el índice actual está en los sets calculados
+        is_donor = idx in hbd_indices
+        is_acceptor = idx in hba_indices
+        
+        # Pasamos los flags a la función auxiliar
+        atom_features.append(get_atom_features(atom, is_donor, is_acceptor, mode=mode))
+
+    x = torch.tensor(atom_features, dtype=torch.float)
+
+    # === 2. COORDENADAS 3D ===
+    # Esta parte es idéntica en ambas funciones
+    conf = mol.GetConformer()
+    pos = []
+    for atom in mol.GetAtoms():
+        p = conf.GetAtomPosition(atom.GetIdx())
         pos.append([p.x, p.y, p.z])
     pos = torch.tensor(pos, dtype=torch.float)
 
-    # === ENLACES ===
+    # === 3. ENLACES ===
     edge_index = []
     edge_attr = []
+    num_bond_types = len(BOND_TYPE_TO_INT)
+
     for bond in mol.GetBonds():
         i = bond.GetBeginAtomIdx()
         j = bond.GetEndAtomIdx()
 
-        dist = torch.norm(pos[i] - pos[j]).unsqueeze(0)  # tensor [1]
-        bond_type = bond.GetBondType()
-        bond_type_idx = bond_type_to_int.get(bond_type, 0)
+        # Calcular distancia
+        dist = torch.norm(pos[i] - pos[j]).unsqueeze(0)
 
-        # Guardamos solo el índice y la distancia
-        edge_features = torch.tensor([bond_type_idx, dist.item()], dtype=torch.float)
+        # Tipo de enlace
+        bond_type_idx = BOND_TYPE_TO_INT.get(bond.GetBondType(), 0)
 
+        # Obtener features del enlace (delegado a función auxiliar)
+        edge_features = get_edge_features(bond_type_idx, dist, num_bond_types, mode=mode)
+
+        # Grafo no dirigido: agregamos (i, j) y (j, i)
         edge_index.append([i, j])
         edge_index.append([j, i])
         edge_attr.append(edge_features)
         edge_attr.append(edge_features)
 
+    # Formateo final de tensores
     edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
-    edge_attr = torch.stack(edge_attr).float()
-
-    # === Construir objeto Data ===
-    data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
-    return data
-
-
-# def smiles_to_graph_data_obj(smiles):
-#     mol = Chem.MolFromSmiles(smiles)
-#     if mol is None:
-#         raise ValueError(f"SMILES inválido: {smiles}")
     
-#     # Añadir hidrógenos explícitos
-#     mol = Chem.AddHs(mol)
+    if edge_attr: # Prevenir error si no hay enlaces
+        edge_attr = torch.stack(edge_attr).float()
+    else:
+        edge_attr = torch.empty((0, x.size(1))) # O dimensión adecuada vacía
+
+    return Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+
+def onehot_to_indices(data):
+    """
+    Convierte features one-hot a formato indices + continuos.
+    Asegura que la salida coincida con mol_to_graph(mode='embedding').
+    """
+    if data.x is None: return data
+
+    x = data.x.clone()
     
-#     # Generar coordenadas 3D
-#     AllChem.EmbedMolecule(mol, randomSeed=42)
-#     AllChem.UFFOptimizeMolecule(mol)
+    # IMPORTANTE: Estas listas deben ser IDÉNTICAS a las usadas al crear el grafo
+    num_atoms = len(periodic_elements)
+    num_hybrids = len(hybridization_types)
     
-#     # Reutilizar
-#     return mol_to_graph_data_obj(mol)
+    # 1. Extraer y convertir ÁTOMOS
+    # x[:, :num_atoms] son las columnas del one-hot de átomos
+    atom_onehot = x[:, :num_atoms]
+    # .float() es vital para poder concatenar después con las features continuas
+    atom_idx = atom_onehot.argmax(dim=1, keepdim=True).float()
+
+    # 2. Extraer y convertir HIBRIDACIÓN (asumiendo que está al final)
+    hybrid_onehot = x[:, -num_hybrids:]
+    hybrid_idx = hybrid_onehot.argmax(dim=1, keepdim=True).float()
+
+    # 3. Extraer el sándwich del medio (Features continuas: carga, H-bond, etc.)
+    # Si añadiste carga o H-bonds, están aquí en medio.
+    cont_features = x[:, num_atoms:-num_hybrids]
+
+    # 4. Concatenar en el orden EXACTO que espera el EmbeddingEncoder
+    # Orden: [Indice Atomo, Indice Hibridacion, ...continuas...]
+    x_new = torch.cat([atom_idx, hybrid_idx, cont_features], dim=1)
+    
+    # Crear nuevo objeto data para no modificar el original por referencia
+    data_new = data.clone()
+    data_new.x = x_new
+
+    # --- CONVERSIÓN DE ARISTAS ---
+    if data_new.edge_attr is not None and data_new.edge_attr.shape[1] > 2:
+        edge_attr = data_new.edge_attr
+        
+        # Asumiendo estructura [OneHot (N cols) | Distancia (1 col)]
+        # Distancia es la última columna
+        dist = edge_attr[:, -1].unsqueeze(1)
+        
+        # One-hot es todo menos la última
+        bond_onehot = edge_attr[:, :-1]
+        bond_idx = bond_onehot.argmax(dim=1, keepdim=True).float()
+        
+        # Estructura final: [Indice Tipo Enlace, Distancia]
+        data_new.edge_attr = torch.cat([bond_idx, dist], dim=1)
+
+    return data_new
 
 def read_targets(targets_file):
     
@@ -197,7 +263,7 @@ def load_data_from_sdf(sdf_dir, target_dict):
             continue
 
         try:
-            data = mol_to_graph_data_obj_embedding(mol)
+            data = mol_to_graph_data(mol)
         except Exception as e:
             logger.warning(f"Error procesando '{filename}': {e}")
             continue

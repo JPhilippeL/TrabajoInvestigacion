@@ -4,12 +4,11 @@ import torch
 from rdkit import Chem
 from torch_geometric.data import Data
 from ML.model_trainer import create_model, calc_dim
-from ML.data_processing import mol_to_graph_data_obj
 import os
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error
 from math import sqrt
-from ML.data_processing import read_targets, load_data_from_sdf
+from ML.data_processing import read_targets, load_data_from_sdf, mol_to_graph_data
 import logging
 import sys
 from ui.utils import RESULTADOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, OTHER_EDGE_FEATURES, OTHER_NODE_FEATURES
@@ -76,8 +75,8 @@ def cargar_y_predecir(checkpoint_path, sdf_path):
     if mol is None:
         raise ValueError(f"No se pudo leer la molécula de {sdf_path}")
 
-    # Convertir a PyG Data
-    data = mol_to_graph_data_obj(mol)
+    # Convertir a PyG Data (embedding)
+    data = mol_to_graph_data(mol)
     data = data.to(str(device))
 
     # Predecir

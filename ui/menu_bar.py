@@ -20,12 +20,7 @@ from ML.model_tester import test_model_on_directory
 from ML.model_tester import obtener_info_checkpoint
 from ML.model_explainer import obtener_lime
 from ML.model_tester import cargar_y_predecir
-from ML.data_processing import mol_to_graph_data_obj
-
 from core.sdf_converter import graph_to_mol, save_graph_as_sdf, split_sdf, smiles_csv_to_sdf_dir
-
-from ui.utils import RESULTADOS_DIR
-from ui.utils import hybridization_types, periodic_elements
 
 logger = logging.getLogger(__name__)
 
@@ -545,7 +540,7 @@ class MenuBar(QMenuBar):
             try:
                 # Obtener explicación LIME
                 # feature_mask espera: [Atom, Degree, Arom, Hybrid, BondType, BondDist]
-                plot_path = obtener_lime(model_path, sdf_path, feature_mask=[1, 1, 1, 1, 1, 1], num_samples=100, noise_level=0.1, device='cpu')
+                plot_path = obtener_lime(model_path, sdf_path, num_samples=200, noise_level=0.1, device='cpu')
 
                 # mostrar el sdf por pantalla
                 self.parent.load_graph_from_file(sdf_path)

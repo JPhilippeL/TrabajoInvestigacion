@@ -13,7 +13,7 @@ from ui.utils import RESULTADOS_DIR, periodic_elements, hybridization_types, N_B
 import os
 import sys
 import logging
-from ML.data_processing import mol_to_graph_data_obj, mol_to_graph_data_obj_embedding
+from ML.data_processing import mol_to_graph_data, onehot_to_indices
 from rdkit import Chem
 from core.sdf_converter import parse_sdf
 import matplotlib.gridspec as gridspec
@@ -22,88 +22,95 @@ SIGMADIST = 1
 MININICIAL = sys.float_info.max
 logger = logging.getLogger(__name__)
 
-def onehot_to_indices(data):
-    """
-    Convierte las features de nodos one-hot a indices que pueda usar EmbeddingEncoder.
-    data.x debe tener:
-        [one-hot atom | grado | numH | aromatic | one-hot hybrid]
-    """
-    x = data.x.clone()
-    num_atoms = len(periodic_elements)
-    num_hybrids = len(hybridization_types)
-
-    # Atom index
-    atom_onehot = x[:, :num_atoms]
-    atom_idx = atom_onehot.argmax(dim=1, keepdim=True)
-
-    # Continuos
-    cont_features = x[:, num_atoms:-num_hybrids]
-
-    # Hybrid index
-    hybrid_onehot = x[:, -num_hybrids:]
-    hybrid_idx = hybrid_onehot.argmax(dim=1, keepdim=True)
-
-    # Concatenar: [atom_idx, hybrid_idx, cont_features]
-    x_new = torch.cat([atom_idx, hybrid_idx, cont_features], dim=1)
-    data_new = data.clone()
-    data_new.x = x_new
-
-    # --- 2. CONVERSIÓN DE ARISTAS (El error oculto) ---
-    # Estructura entrada: [BondOneHot (4 cols) | Distancia]
-    # Estructura salida:  [BondIdx (1 col) | Distancia]
-    if data_new.edge_attr is not None and data_new.edge_attr.shape[1] > 2:
-        edge_attr = data_new.edge_attr
-        # Asumimos que la distancia es la ÚLTIMA columna
-        dist = edge_attr[:, -1].unsqueeze(1)
-        
-        # El one-hot son todas las columnas menos la última
-        bond_onehot = edge_attr[:, :-1]
-        bond_idx = bond_onehot.argmax(dim=1, keepdim=True).float()
-        
-        data_new.edge_attr = torch.cat([bond_idx, dist], dim=1)
-
-    return data_new
-
-
 # Función para dada una muestra (x), genere una muestra perturbada (Z)
 # Dado un vector binario de las características a perturbar
 # feature_mask espera: [Atom, Degree, Arom, Hybrid, BondType, BondDist]
-def perturb_features_sample(data, feature_mask, noise_level=0.05):
+def perturb_features_sample(data, feature_mask = [1, 1, 1, 1, 1, 1], noise_level=0.05):
     data_new = data.clone()
-    
-    # ==========================================
-    # 1. PERTURBACIÓN DE NODOS (Igual que antes)
-    # ==========================================
     x = data_new.x
-    start_atom, end_atom = 0, len(periodic_elements)
-    start_degree, end_degree = end_atom, end_atom+1
-    start_hs, end_hs = end_degree, end_degree+1
-    aromatic_idx = end_hs
-    start_hybrid, end_hybrid = aromatic_idx+1, aromatic_idx+1+len(hybridization_types)
-    
     num_nodes = x.shape[0]
-
-    # Rellenar máscara si falta
+    
+    # === DEFINICIÓN DE INDICES (Dinámico) ===
+    # 1. Longitudes conocidas
+    len_atom = len(periodic_elements)
+    len_hybrid = len(hybridization_types)
+    
+    # 2. Definir los bloques "Sándwich"
+    # Bloque 1: Tipo de Átomo (Al principio)
+    start_atom, end_atom = 0, len_atom
+    
+    # Bloque 3: Hibridación (Al final)
+    # Usamos índices negativos para ubicarlo siempre al final, sin importar qué añadimos en medio
+    start_hybrid = x.shape[1] - len_hybrid
+    end_hybrid = x.shape[1]
+    
+    # Bloque 2: Todo lo del medio (Escalares)
+    # Aquí están: [Degree, NumH, Aromatic, ChargeFormal, ChargeGasteiger, IsDonor, IsAcceptor]
+    # Importante: Debemos saber cuáles son binarios para hacer 'flip' y cuáles continuos para 'noise'
+    # Según nuestro orden anterior:
+    # idx rel: 0=Deg, 1=NumH, 2=Arom, 3=Formal, 4=Gasteiger, 5=Donor, 6=Acceptor
+    
+    # Indices absolutos para el bloque medio
+    middle_features = x[:, end_atom:start_hybrid]
+    
+    # Rellenar máscara si es corta (ahora necesitamos controlar más cosas)
+    # mask[0]: Atom Type
+    # mask[1]: Continuous noise (Degree, NumH, Cargas)
+    # mask[2]: Binary flips (Aromatic, Donor, Acceptor)
+    # mask[3]: Hybridization
+    # mask[4]: Bond Type
+    # mask[5]: Bond Dist
     if len(feature_mask) < 6:
         feature_mask = list(feature_mask) + [False] * (6 - len(feature_mask))
 
+    # ==========================================
+    # 1. PERTURBACIÓN DE NODOS
+    # ==========================================
     for i in range(num_nodes):
-        if feature_mask[0]:  # Átomo
+        
+        # A. TIPO DE ÁTOMO (One-Hot)
+        if feature_mask[0]:
             onehot = x[i, start_atom:end_atom]
             onehot[:] = 0
-            new_idx = torch.randint(0, len(periodic_elements), (1,))
+            new_idx = torch.randint(0, len_atom, (1,))
             onehot[new_idx] = 1
-        if feature_mask[1]:  # Grado
-            noise = noise_level * torch.randn_like(x[i, start_degree:end_hs])
-            x[i, start_degree:end_hs] += noise
-            # Asegurarse q no se pasa de 1
-            x[i, start_degree:end_hs] = torch.clamp(x[i, start_degree:end_hs], 0.0, 1.0)
-        if feature_mask[2]:  # Aromaticidad
-            x[i, aromatic_idx] = 1 - x[i, aromatic_idx]
-        if feature_mask[3]:  # Hibridación
+
+        # B. FEATURES CONTINUAS (Ruido)
+        # Asumimos que Degree(0), NumH(1), Formal(3), Gasteiger(4) son "continuos" o magnitudes
+        if feature_mask[1]:
+            # Indices relativos dentro del bloque medio que queremos perturbar con ruido
+            # OJO: Depende de tu orden exacto. 
+            # Si: [Deg, NumH, Arom, Formal, Gast, Don, Acc]
+            # Continuous indices: 0, 1, 3, 4
+            indices_continuous = [0, 1, 3, 4] 
+            
+            # Aplicamos ruido solo a esas columnas
+            vals = x[i, end_atom:start_hybrid] # Vista del bloque medio
+            noise = noise_level * torch.randn(len(indices_continuous))
+            
+            # Sumar ruido
+            for k, idx_rel in enumerate(indices_continuous):
+                vals[idx_rel] += noise[k]
+                
+            # Clamping (opcional, ajusta según tus datos, ej: NumH no puede ser negativo)
+            # vals[0] = torch.clamp(vals[0], 0.0, 1.0) 
+
+        # C. FEATURES BINARIAS (Flip)
+        # Aromatic(2), IsDonor(5), IsAcceptor(6)
+        if feature_mask[2]:
+            indices_binary = [2, 5, 6]
+            vals = x[i, end_atom:start_hybrid]
+            
+            for idx_rel in indices_binary:
+                # Probabilidad 50% de invertir el bit (o forzar cambio)
+                # Aquí forzamos cambio como hacías antes:
+                vals[idx_rel] = 1.0 - vals[idx_rel]
+
+        # D. HIBRIDACIÓN (One-Hot)
+        if feature_mask[3]:
             onehot = x[i, start_hybrid:end_hybrid]
             onehot[:] = 0
-            new_idx = torch.randint(0, len(hybridization_types), (1,))
+            new_idx = torch.randint(0, len_hybrid, (1,))
             onehot[new_idx] = 1
 
     data_new.x = x
@@ -116,55 +123,45 @@ def perturb_features_sample(data, feature_mask, noise_level=0.05):
         edge_index = data_new.edge_index
         num_edges = edge_attr.shape[0]
         
-        # 1. Crear mapa para buscar el reverso rápido: (u, v) -> index
-        # Esto nos permite encontrar dónde está B->A sabiendo A->B
-        edge_map = {}
-        for i in range(num_edges):
-            u = edge_index[0, i].item()
-            v = edge_index[1, i].item()
-            edge_map[(u, v)] = i
+        # Mapa de simetría (u,v) -> idx
+        edge_map = {(edge_index[0, k].item(), edge_index[1, k].item()): k for k in range(num_edges)}
 
-        # Definir slices
-        num_bond_cols = N_BOND_TYPES 
-        slice_bond = slice(0, num_bond_cols)
-        idx_dist = -1
+        # Definir cuántas columnas son one-hot de enlace
+        # Asumimos que la distancia es LA ÚLTIMA columna
+        dist_idx = -1 
+        num_bond_cols = edge_attr.shape[1] - 1 # Todo menos la distancia
 
         for i in range(num_edges):
-            u = edge_index[0, i].item()
-            v = edge_index[1, i].item()
+            u, v = edge_index[0, i].item(), edge_index[1, i].item()
+            if u > v: continue # Evitar doble proceso
 
-            # --- TRUCO DE SIMETRÍA ---
-            # Solo calculamos el ruido si u < v.
-            # Si u > v, significa que ya procesamos este par cuando estábamos en (v, u)
-            # y ya copiamos los datos, así que saltamos.
-            if u > v:
-                continue
-
-            # --- APLICAR PERTURBACIÓN AL ENLACE 'i' ---
             modified = False
             
-            # Perturbar Tipo de Enlace
+            # Perturbar Tipo Enlace
             if feature_mask[4]:
-                onehot_bond = edge_attr[i, slice_bond]
+                onehot_bond = edge_attr[i, :num_bond_cols] # Slice dinámico
                 onehot_bond[:] = 0
                 new_bond_idx = torch.randint(0, num_bond_cols, (1,))
                 onehot_bond[new_bond_idx] = 1
                 modified = True
             
             # Perturbar Distancia
-            if feature_mask[5]: # Distancia
-                noise = noise_level * torch.randn_like(edge_attr[i, idx_dist])
-                edge_attr[i, idx_dist] += noise
-                # AGREGAR ESTO:
-                edge_attr[i, idx_dist] = torch.clamp(edge_attr[i, idx_dist], 0.0, 1.0)
+            if feature_mask[5]: 
+                # === CORRECCIÓN AQUÍ ===
+                # Usamos .item() para que sea un float y no un tensor de dimensión [1]
+                noise = noise_level * torch.randn(1).item()
+                
+                edge_attr[i, dist_idx] += noise
+                
+                # Clamp usando torch.clamp (más robusto)
+                edge_attr[i, dist_idx] = torch.clamp(edge_attr[i, dist_idx], min=0.0)
+                
+                modified = True
 
-            # --- SINCRONIZAR CON EL ENLACE REVERSO ---
-            if modified:
-                # Buscamos el índice del enlace (v, u)
-                if (v, u) in edge_map:
-                    sym_idx = edge_map[(v, u)]
-                    # Copiamos exactamente los mismos valores
-                    edge_attr[sym_idx] = edge_attr[i].clone()
+            # Copiar al reverso
+            if modified and (v, u) in edge_map:
+                sym_idx = edge_map[(v, u)]
+                edge_attr[sym_idx] = edge_attr[i].clone()
 
         data_new.edge_attr = edge_attr
 
@@ -223,15 +220,13 @@ def embedding_distance_list(model, x, z_list, edge_attr_list=None, batch=None, d
 
     return distances
 
-def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_level=0.05, device='cpu'):
+def obtener_lime(checkpoint_path, sdf_path, feature_mask = [1, 1, 1, 1, 1, 1], num_samples=50, noise_level=0.05, device='cpu'):
     
     mol = Chem.SDMolSupplier(sdf_path, removeHs=False)[0]
-    muestra = mol_to_graph_data_obj(mol)
-    muestra_embedding = mol_to_graph_data_obj_embedding(mol)
+    muestra = mol_to_graph_data(mol, 'one_hot')
 
     # Mapear node index -> atom idx
-    node_to_atomidx = {i: atom.GetIdx() for i, atom in enumerate(mol.GetAtoms())}
-
+    # node_to_atomidx = {i: atom.GetIdx() for i, atom in enumerate(mol.GetAtoms())}
     # Imprimir para verificación
     # for i in range(muestra.num_nodes):
     #    atom = mol.GetAtomWithIdx(node_to_atomidx[i])
@@ -242,9 +237,6 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask, num_samples=50, noise_
 
     # Obtener modelo
     model, device, target_name = cargar_modelo(checkpoint_path)
-
-    # Nombre y prediccion para el plot
-    #prediccion_og = predecir_molecula(model, muestra_embedding, device)
 
     muestra_for_model = onehot_to_indices(muestra.to(device))
     prediccion_original = predecir_molecula(model, muestra_for_model, device)
@@ -628,19 +620,24 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
 def get_feature_names(periodic_elements, hybridization_types):
     feature_names = []
 
-    # 1️⃣ Tipos de átomo
+    # 1️⃣ Tipos de átomo (One-Hot)
+    # Coincide con: one_of_k_encoding_unk(atom.GetSymbol(), periodic_elements)
     feature_names += [f"Atom_{el}" for el in periodic_elements]
 
-    # 2️⃣ Grado
-    feature_names.append("Degree_norm")
+    # 2️⃣ Features Escalares (El "Sándwich" Central)
+    # El orden AQUÍ debe ser idéntico al return de get_atom_features
+    feature_names.append("Degree_norm")      # index relativo: 0
+    feature_names.append("TotalHs_norm")     # index relativo: 1
+    feature_names.append("IsAromatic")       # index relativo: 2
+    
+    # --- NUEVAS FEATURES ---
+    feature_names.append("FormalCharge")     # index relativo: 3
+    feature_names.append("GasteigerCharge")  # index relativo: 4
+    feature_names.append("IsHDonor")         # index relativo: 5
+    feature_names.append("IsHAcceptor")      # index relativo: 6
 
-    # 3️⃣ Número de H
-    feature_names.append("TotalHs_norm")
-
-    # 4️⃣ Aromaticidad
-    feature_names.append("IsAromatic")
-
-    # 5️⃣ Hibridación
+    # 3️⃣ Hibridación (One-Hot)
+    # Coincide con: one_of_k_encoding_unk(atom.GetHybridization().name, hybridization_types)
     feature_names += [f"Hybrid_{h}" for h in hybridization_types]
 
     return feature_names

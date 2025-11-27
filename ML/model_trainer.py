@@ -350,18 +350,37 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
         logging.info(f"Mejor modelo guardado en epoch {best_epoch} | Train MSE: {avg_train_loss_saved:.4f} | Validation MSE: {best_val_loss:.4f}")
 
     # --- Gráfica ---
-    plt.figure()
-    plt.plot(range(1, len(train_losses) + 1), train_losses, label='Train Loss')
+    plt.figure(figsize=(10, 6)) # Hacemos la figura un poco más grande
+    
+    # Eje X basado en los datos reales obtenidos
+    epochs_range = range(1, len(train_losses) + 1)
+    
+    plt.plot(epochs_range, train_losses, label='Train Loss')
     if val_loader is not None:
-        plt.plot(range(1, len(val_losses) + 1), val_losses, label='Validation Loss')
+        plt.plot(epochs_range, val_losses, label='Validation Loss')
+
+    # --- NUEVO: Marcar Early Stopping y Best Epoch ---
+    
+    # 1. Marca del Mejor Modelo (Línea Verde)
+    # Solo la dibujamos si hubo validación y tenemos un best_epoch guardado
+    if val_loader is not None and best_epoch:
+        plt.axvline(x=best_epoch, color='green', linestyle=':', label=f'Best Epoch ({best_epoch})')
+
+    # 2. Marca de Early Stopping (Línea Roja)
+    # Si la longitud del histórico es menor que los epochs totales, hubo early stopping
+    actual_epochs = len(train_losses)
+    if actual_epochs < epochs:
+        plt.axvline(x=actual_epochs, color='red', linestyle='--', label=f'Early Stopping ({actual_epochs})')
+        # Opcional: Añadir texto en la gráfica
+        plt.text(actual_epochs, plt.ylim()[1]*0.9, ' Stop', color='red', ha='right')
+
     plt.xlabel('Epoch')
     plt.ylabel('MSE Loss')
-    plt.yscale('log')  # <- escala logarítmica
+    plt.yscale('log')
     plt.title(f'Training and Validation Loss - {model_name}')
     plt.legend()
     plt.grid(True, which='both', linestyle='--', linewidth=0.5)
 
-    
     # Guardarla
     os.makedirs(RESULTADOS_DIR, exist_ok=True)
     model_results_dir = os.path.join(RESULTADOS_DIR, model_name)
@@ -370,6 +389,10 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
     plt.close()
     
     logging.info(f"Gráfico de pérdidas guardado en {os.path.join(model_results_dir, f'{model_name}_loss_curve.png')}")
+
+import os
+import torch
+import gc
 
 def save_model(
     model,
@@ -428,7 +451,7 @@ def train_and_save_model(
     target_file,
     model_type,
     epochs,
-    model_name,
+    model_name,  # Este es el nombre "sugerido" por el usuario
     batch_size=32,
     lr=0.001,
     valid_split=0.2,
@@ -439,6 +462,7 @@ def train_and_save_model(
     hibrid_emb_dim = HYBRID_EMB_PR,
     bond_emb_dim = BOND_EMB_PR
 ):
+    # 1. Calcular dimensiones y cargar datos
     train_loader, val_loader, device, targetname = prepare_sdf_training_data(
         sdf_dir, target_file, batch_size=batch_size, valid_split=valid_split
     )
@@ -447,11 +471,17 @@ def train_and_save_model(
     calc_hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
     calc_bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
 
-    # Son porcentajes por los que se multiplican las dimensiones reales, 
-    # de esta manera el usuario elige si quiere desde 1 dimension sola hasta el 100%
     input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
     edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
 
+    # --- NUEVO: CALCULAR NOMBRE ÚNICO AQUÍ ---
+    # Buscamos qué nombre está libre en la carpeta de modelos.
+    # Así usamos ESE MISMO nombre para la gráfica y para el guardado.
+    final_model_name = get_unique_name(model_name, MODELOS_DIR, extension=".pt")
+    
+    logging.info(f"Iniciando entrenamiento para: {final_model_name}")
+
+    # 2. Crear modelo
     model = create_model(
         model_type,
         input_dim,
@@ -462,11 +492,13 @@ def train_and_save_model(
         num_layers=num_layers, 
         edge_dim=edge_dim)
 
-    train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience, model_name=model_name)
+    # 3. Entrenar (Pasamos final_model_name para que la gráfica no se sobrescriba)
+    train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience, model_name=final_model_name)
 
+    # 4. Guardar (Pasamos final_model_name para que coincida con la gráfica)
     save_path = save_model(
         model=model,
-        model_name=model_name,
+        model_name=final_model_name, # <--- Usamos el nombre único
         input_dim=input_dim,
         edge_dim=edge_dim,
         target_name=targetname,
@@ -482,7 +514,7 @@ def train_and_save_model(
         hibrid_emb_dim = hibrid_emb_dim,
         bond_emb_dim = bond_emb_dim
     )
-    logging.info(f"Modelo guardado en: {save_path}")
+    logging.info(f"Modelo y gráficas guardados bajo el ID: {final_model_name}")
 
     return save_path
 
@@ -557,3 +589,21 @@ def train_multiple_models(
 
 def calc_dim(x):
     return max(1, math.ceil(x))
+
+def get_unique_name(base_name, directory, extension=".pt"):
+    """
+    Busca un nombre libre. Si 'base_name.pt' existe, prueba 'base_name_1.pt', etc.
+    Devuelve el nombre base único (sin extensión) para usarlo en todo el proceso.
+    """
+    os.makedirs(directory, exist_ok=True)
+    
+    counter = 1
+    # Empezamos asumiendo que el nombre base es el bueno
+    unique_name = base_name
+    
+    # Mientras exista el archivo en la carpeta de MODELOS, seguimos buscando
+    while os.path.exists(os.path.join(directory, f"{unique_name}{extension}")):
+        unique_name = f"{base_name}_{counter}"
+        counter += 1
+        
+    return unique_name
