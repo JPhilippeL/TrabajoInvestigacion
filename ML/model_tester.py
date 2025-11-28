@@ -6,7 +6,7 @@ from torch_geometric.data import Data
 from ML.model_trainer import create_model, calc_dim
 import os
 import matplotlib.pyplot as plt
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, r2_score
 from math import sqrt
 from ML.data_processing import read_targets, load_data_from_sdf, mol_to_graph_data
 import logging
@@ -235,12 +235,15 @@ logger = logging.getLogger(__name__)
 def test_all_models_in_directory(models_dir, sdf_dir, targets_file):
     """
     Testea todos los modelos de un directorio con un conjunto de moléculas y targets.
-    Genera resultados individuales por modelo y además un archivo resumen CSV con los RMSE
-    y el Pearson coefficient, ordenado alfabéticamente por nombre de modelo.
+    Genera resultados individuales por modelo y además un archivo resumen CSV con los RMSE,
+    Pearson coefficient y R2, ordenado alfabéticamente por nombre de modelo.
     """
     resumen_file_name = f"resumen_metrics_{os.path.basename(models_dir)}.csv"
     resumen_path = os.path.join(RESULTADOS_DIR, resumen_file_name)
     os.makedirs(RESULTADOS_DIR, exist_ok=True)
+    # Leer datos
+    target_dict = read_targets(targets_file)
+    data_list = load_data_from_sdf(sdf_dir, target_dict)
 
     resultados = []
 
@@ -256,47 +259,59 @@ def test_all_models_in_directory(models_dir, sdf_dir, targets_file):
             # Cargar modelo
             model, device, target_name = cargar_modelo(model_path)
 
-            # Leer datos
-            target_dict = read_targets(targets_file)
-            data_list = load_data_from_sdf(sdf_dir, target_dict)
-
             y_true, y_pred = [], []
             for data in data_list:
                 data = data.to(device)
+                
+                # Crear batch ficticio si es una sola molécula
                 batch = torch.zeros(data.num_nodes, dtype=torch.long, device=device)
+                
                 with torch.no_grad():
                     out = model(data.x, data.edge_index, data.edge_attr, batch)
                     pred = out.squeeze().item()
+                
                 y_pred.append(pred)
                 y_true.append(data.y.item())
 
-            # Calcular RMSE
+            # --------------------------
+            # CÁLCULO DE MÉTRICAS
+            # --------------------------
+            
+            # 1. RMSE
             rmse = sqrt(mean_squared_error(y_true, y_pred))
 
-            # Calcular Pearson coefficient
-            if len(y_true) > 1:  # necesario para scipy
+            # 2. Pearson y R2
+            if len(y_true) > 1:
                 pearson_r, _ = pearsonr(y_true, y_pred)
+                r2_val = r2_score(y_true, y_pred)
             else:
                 pearson_r = float("nan")
+                r2_val = float("nan")
 
             # Guardar resultados completos (plots y predicciones)
+            # Asumo que esta función ya hace sus propios guardados
             test_model_on_directory(model_path, sdf_dir, targets_file)
 
-            resultados.append((fname, f"{rmse:.4f}", f"{pearson_r:.4f}"))
+            # Agregamos R2 a la tupla de resultados
+            resultados.append((fname, f"{rmse:.4f}", f"{pearson_r:.4f}", f"{r2_val:.4f}"))
 
         except Exception as e:
             logger.exception(f"Error con el modelo {fname}")
-            resultados.append((fname, f"ERROR ({str(e)})", "ERROR"))
+            # Mantenemos la consistencia de columnas en caso de error (4 columnas)
+            resultados.append((fname, f"ERROR ({str(e)})", "ERROR", "ERROR"))
 
     # Ordenar alfabéticamente por nombre de modelo
     resultados.sort(key=lambda x: x[0].lower())
 
-    # Guardar CSV con RMSE y Pearson
+    # Guardar CSV con RMSE, Pearson y R2
     with open(resumen_path, mode="w", newline="") as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(["Modelo", "RMSE", "Pearson"])
+        # Agregamos la cabecera R2
+        writer.writerow(["Modelo", "RMSE", "Pearson", "R2"]) 
         for row in resultados:
             writer.writerow(row)
 
     logger.info(f"Resumen CSV guardado en: {resumen_path}")
+
+    return resumen_path  # <--- AGREGA ESTO AL FINAL
 

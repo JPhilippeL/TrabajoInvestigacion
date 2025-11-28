@@ -195,25 +195,28 @@ def smiles_csv_to_sdf_dir(csv_path, output_dir, minimoNodos = MINNODES):
             frags = Chem.GetMolFrags(mol, asMols=True, sanitizeFrags=False)
 
             if len(frags) > 1:
-                # Si hay más de un fragmento, nos quedamos con el que tenga más átomos
                 mol_principal = max(frags, key=lambda m: m.GetNumAtoms())
-                
-                # (Opcional) Log para saber qué pasó
                 logger.info(f"Fila {i}: Se eliminaron fragmentos pequeños/desconectados (Sales/Iones).")
-                
                 mol = mol_principal
             
-            # Validamos de nuevo si lo que quedó es válido (tiene átomos y enlaces)
+            # Validamos de nuevo si lo que quedó es válido
             if mol.GetNumAtoms() < minimoNodos:
                 logger.warning(f"Fila {i}: Es menor que el threshold de nodos tras limpieza, se omite.")
                 continue
 
-            # Nota: Un átomo único (como metano 'C') tiene 0 enlaces. 
             if mol.GetNumBonds() == 0:
-                # Si tiene >1 átomo pero 0 enlaces, es raro (ej: mezcla de gases nobles), lo quitamos.
                 logger.warning(f"Fila {i}: Molécula sin conexiones tras limpieza, se omite.")
                 continue
-                
+            
+            # --- CORRECCIÓN CRÍTICA AQUÍ ---
+            # Debemos sanitizar aquí para recuperar RingInfo antes de pasar a 3D/UFF.
+            try:
+                Chem.SanitizeMol(mol)
+            except Exception as e:
+                logger.warning(f"Fila {i}: Error sanitización tras limpieza de fragmentos ({e}), se omite.")
+                continue
+            # -------------------------------
+
             # ---------------------------------------------------------
             # ### FIN BLOQUE DE LIMPIEZA ###
             # ---------------------------------------------------------

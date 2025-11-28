@@ -1,5 +1,7 @@
 # COSAS Q HACER
 COMPROBAR Y COMENTAR FORMULA ARGMIN
+Ver lo de sigma
+Hacer la carpeta de sdfs de test y train
 
 # No tan importante
 Mejorar la representacion del grafo
