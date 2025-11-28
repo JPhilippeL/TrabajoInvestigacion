@@ -8,6 +8,7 @@ import os
 import logging
 import gc
 import math
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from torch_geometric.nn import GINConv, GINEConv, GATConv, global_add_pool, TransformerConv
 
@@ -53,8 +54,10 @@ class EmbeddingEncoder(torch.nn.Module):
 # Modelos GNN
 # ----------------------    
 class GINNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=128):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=128, dropout = 0.2):
         super().__init__()
+
+        self.dropout = dropout  # Guardamos la probabilidad de dropout
 
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
@@ -71,6 +74,7 @@ class GINNet(torch.nn.Module):
         self.fc = torch.nn.Sequential(
             torch.nn.Linear(hidden_dim, fc_hidden_dim),
             torch.nn.ReLU(),
+            torch.nn.Dropout(p=dropout), # Dropout antes de la capa final
             torch.nn.Linear(fc_hidden_dim, 1)
         )
 
@@ -80,6 +84,7 @@ class GINNet(torch.nn.Module):
         for conv in self.convs:
             x = conv(x, edge_index)
             x = F.relu(x)
+            x = F.dropout(x, p=self.dropout, training=self.training)
         x = global_add_pool(x, batch)
         out = self.fc(x)
         return out.view(-1)
@@ -93,8 +98,11 @@ class GINNet(torch.nn.Module):
         return x
     
 class GINENet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=128):
+    # Añadimos el argumento 'dropout' al init
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=128, dropout=0.2):
         super().__init__()
+        
+        self.dropout = dropout  # Guardamos la probabilidad de dropout
 
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
@@ -111,6 +119,7 @@ class GINENet(torch.nn.Module):
         self.fc = torch.nn.Sequential(
             torch.nn.Linear(hidden_dim, fc_hidden_dim),
             torch.nn.ReLU(),
+            torch.nn.Dropout(p=dropout), # Dropout antes de la capa final
             torch.nn.Linear(fc_hidden_dim, 1)
         )
 
@@ -118,9 +127,13 @@ class GINENet(torch.nn.Module):
         x = self.encoder.encode_nodes(x)
         x = self.node_encoder(x)
         edge_attr = self.encoder.encode_edges(edge_attr)
+        
         for conv in self.convs:
             x = conv(x, edge_index, edge_attr)
             x = F.relu(x)
+            # Dropout después de cada bloque convolucional
+            x = F.dropout(x, p=self.dropout, training=self.training)
+            
         x = global_add_pool(x, batch)
         out = self.fc(x)
         return out.view(-1)
@@ -134,8 +147,10 @@ class GINENet(torch.nn.Module):
         return x
     
 class GATNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128, dropout = 0.2):
         super().__init__()
+
+        self.dropout = dropout  # Guardamos la probabilidad de dropout
 
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
@@ -149,6 +164,7 @@ class GATNet(torch.nn.Module):
         self.fc = torch.nn.Sequential(
             torch.nn.Linear(hidden_dim * heads, fc_hidden_dim),
             torch.nn.ReLU(),
+            torch.nn.Dropout(p=dropout), # Dropout antes de la capa final
             torch.nn.Linear(fc_hidden_dim, 1)
         )
 
@@ -158,6 +174,7 @@ class GATNet(torch.nn.Module):
         for conv in self.convs:
             x = conv(x, edge_index)
             x = F.elu(x)
+            x = F.dropout(x, p=self.dropout, training=self.training)
         x = global_add_pool(x, batch)
         out = self.fc(x)
         return out.view(-1)
@@ -171,8 +188,10 @@ class GATNet(torch.nn.Module):
         return x
     
 class EGATNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128, dropout = 0.2):
         super().__init__()
+
+        self.dropout = dropout
 
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
@@ -191,6 +210,7 @@ class EGATNet(torch.nn.Module):
         self.fc = torch.nn.Sequential(
             torch.nn.Linear(hidden_dim * heads, fc_hidden_dim),
             torch.nn.ReLU(),
+            torch.nn.Dropout(p=dropout), # Dropout antes de la capa final
             torch.nn.Linear(fc_hidden_dim, 1)
         )
 
@@ -201,6 +221,7 @@ class EGATNet(torch.nn.Module):
         for conv in self.convs:
             x = conv(x, edge_index, edge_attr)
             x = F.elu(x)
+            x = F.dropout(x, p=self.dropout, training=self.training)
         x = global_add_pool(x, batch)
         out = self.fc(x)
         return out.view(-1)
@@ -214,8 +235,10 @@ class EGATNet(torch.nn.Module):
         return x
     
 class GraphTransformerNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128, dropout = 0.2):
         super().__init__()
+
+        self.dropout = dropout
 
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
@@ -235,6 +258,7 @@ class GraphTransformerNet(torch.nn.Module):
         self.fc = torch.nn.Sequential(
             torch.nn.Linear(hidden_dim * heads, fc_hidden_dim),
             torch.nn.ReLU(),
+            torch.nn.Dropout(p=dropout), # Dropout antes de la capa final
             torch.nn.Linear(fc_hidden_dim, 1)
         )
 
@@ -245,6 +269,7 @@ class GraphTransformerNet(torch.nn.Module):
         for conv in self.convs:
             x = conv(x, edge_index, edge_attr)
             x = F.relu(x)
+            x = F.dropout(x, p=self.dropout, training=self.training)
         x = global_add_pool(x, batch)
         out = self.fc(x)
         return out.view(-1)
@@ -284,6 +309,12 @@ def create_model(model_name, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_d
 def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, patience=0, model_name="model"):
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    
+    # --- CAMBIO 1: Scheduler ---
+    # Si la valid loss no mejora en 'patience_scheduler' épocas, reducimos el LR a la mitad (factor 0.5)
+    patience_scheduler = max(10, patience // 4) if patience > 0 else 15
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=patience_scheduler, verbose=True)
+    
     criterion = torch.nn.MSELoss()
 
     best_val_loss = float("inf")
@@ -294,6 +325,7 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
     # --- Guardar histórico ---
     train_losses = []
     val_losses = []
+    lrs = [] # Para graficar el LR si quisieras
 
     for epoch in range(1, epochs + 1):
         model.train()
@@ -322,6 +354,13 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
             avg_val_loss = val_loss / len(val_loader.dataset)
             val_losses.append(avg_val_loss)
 
+            # --- CAMBIO 2: Step del Scheduler ---
+            # Le decimos al scheduler cómo nos fue en validación
+            scheduler.step(avg_val_loss)
+            
+            # Guardar el LR actual para debug
+            current_lr = optimizer.param_groups[0]['lr']
+
             # Guardar el mejor modelo si la validación mejora
             if avg_val_loss < best_val_loss:
                 best_val_loss = avg_val_loss
@@ -331,7 +370,6 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
                 avg_train_loss_saved = avg_train_loss
             else:
                 if patience > 0:
-                    # Early stopping
                     patience_counter += 1
                     if patience_counter >= patience:
                         logging.info(f"Early stopping en epoch {epoch}")
@@ -339,7 +377,7 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
 
         del batch
         if avg_val_loss is not None:
-            logging.info(f"Epoch {epoch:03d} | Train MSE: {avg_train_loss:.4f} | Validation MSE: {avg_val_loss:.4f}")
+            logging.info(f"Epoch {epoch:03d} | LR: {current_lr:.6f} | Train MSE: {avg_train_loss:.4f} | Validation MSE: {avg_val_loss:.4f}")
         else:
             logging.info(f"Epoch {epoch:03d} | Train Loss: {avg_train_loss:.4f}")
 

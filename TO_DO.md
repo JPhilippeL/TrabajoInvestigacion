@@ -1,7 +1,9 @@
 # COSAS Q HACER
-COMPROBAR Y COMENTAR FORMULA ARGMIN
 Ver lo de sigma
-Hacer la carpeta de sdfs de test y train
+Hacer entrenamientos de GINE y GIN
+    Hacer batch size de 64 o 128
+    Añadir dropout
+    Añadir Learning Rate Scheduler
 
 # No tan importante
 Mejorar la representacion del grafo
@@ -12,7 +14,7 @@ Hacer que no haga lo de cargar datos mil veces al hacer pruebas de muchos modelo
 Ordenar el código de menu bar dividiendolo
 
 # COSAS Q PREGUNTAR
-Normalizo alfa y beta no?
+Normalizo alfa y beta no? Ahora normalizo haciendo MINMAX, tengo que hacer eto de que la suma de todos sea 1?
 Preguntar si lo de grid search es de cara al tfm o lo hago ahora
 Hago el producto de Features * Nodos para visualizar?
 averiguar que es eso del desentanglment
