@@ -151,6 +151,10 @@ def test_model_on_directory(checkpoint_path, sdf_dir, targets_file):
         rmse = sqrt(mean_squared_error(y_true, y_pred))
         logger.info(f"RMSE: {rmse:.4f}")
 
+        # R2 score
+        r2 = r2_score(y_true, y_pred)
+        logger.info(f"R2 score: {r2:.4f}")
+
         # Pearson coefficient
         if len(y_true) > 1:  # necesario para scipy
             pearson_r, _ = pearsonr(y_true, y_pred)

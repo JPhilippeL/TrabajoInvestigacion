@@ -6,11 +6,9 @@ Hacer entrenamientos de GINE y GIN
     Añadir Learning Rate Scheduler
 
 # No tan importante
-Mejorar la representacion del grafo
-Que el calculo de ver la importancia se pueda hacer con alfa y beta, alfa o beta
+Que el calculo de ver la importancia se pueda hacer con alfa y beta, alfa o beta?
 
 # Miscelaneo
-Hacer que no haga lo de cargar datos mil veces al hacer pruebas de muchos modelos
 Ordenar el código de menu bar dividiendolo
 
 # COSAS Q PREGUNTAR

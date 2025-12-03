@@ -24,41 +24,24 @@ logger = logging.getLogger(__name__)
 
 # Función para dada una muestra (x), genere una muestra perturbada (Z)
 # Dado un vector binario de las características a perturbar
-def perturb_features_sample(data, feature_mask = [1, 1, 1, 1, 1, 1], noise_level=0.05):
+def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1], noise_level=0.05):
     data_new = data.clone()
     x = data_new.x
     num_nodes = x.shape[0]
+
+    # Probabilidad de que un nodo/arista específico sea modificado.
+    # Un 15% - 20% es razonable para mantener la estructura general.
+    PERTURB_PROB = 0.15 
     
-    # === DEFINICIÓN DE INDICES (Dinámico) ===
-    # 1. Longitudes conocidas
+    # === DEFINICIÓN DE INDICES ===
     len_atom = len(periodic_elements)
     len_hybrid = len(hybridization_types)
     
-    # 2. Definir los bloques "Sándwich"
-    # Bloque 1: Tipo de Átomo (Al principio)
     start_atom, end_atom = 0, len_atom
-    
-    # Bloque 3: Hibridación (Al final)
-    # Usamos índices negativos para ubicarlo siempre al final, sin importar qué añadimos en medio
     start_hybrid = x.shape[1] - len_hybrid
     end_hybrid = x.shape[1]
     
-    # Bloque 2: Todo lo del medio (Escalares)
-    # Aquí están: [Degree, NumH, Aromatic, ChargeFormal, ChargeGasteiger, IsDonor, IsAcceptor]
-    # Importante: Debemos saber cuáles son binarios para hacer 'flip' y cuáles continuos para 'noise'
-    # Según nuestro orden anterior:
-    # idx rel: 0=Deg, 1=NumH, 2=Arom, 3=Formal, 4=Gasteiger, 5=Donor, 6=Acceptor
-    
-    # Indices absolutos para el bloque medio
-    middle_features = x[:, end_atom:start_hybrid]
-    
-    # Rellenar máscara si es corta (ahora necesitamos controlar más cosas)
-    # mask[0]: Atom Type
-    # mask[1]: Continuous noise (Degree, NumH, Cargas)
-    # mask[2]: Binary flips (Aromatic, Donor, Acceptor)
-    # mask[3]: Hybridization
-    # mask[4]: Bond Type
-    # mask[5]: Bond Dist
+    # Rellenar máscara
     if len(feature_mask) < 6:
         feature_mask = list(feature_mask) + [False] * (6 - len(feature_mask))
 
@@ -67,46 +50,35 @@ def perturb_features_sample(data, feature_mask = [1, 1, 1, 1, 1, 1], noise_level
     # ==========================================
     for i in range(num_nodes):
         
-        # A. TIPO DE ÁTOMO (One-Hot)
-        if feature_mask[0]:
+        # A. TIPO DE ÁTOMO (One-Hot) - SOLO si toca la lotería (rand < PERTURB_PROB)
+        if feature_mask[0] and torch.rand(1).item() < PERTURB_PROB:
             onehot = x[i, start_atom:end_atom]
             onehot[:] = 0
             new_idx = torch.randint(0, len_atom, (1,))
             onehot[new_idx] = 1
 
         # B. FEATURES CONTINUAS (Ruido)
-        # Asumimos que Degree(0), NumH(1), Formal(3), Gasteiger(4) son "continuos" o magnitudes
+        # El ruido continuo SÍ se puede aplicar a todos (es suave), 
+        # o también puedes hacerlo probabilístico. Aquí lo dejo a todos pero suave.
         if feature_mask[1]:
-            # Indices relativos dentro del bloque medio que queremos perturbar con ruido
-            # OJO: Depende de tu orden exacto. 
-            # Si: [Deg, NumH, Arom, Formal, Gast, Don, Acc]
-            # Continuous indices: 0, 1, 3, 4
             indices_continuous = [0, 1, 3, 4] 
-            
-            # Aplicamos ruido solo a esas columnas
-            vals = x[i, end_atom:start_hybrid] # Vista del bloque medio
+            vals = x[i, end_atom:start_hybrid]
             noise = noise_level * torch.randn(len(indices_continuous))
-            
-            # Sumar ruido
             for k, idx_rel in enumerate(indices_continuous):
                 vals[idx_rel] += noise[k]
-                
-            # Clamping (opcional, ajusta según tus datos, ej: NumH no puede ser negativo)
-            # vals[0] = torch.clamp(vals[0], 0.0, 1.0) 
 
-        # C. FEATURES BINARIAS (Flip)
-        # Aromatic(2), IsDonor(5), IsAcceptor(6)
+        # C. FEATURES BINARIAS (Flip) - CRÍTICO: Hacerlo Probabilístico
         if feature_mask[2]:
-            indices_binary = [2, 5, 6]
+            indices_binary = [2, 5, 6] # Aromatic, Donor, Acceptor
             vals = x[i, end_atom:start_hybrid]
             
             for idx_rel in indices_binary:
-                # Probabilidad 50% de invertir el bit (o forzar cambio)
-                # Aquí forzamos cambio como hacías antes:
-                vals[idx_rel] = 1.0 - vals[idx_rel]
+                # Solo invertimos el bit con probabilidad PERTURB_PROB
+                if torch.rand(1).item() < PERTURB_PROB:
+                    vals[idx_rel] = 1.0 - vals[idx_rel]
 
-        # D. HIBRIDACIÓN (One-Hot)
-        if feature_mask[3]:
+        # D. HIBRIDACIÓN (One-Hot) - Probabilístico
+        if feature_mask[3] and torch.rand(1).item() < PERTURB_PROB:
             onehot = x[i, start_hybrid:end_hybrid]
             onehot[:] = 0
             new_idx = torch.randint(0, len_hybrid, (1,))
@@ -115,49 +87,38 @@ def perturb_features_sample(data, feature_mask = [1, 1, 1, 1, 1, 1], noise_level
     data_new.x = x
 
     # ==========================================
-    # 2. PERTURBACIÓN DE ARISTAS (SIMÉTRICA)
+    # 2. PERTURBACIÓN DE ARISTAS
     # ==========================================
     if data_new.edge_attr is not None:
         edge_attr = data_new.edge_attr
         edge_index = data_new.edge_index
         num_edges = edge_attr.shape[0]
         
-        # Mapa de simetría (u,v) -> idx
         edge_map = {(edge_index[0, k].item(), edge_index[1, k].item()): k for k in range(num_edges)}
-
-        # Definir cuántas columnas son one-hot de enlace
-        # Asumimos que la distancia es LA ÚLTIMA columna
         dist_idx = -1 
-        num_bond_cols = edge_attr.shape[1] - 1 # Todo menos la distancia
+        num_bond_cols = edge_attr.shape[1] - 1 
 
         for i in range(num_edges):
             u, v = edge_index[0, i].item(), edge_index[1, i].item()
-            if u > v: continue # Evitar doble proceso
+            if u > v: continue 
 
             modified = False
             
-            # Perturbar Tipo Enlace
-            if feature_mask[4]:
-                onehot_bond = edge_attr[i, :num_bond_cols] # Slice dinámico
+            # Perturbar Tipo Enlace (Probabilístico)
+            if feature_mask[4] and torch.rand(1).item() < PERTURB_PROB:
+                onehot_bond = edge_attr[i, :num_bond_cols]
                 onehot_bond[:] = 0
                 new_bond_idx = torch.randint(0, num_bond_cols, (1,))
                 onehot_bond[new_bond_idx] = 1
                 modified = True
             
-            # Perturbar Distancia
+            # Perturbar Distancia (Siempre un poco de ruido está bien, o hazlo probabilístico)
             if feature_mask[5]: 
-                # === CORRECCIÓN AQUÍ ===
-                # Usamos .item() para que sea un float y no un tensor de dimensión [1]
                 noise = noise_level * torch.randn(1).item()
-                
                 edge_attr[i, dist_idx] += noise
-                
-                # Clamp usando torch.clamp (más robusto)
                 edge_attr[i, dist_idx] = torch.clamp(edge_attr[i, dist_idx], min=0.0)
-                
                 modified = True
 
-            # Copiar al reverso
             if modified and (v, u) in edge_map:
                 sym_idx = edge_map[(v, u)]
                 edge_attr[sym_idx] = edge_attr[i].clone()
@@ -273,85 +234,98 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask = [1, 1, 1, 1, 1, 1], n
     print(f"Max Alfa: {alfa.max().item():.4f}, Min Alfa: {alfa.min().item():.4f}")
     print(f"Max Beta: {beta.max().item():.4f}, Min Beta: {beta.min().item():.4f}")
     
-    # --- Convertir y Normalizar (0 a 1) ---
-    # Esto aplica: Tensor -> Numpy -> Abs -> MinMaxScaling
-    alfa_np = procesar_y_normalizar(alfa)  # Importancia features nodo
-    beta_np = procesar_y_normalizar(beta)  # Importancia nodos (grafo)
-
-    # Si usas edges, normalizamos, si no, dejamos arrays vacíos/nulos
-    if gamma is not None and gamma.numel() > 0:
-        gamma_np = procesar_y_normalizar(gamma)
-        delta_np = procesar_y_normalizar(delta)
-    else:
-        gamma_np = np.array([])
-        delta_np = np.array([])
-
-    # --- Etiquetas ---
-    feature_names = get_feature_names(periodic_elements, hybridization_types)
-    alfa_np, row_labels_alfa = filtrar_features_presentes(alfa_np, feature_names, muestra.x)
+    # ==========================================================================
+    # PROCESAMIENTO DE MATRICES (Nueva Lógica)
+    # ==========================================================================
+    
+    # 1. ALFA (Node Features) -> Filtrar -> Ordenar -> Normalizar
+    node_feature_names = get_feature_names(periodic_elements, hybridization_types)
+    alfa_sorted, row_labels_alfa = procesar_features_ordenadas(
+        alfa, node_feature_names, muestra.x
+    )
     col_labels_alfa = [""]
 
-    row_labels_beta = [f"Node {i}" for i in range(len(beta_np))]
-    col_labels_beta = [""]
+    # 2. GAMMA (Edge Features) -> Filtrar -> Ordenar -> Normalizar
+    # Reemplaza a Beta en el segundo heatmap
+    if muestra.edge_attr is not None:
+        num_bond_types = muestra.edge_attr.shape[1] - 1 # El último es distancia
+        edge_feature_names = ["Single", "Double", "Triple", "Aromatic"] + ["Distance"]
+        
+        gamma_sorted, row_labels_gamma = procesar_features_ordenadas(
+            gamma, edge_feature_names, muestra.edge_attr
+        )
+    else:
+        gamma_sorted = np.array([])
+        row_labels_gamma = []
+    col_labels_gamma = [""]
 
-    # ==========================================================================
-    # CÁLCULO DE TAMAÑO DINÁMICO
-    # ==========================================================================
-    # Definimos una altura fija para el grafo (grande) y una altura por fila para las tablas
-    HEIGHT_GRAPH = 10.0   # Pulgadas para el grafo
-    HEIGHT_PER_ROW = 0.4  # Pulgadas por cada fila de la tabla (ajusta si quieres más espacio)
+    # --- BETA (Nodos) ---
+    beta_np = tensor_to_abs_numpy(beta)
+    # CAMBIO: Usar normalizar_max para ser consistente con los heatmaps
+    beta_np = normalizar_max(beta_np)  
+
+    # --- DELTA (Aristas) ---
+    if delta is not None:
+        delta_np = tensor_to_abs_numpy(delta)
+        # CAMBIO: Usar normalizar_max para evitar que una arista desaparezca si hay pocas
+        delta_normalized = normalizar_max(delta_np) 
+    else:
+        delta_normalized = np.array([])
     
-    num_rows_alfa = alfa_np.shape[0]
-    num_rows_beta = beta_np.shape[0]
-    max_rows = max(num_rows_alfa, num_rows_beta)
+    # ==========================================================================
+    # VISUALIZACIÓN
+    # ==========================================================================
+    HEIGHT_GRAPH = 10.0   
+    HEIGHT_PER_ROW = 0.4
     
-    # Altura necesaria para los heatmaps (+ un margen para títulos)
+    num_rows_alfa = alfa_sorted.shape[0] if alfa_sorted is not None else 0
+    num_rows_gamma = gamma_sorted.shape[0] if gamma_sorted is not None else 0
+    max_rows = max(num_rows_alfa, num_rows_gamma)
+    
     height_heatmaps = (max_rows * HEIGHT_PER_ROW) + 2.0 
-    
-    # Altura total de la figura
     total_height = HEIGHT_GRAPH + height_heatmaps
 
     fig = plt.figure(figsize=(16, total_height))
     
     main_title = f"LIME Explanation for: **{mol_name}**\nModel Prediction: **{prediccion_original:.4f}** ({target_name})"
-    fig.suptitle(main_title, fontsize=16, fontweight='bold', y=0.99) # y=0.99 para ponerlo arriba del todo
+    fig.suptitle(main_title, fontsize=16, fontweight='bold', y=0.99)
 
-    # GridSpec: 2 Filas. 
-    # Fila 0: Grafo (ocupa HEIGHT_GRAPH)
-    # Fila 1: Heatmaps (ocupa height_heatmaps)
     gs = gridspec.GridSpec(2, 2, figure=fig, height_ratios=[HEIGHT_GRAPH, height_heatmaps], hspace=0.2)
 
-    # 1. GRAFO (Fila 0, ocupa todas las columnas)
+    # 1. GRAFO (Fila 0) - Usamos Delta Normalizado
     ax_graph = fig.add_subplot(gs[0, :])
-    
-    # 2. HEATMAPS (Fila 1, columnas separadas)
-    ax_alfa = fig.add_subplot(gs[1, 0])
-    ax_beta = fig.add_subplot(gs[1, 1])
-
-    # --- Plot Grafo ---
     graph = parse_sdf(sdf_path)
     node_idx_map = {str(atom.GetIdx()): atom.GetIdx() for atom in mol.GetAtoms()}
     
     plot_graph_with_importance(
         graph, 
         node_importance=beta_np.flatten(), 
-        edge_importance=delta_np.flatten(), 
+        edge_importance=delta_normalized.flatten(), # Delta normalizado (max=1)
         edge_index=muestra.edge_index,
         ax=ax_graph, 
         node_idx_map=node_idx_map,
         cmap="plasma"
     )
-    # --- Plot Heatmaps ---
-    # Pasamos aspect='auto' para que use la altura física que hemos calculado
-    im_a, _ = heatmap(alfa_np, row_labels_alfa, col_labels_alfa, ax=ax_alfa, cmap="plasma", aspect='auto')
-    annotate_heatmap(im_a, alfa_np, textcolors=("white", "black"))
-    ax_alfa.set_title("Feature Importance (Alpha)", fontsize=14)
 
-    im_b, _ = heatmap(beta_np, row_labels_beta, col_labels_beta, ax=ax_beta, cmap="plasma", aspect='auto')
-    annotate_heatmap(im_b, beta_np, textcolors=("white", "black"))
-    ax_beta.set_title("Node Importance (Beta)", fontsize=14)
+    # 2. HEATMAPS (Fila 1)
+    
+    # -- Heatmap ALFA (Node Features) --
+    ax_alfa = fig.add_subplot(gs[1, 0])
+    if alfa_sorted is not None and len(alfa_sorted) > 0:
+        im_a, _ = heatmap(alfa_sorted, row_labels_alfa, col_labels_alfa, ax=ax_alfa, cmap="plasma", aspect='auto')
+        annotate_heatmap(im_a, alfa_sorted, textcolors=("white", "black"))
+        ax_alfa.set_title("Node Feature Importance (Alpha)", fontsize=14)
+    else:
+        ax_alfa.text(0.5, 0.5, "No significant node features", ha='center')
 
-    # plt.tight_layout(rect=[0, 0, 1, 0.98]) # Ajuste para no tapar el título principal
+    # -- Heatmap GAMMA (Edge Features) -- Reemplaza a Beta
+    ax_gamma = fig.add_subplot(gs[1, 1])
+    if gamma_sorted is not None and len(gamma_sorted) > 0:
+        im_g, _ = heatmap(gamma_sorted, row_labels_gamma, col_labels_gamma, ax=ax_gamma, cmap="plasma", aspect='auto')
+        annotate_heatmap(im_g, gamma_sorted, textcolors=("white", "black"))
+        ax_gamma.set_title("Edge Feature Importance (Gamma)", fontsize=14)
+    else:
+        ax_gamma.text(0.5, 0.5, "No edge features / Graph has no edges", ha='center')
 
     # Guardar
     model_name = checkpoint_path.split('/')[-1].split('.')[0]
@@ -360,10 +334,9 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask = [1, 1, 1, 1, 1, 1], n
     os.makedirs(model_results_dir, exist_ok=True)
     plotfilename = os.path.join(model_results_dir, f"{model_name}_for_{mol_name}_lime.png")
 
-    plt.savefig(plotfilename)
+    plt.savefig(plotfilename, bbox_inches='tight')
     plt.close(fig)
 
-    # Return de la imagen guardada
     return plotfilename
 
 def obtener_argmin(feature_distances, predicciones_perturbadas, 
@@ -398,13 +371,13 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
     # Dejamos que los pesos aprendan su magnitud natural.
     # La normalización visual la haces tú después con 'procesar_y_normalizar'.
     # Para Nodos
-    scale_nodes = 1.0 / math.sqrt(d_nodes * N_nodes)
+    scale_nodes = 1.0 / d_nodes * N_nodes
     
     # Para Edges
     if has_edges:
         # Evitamos división por cero si N_edges es muy pequeño
         denom_edges = d_edges * M_edges
-        scale_edges = 1.0 / math.sqrt(denom_edges) if denom_edges > 0 else 1.0
+        scale_edges = 1.0 / denom_edges if denom_edges > 0 else 1.0
     else:
         scale_edges = 0.0
 
@@ -413,9 +386,11 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
     beta = nn.Parameter(torch.randn(N_nodes, 1, device=device) * 0.1)
     
     mean_pred = predicciones_perturbadas.mean().item()
-    mu = nn.Parameter(torch.tensor([mean_pred], device=device, dtype=torch.float))
+    # mu = nn.Parameter(torch.tensor([mean_pred], device=device, dtype=torch.float))
+    mu = nn.Parameter(torch.tensor([0.0], device=device, dtype=torch.float))
 
-    params = [alfa, beta, mu]
+    # params = [alfa, beta, mu]
+    params = [alfa, beta]
     
     gamma = None
     delta = None
@@ -478,7 +453,8 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
         Eb = torch.matmul(E_stack, beta) 
         term_nodes = torch.matmul(alfa.t(), Eb).view(-1, 1)
         
-        pred_approx = mu + (term_nodes * scale_nodes)
+        pred_approx = (term_nodes * scale_nodes) # + mu
+        # pred_approx = term_nodes * scale_nodes
 
         # --- Edges ---
         if has_edges:
@@ -517,31 +493,6 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
     logger.info(f"R² (Varianza Explicada): {r_squared:.2%} (Ideal > 80%)")
 
     return alfa.detach(), beta.detach(), (gamma.detach() if has_edges else None), (delta.detach() if has_edges else None), loss_val
-
-def procesar_y_normalizar(tensor):
-    # 1. Convertir Tensor a Numpy (Maneja si ya es None)
-    if tensor is None:
-        return None
-    
-    # .detach() para sacar del grafo, .cpu() para mover a RAM
-    arr = tensor.detach().cpu().numpy().reshape(-1, 1)
-    
-    # 2. Valor Absoluto (Magnitud de la importancia)
-    arr_abs = np.abs(arr)
-    
-    # 3. Escalar entre 0 y 1 (Min-Max Scaling)
-    val_min = arr_abs.min()
-    val_max = arr_abs.max()
-    
-    # Evitar división por cero si todos los valores son iguales (ej. todos 0)
-    if val_max - val_min == 0:
-        # Si max y min son iguales, devolvemos ceros (o unos si prefieres)
-        return np.zeros_like(arr_abs)
-    
-    # Fórmula: (x - min) / (max - min)
-    arr_norm = (arr_abs - val_min) / (val_max - val_min)
-    
-    return arr_norm
 
 def heatmap(data, row_labels, col_labels, ax, aspect='auto', **kwargs):
     """
@@ -702,116 +653,39 @@ def filtrar_features_presentes(alfa_np, feature_names, muestra_x):
 
     return alfa_np_filtered, feature_names_filtered
 
-def plot_graph_with_beta(graph, beta, ax=None, cmap="YlOrRd", vmin=None, vmax=None, node_idx_map=None):
-    """
-    Dibuja el grafo molecular con los nodos coloreados según los valores de importancia β.
-
-    Parámetros
-    ----------
-    graph : networkx.Graph
-        Grafo molecular generado (por ejemplo, con parse_sdf()).
-        Cada nodo debe tener atributos:
-            - "pos": (x, y) para la posición 2D
-            - "element": símbolo químico (e.g., "C", "O")
-    beta : array-like
-        Importancia de cada nodo (ordenada igual que los nodos en PyG Data).
-    ax : matplotlib.axes.Axes, opcional
-        Eje sobre el que dibujar. Si no se pasa, se crea uno nuevo.
-    cmap : str, opcional
-        Nombre del colormap de Matplotlib (por defecto "YlOrRd").
-    vmin, vmax : float, opcional
-        Límites inferior y superior de la escala de color.
-    node_idx_map : dict, opcional
-        Diccionario {nx_node_id: data_node_idx} para mapear correctamente los nodos
-        de networkx a los índices de beta. Si no se pasa, se asume que el orden coincide.
-
-    Devuelve
-    --------
-    ax : matplotlib.axes.Axes
-        Eje con el grafo dibujado.
-    """
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(6, 6))
-
-    beta = np.array(beta, dtype=float)
-
-    if node_idx_map is not None:
-        # Reordenar beta según el orden de nodos del grafo
-        beta = np.array([beta[node_idx_map[n]] for n in graph.nodes])
-
-    if vmin is None:
-        vmin = float(np.min(beta))
-    if vmax is None:
-        vmax = float(np.max(beta))
-
-    pos = {n: graph.nodes[n]["pos"] for n in graph.nodes}
-    norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
-    cmap = plt.cm.get_cmap(cmap)
-    node_colors = [cmap(norm(b)) for b in beta]
-
-    # Dibujar aristas
-    nx.draw_networkx_edges(graph, pos, ax=ax, width=1.5, alpha=0.4, edge_color="gray")
-
-    # Dibujar nodos coloreados por β
-    nx.draw_networkx_nodes(
-        graph,
-        pos,
-        ax=ax,
-        node_color=node_colors,
-        node_size=300,
-        edgecolors="black",
-        linewidths=0.6
-    )
-
-    # Etiquetas de elementos químicos
-    labels = {n: graph.nodes[n].get("element", str(n)) for n in graph.nodes}
-    nx.draw_networkx_labels(graph, pos, labels, font_size=9, ax=ax)
-
-    # Colorbar
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([])
-    cbar = plt.colorbar(sm, ax=ax, shrink=0.8)
-    cbar.set_label("Importancia β", fontsize=10)
-
-    ax.set_title("Grafo molecular coloreado por β")
-    ax.axis("off")
-
-    return ax
-
 def plot_graph_with_importance(graph, node_importance, edge_importance=None, edge_index=None, ax=None, cmap="YlOrRd", node_idx_map=None):
     if ax is None:
         fig, ax = plt.subplots(figsize=(6, 6))
 
-    # --- 1. PREPARACIÓN DE NODOS ---
+    # --- Nodos ---
     beta = np.array(node_importance, dtype=float)
     if node_idx_map is not None:
-        # Reordenar beta para que coincida con los nodos del grafo NX
         beta_mapped = []
         for n in graph.nodes:
-            # node_idx_map[n] da el índice en PyG
-            idx = node_idx_map.get(n) if isinstance(n, str) else node_idx_map.get(str(n))
-            # Si no encuentra (caso raro), usa 0
+            idx = node_idx_map.get(str(n)) if str(n) in node_idx_map else node_idx_map.get(int(n))
             val = beta[idx] if idx is not None and idx < len(beta) else 0.0
             beta_mapped.append(val)
         beta = np.array(beta_mapped)
 
     pos = {n: graph.nodes[n]["pos"] for n in graph.nodes}
     
-    # Normalización Nodos
+    # Normalizamos Nodos
     vmin_n, vmax_n = beta.min(), beta.max()
-    norm_n = mcolors.Normalize(vmin=vmin_n, vmax=vmax_n)
+    norm_n = mcolors.Normalize(vmin=vmin_n, vmax=vmax_n) if vmax_n > vmin_n else mcolors.Normalize(vmin=0, vmax=1)
     cmap_obj = plt.cm.get_cmap(cmap)
     node_colors = [cmap_obj(norm_n(b)) for b in beta]
 
-    # --- 2. PREPARACIÓN DE ARISTAS ---
+    # --- Aristas ---
     edge_colors = []
     edge_widths = []
     
     if edge_importance is not None and edge_index is not None:
         delta = np.array(edge_importance, dtype=float)
         
-        # A) Crear mapa: (u_idx, v_idx) -> delta_value
-        # edge_index debe ser tensor o array de shape [2, M]
+        # IMPORTANTE: Se asume que 'delta' YA viene normalizado entre 0 y 1 desde fuera
+        # para cumplir tu requerimiento de "cortar y luego normalizar"
+        norm_e = mcolors.Normalize(vmin=0, vmax=1) 
+
         if isinstance(edge_index, torch.Tensor):
             edge_index = edge_index.cpu().numpy()
             
@@ -820,67 +694,103 @@ def plot_graph_with_importance(graph, node_importance, edge_importance=None, edg
             u = int(edge_index[0, i])
             v = int(edge_index[1, i])
             val = delta[i]
-            # Guardamos ambas direcciones por seguridad
             imp_dict[(u, v)] = val
             imp_dict[(v, u)] = val
 
-        # B) Normalización para aristas
-        # Si todo es 0, evitamos división por cero
-        if delta.max() > delta.min():
-            norm_e = mcolors.Normalize(vmin=delta.min(), vmax=delta.max())
-        else:
-            norm_e = mcolors.Normalize(vmin=0, vmax=1)
-
-        # C) Asignar color a cada arista de NetworkX
         nx_edges = list(graph.edges())
         
         for u, v in nx_edges:
-            # Obtener índices reales de PyG
-            # graph.nodes son strings '0', '1'... o ints 0, 1...
             u_real = node_idx_map.get(str(u)) if node_idx_map else int(u)
             v_real = node_idx_map.get(str(v)) if node_idx_map else int(v)
 
-            # Buscar valor en el diccionario
             val = imp_dict.get((u_real, v_real), 0.0)
             
-            # Obtener color
+            # Color
             rgba = cmap_obj(norm_e(val))
             edge_colors.append(rgba)
             
-            # Opcional: Grosor basado en importancia
-            # width = 1.0 + 4.0 * norm_e(val) 
-            edge_widths.append(2.0) 
+            # Grosor: Si es muy importante (cerca de 1), más grueso
+            width = 1.5 + (3.5 * val) 
+            edge_widths.append(width) 
 
-        # Dibujar aristas coloreadas
         nx.draw_networkx_edges(
             graph, pos, ax=ax, 
             edgelist=nx_edges,
             edge_color=edge_colors, 
             width=edge_widths,
-            alpha=0.8
+            alpha=0.9
         )
-        
-        # Colorbar auxiliar para aristas (opcional, o usamos la misma)
-        # sm_e = plt.cm.ScalarMappable(cmap=cmap_obj, norm=norm_e)
-        # sm_e.set_array([])
-        # plt.colorbar(sm_e, ax=ax, shrink=0.6, label="Edge Importance")
-
     else:
-        # Fallback: Aristas grises si no hay datos
         nx.draw_networkx_edges(graph, pos, ax=ax, width=1.5, alpha=0.4, edge_color="gray")
 
-    # --- 3. DIBUJAR RESTO ---
-    # Dibujar Nodos (encima de las aristas)
     nx.draw_networkx_nodes(graph, pos, ax=ax, node_color=node_colors, node_size=300, edgecolors="black")
-
-    # Etiquetas
     labels = {n: graph.nodes[n].get("element", str(n)) for n in graph.nodes}
     nx.draw_networkx_labels(graph, pos, labels, font_size=9, ax=ax)
     
-    # Colorbar principal
     sm = plt.cm.ScalarMappable(cmap=cmap_obj, norm=norm_n)
     sm.set_array([])
-    plt.colorbar(sm, ax=ax, shrink=0.8, label="Importance (Alpha/Beta)")
+    plt.colorbar(sm, ax=ax, shrink=0.8, label="Importance")
     
     ax.axis("off")
     return ax
+
+def tensor_to_abs_numpy(tensor):
+    """Convierte tensor a numpy, toma valor absoluto."""
+    if tensor is None: return None
+    return np.abs(tensor.detach().cpu().numpy().reshape(-1, 1))
+
+def normalizar_max(arr):
+    """
+    Normaliza dividiendo por el máximo absoluto.
+    - El máximo será 1.0
+    - El 0 real se queda en 0.
+    - Mantiene la proporción real entre features.
+    """
+    if arr is None or len(arr) == 0: return arr
+    
+    # Usamos max() del valor absoluto, que ya viene calculado en 'arr'
+    val_max = arr.max()
+    
+    if val_max == 0:
+        return np.zeros_like(arr)
+        
+    return arr / val_max
+
+def procesar_features_ordenadas(importance_tensor, feature_names, input_data):
+    """
+    Procesa features para Heatmaps usando Max Scaling.
+    """
+    if importance_tensor is None:
+        return None, []
+    
+    # 1. Obtener magnitudes crudas (Valor Absoluto)
+    raw_imp = tensor_to_abs_numpy(importance_tensor)
+    
+    # 2. Filtrar (Cortar features que no existen en la molécula)
+    if hasattr(input_data, 'cpu'):
+        x = input_data.cpu().numpy()
+    else:
+        x = input_data
+        
+    if x.shape[1] != raw_imp.shape[0]:
+        mask = np.ones(raw_imp.shape[0], dtype=bool)
+    else:
+        mask = np.any(x != 0, axis=0)
+
+    filtered_imp = raw_imp[mask]
+    filtered_names = np.array(feature_names)[mask]
+    
+    if len(filtered_imp) == 0:
+        return np.array([]), []
+
+    # 3. Ordenar (Mayor a menor)
+    sort_idx = np.argsort(filtered_imp.flatten())[::-1]
+    
+    sorted_imp = filtered_imp[sort_idx]
+    sorted_names = filtered_names[sort_idx]
+    
+    # 4. NORMALIZAR CON MAX (El cambio clave)
+    # Esto soluciona el problema de Gamma (2 features) y es más honesto para Alfa (11 features)
+    final_imp = normalizar_max(sorted_imp)
+    
+    return final_imp, sorted_names.tolist()

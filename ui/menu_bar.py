@@ -540,7 +540,7 @@ class MenuBar(QMenuBar):
             try:
                 # Obtener explicación LIME
                 # feature_mask espera: [Atom, Degree, Arom, Hybrid, BondType, BondDist]
-                plot_path = obtener_lime(model_path, sdf_path, num_samples=1000, noise_level=0.1, device='cpu')
+                plot_path = obtener_lime(model_path, sdf_path, num_samples=1000, noise_level=0.01, device='cpu')
 
                 # mostrar el sdf por pantalla
                 self.parent.load_graph_from_file(sdf_path)
