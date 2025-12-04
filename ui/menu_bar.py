@@ -18,7 +18,8 @@ from ui.dialogs.csv_to_sdf import CSVtoSDFDialog
 
 from ML.model_tester import test_model_on_directory
 from ML.model_tester import obtener_info_checkpoint
-from ML.model_explainer import obtener_lime
+from ML.explainers.model_LIME_explainer import obtener_lime
+from ML.explainers.model_GNNExplainer import obtener_GNN_Explainer
 from ML.model_tester import cargar_y_predecir
 from core.sdf_converter import graph_to_mol, save_graph_as_sdf, split_sdf, smiles_csv_to_sdf_dir
 
@@ -56,6 +57,7 @@ class MenuBar(QMenuBar):
         dividir_csv_action.triggered.connect(self.csv_a_sdf)
         menu_molecula.addAction(dividir_csv_action)
 
+
         # Menu de Entrenamiento
         menu_train = self.addMenu("Train GNN")
 
@@ -92,6 +94,7 @@ class MenuBar(QMenuBar):
         fine_tuning_multiple_action.triggered.connect(self.fine_tuning_multiples_modelos)
         menu_transfer.addAction(fine_tuning_multiple_action)    
 
+
         menu_test = self.addMenu("Test GNN")
 
         # Testeo de IA con un solo SDF
@@ -114,11 +117,19 @@ class MenuBar(QMenuBar):
         consultar_params_action.triggered.connect(self.consultar_parametros_modelo)
         menu_test.addAction(consultar_params_action)
 
+
+        # Explicaciones
+        menu_explicacion = self.addMenu("Explicador LIME")
+        
         # LIME
-        menu_lime = self.addMenu("Explicador LIME")
         lime_action =QAction("Obtener explicación LIME", self)
         lime_action.triggered.connect(self.get_explanation_LIME)
-        menu_lime.addAction(lime_action)
+        menu_explicacion.addAction(lime_action)
+
+        # GNN Explainer
+        explainer_action = QAction("Obtener GNNExplainer", self)
+        explainer_action.triggered.connect(self.get_explanation_GNNExplainer)
+        menu_explicacion.addAction(explainer_action)
 
     def nuevo_archivo(self):
         self.parent.create_new_graph()
@@ -551,6 +562,26 @@ class MenuBar(QMenuBar):
 
             except Exception as e:
                 logger.error(f"Error en explicación LIME: {str(e)}", exc_info=True)
+    
+    def get_explanation_GNNExplainer(self):
+        dialog = ModelTestDialog(self.parent)
+        if dialog.exec():
+            model_path, sdf_path = dialog.get_paths()
+            try:
+                # Obtener explicación LIME
+                # feature_mask espera: [Atom, Degree, Arom, Hybrid, BondType, BondDist]
+                plot_path = obtener_GNN_Explainer(model_path, sdf_path)
+
+                # mostrar el sdf por pantalla
+                self.parent.load_graph_from_file(sdf_path)
+
+                # Mostrar la imagen en un diálogo
+                self.image_dialog = ImageDialog(plot_path, self.parent)
+                self.image_dialog.show()
+
+            except Exception as e:
+                logger.error(f"Error en explicación LIME: {str(e)}", exc_info=True)
+
 
 
     def consultar_parametros_modelo(self):

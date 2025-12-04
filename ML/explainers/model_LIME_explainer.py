@@ -653,7 +653,7 @@ def filtrar_features_presentes(alfa_np, feature_names, muestra_x):
 
     return alfa_np_filtered, feature_names_filtered
 
-def plot_graph_with_importance(graph, node_importance, edge_importance=None, edge_index=None, ax=None, cmap="YlOrRd", node_idx_map=None):
+def plot_graph_with_importance(graph, node_importance, edge_importance=None, edge_index=None, ax=None, cmap="plasma", node_idx_map=None):
     if ax is None:
         fig, ax = plt.subplots(figsize=(6, 6))
 
@@ -736,7 +736,7 @@ def plot_graph_with_importance(graph, node_importance, edge_importance=None, edg
             elif 'TRIPLE' in b_type_str:
                 style = 'solid' # O 'dotted' si prefieres diferenciar más
                 final_width = 3.5 # Triple = muy grueso
-            elif 'SINLE' in b_type_str:
+            elif 'SINGLE' in b_type_str:
                 # SINGLE
                 style = 'solid'
                 final_width = 1.5
