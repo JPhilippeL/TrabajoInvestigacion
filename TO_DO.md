@@ -1,9 +1,5 @@
 # COSAS Q HACER
-Ver lo de sigma
-Hacer entrenamientos de GINE y GIN
-    Hacer batch size de 64 o 128
-    Añadir dropout
-    Añadir Learning Rate Scheduler
+tenir funcionant el PGM-Explainer i el GNN-Explainer. 
 
 # No tan importante
 Que el calculo de ver la importancia se pueda hacer con alfa y beta, alfa o beta?

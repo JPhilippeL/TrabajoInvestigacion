@@ -657,7 +657,7 @@ def plot_graph_with_importance(graph, node_importance, edge_importance=None, edg
     if ax is None:
         fig, ax = plt.subplots(figsize=(6, 6))
 
-    # --- Nodos ---
+    # --- 1. PROCESAMIENTO DE NODOS (Igual que antes) ---
     beta = np.array(node_importance, dtype=float)
     if node_idx_map is not None:
         beta_mapped = []
@@ -669,26 +669,32 @@ def plot_graph_with_importance(graph, node_importance, edge_importance=None, edg
 
     pos = {n: graph.nodes[n]["pos"] for n in graph.nodes}
     
-    # Normalizamos Nodos
+    # Normalización Nodos (Ahora con normalizar_max como acordamos)
+    # Si prefieres min_max en el grafo, cambia esta línea
     vmin_n, vmax_n = beta.min(), beta.max()
-    norm_n = mcolors.Normalize(vmin=vmin_n, vmax=vmax_n) if vmax_n > vmin_n else mcolors.Normalize(vmin=0, vmax=1)
+    norm_n = mcolors.Normalize(vmin=vmin_n, vmax=vmax_n) if vmax_n > 0 else mcolors.Normalize(vmin=0, vmax=1)
     cmap_obj = plt.cm.get_cmap(cmap)
     node_colors = [cmap_obj(norm_n(b)) for b in beta]
 
-    # --- Aristas ---
-    edge_colors = []
-    edge_widths = []
+    # --- 2. PROCESAMIENTO DE ARISTAS POR TIPO ---
     
+    # Preparamos diccionarios para agrupar las aristas por estilo visual
+    # Esto es necesario porque nx.draw_networkx_edges dibuja todas las de la lista con el mismo estilo
+    batches = {
+        "solid":   {"edges": [], "colors": [], "widths": []},
+        "dashed":  {"edges": [], "colors": [], "widths": []}, # Para Aromaticos
+        "dotted":  {"edges": [], "colors": [], "widths": []}  # Opcional (ej. para puentes de H o interacciones)
+    }
+
     if edge_importance is not None and edge_index is not None:
         delta = np.array(edge_importance, dtype=float)
-        
-        # IMPORTANTE: Se asume que 'delta' YA viene normalizado entre 0 y 1 desde fuera
-        # para cumplir tu requerimiento de "cortar y luego normalizar"
+        # Asumimos que delta YA viene normalizado (max=1)
         norm_e = mcolors.Normalize(vmin=0, vmax=1) 
 
         if isinstance(edge_index, torch.Tensor):
             edge_index = edge_index.cpu().numpy()
             
+        # Mapa de importancia (u, v) -> valor
         imp_dict = {}
         for i in range(len(delta)):
             u = int(edge_index[0, i])
@@ -700,29 +706,67 @@ def plot_graph_with_importance(graph, node_importance, edge_importance=None, edg
         nx_edges = list(graph.edges())
         
         for u, v in nx_edges:
+            # Recuperar indices reales
             u_real = node_idx_map.get(str(u)) if node_idx_map else int(u)
             v_real = node_idx_map.get(str(v)) if node_idx_map else int(v)
 
+            # 1. Obtener Importancia
             val = imp_dict.get((u_real, v_real), 0.0)
+            color = cmap_obj(norm_e(val))
             
-            # Color
-            rgba = cmap_obj(norm_e(val))
-            edge_colors.append(rgba)
+            # 2. Obtener Tipo de Enlace del Grafo (NetworkX)
+            # parse_sdf suele guardar esto en 'bond_type'
+            # Puede venir como string ('SINGLE', 'AROMATIC') o float (1.0, 1.5, 2.0)
+            edge_data = graph.get_edge_data(u, v)
+            b_type = edge_data.get('bond_type', 'SINGLE') 
             
-            # Grosor: Si es muy importante (cerca de 1), más grueso
-            width = 1.5 + (3.5 * val) 
-            edge_widths.append(width) 
+            # 3. Determinar Estilo y Grosor Base
+            style = 'solid'
+            final_width = 1.5 
+            
+            # Lógica de diferenciación
+            b_type_str = str(b_type).upper()
+            
+            if 'AROMATIC' in b_type_str:
+                style = 'dashed'
+                final_width = 1.5
+            elif 'DOUBLE' in b_type_str:
+                style = 'solid'
+                final_width = 2.5 # Doble enlace = más grueso
+            elif 'TRIPLE' in b_type_str:
+                style = 'solid' # O 'dotted' si prefieres diferenciar más
+                final_width = 3.5 # Triple = muy grueso
+            elif 'SINLE' in b_type_str:
+                # SINGLE
+                style = 'solid'
+                final_width = 1.5
 
-        nx.draw_networkx_edges(
-            graph, pos, ax=ax, 
-            edgelist=nx_edges,
-            edge_color=edge_colors, 
-            width=edge_widths,
-            alpha=0.9
-        )
+            # Grosor final = Base + Importancia
+            # final_width = final_width + (3.5 * val)
+
+            # Guardar en el batch correspondiente
+            if style in batches:
+                batches[style]["edges"].append((u, v))
+                batches[style]["colors"].append(color)
+                batches[style]["widths"].append(final_width)
+
+        # 4. DIBUJAR LOS BATCHES
+        for style, data in batches.items():
+            if data["edges"]:
+                nx.draw_networkx_edges(
+                    graph, pos, ax=ax,
+                    edgelist=data["edges"],
+                    edge_color=data["colors"],
+                    width=data["widths"],
+                    style=style,  # Aquí aplicamos solid/dashed/dotted
+                    alpha=0.9
+                )
+
     else:
+        # Fallback si no hay info de LIME
         nx.draw_networkx_edges(graph, pos, ax=ax, width=1.5, alpha=0.4, edge_color="gray")
 
+    # --- 3. DIBUJAR NODOS Y ETIQUETAS (Igual que antes) ---
     nx.draw_networkx_nodes(graph, pos, ax=ax, node_color=node_colors, node_size=300, edgecolors="black")
     labels = {n: graph.nodes[n].get("element", str(n)) for n in graph.nodes}
     nx.draw_networkx_labels(graph, pos, labels, font_size=9, ax=ax)
