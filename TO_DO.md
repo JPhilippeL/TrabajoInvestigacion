@@ -12,3 +12,4 @@ Normalizo alfa y beta no? Ahora normalizo haciendo MINMAX, tengo que hacer eto d
 Preguntar si lo de grid search es de cara al tfm o lo hago ahora
 Hago el producto de Features * Nodos para visualizar?
 averiguar que es eso del desentanglment
+No puedo con PGM, pero encontré uno q se llama integrated gradients
