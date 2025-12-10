@@ -20,7 +20,6 @@ from ML.model_tester import test_model_on_directory
 from ML.model_tester import obtener_info_checkpoint
 from ML.explainers.model_LIME_explainer import obtener_lime
 from ML.explainers.model_GNNExplainer import obtener_GNN_Explainer
-from ML.explainers.model_PGM_explainer import obtener_PGM_Explainer
 from ML.model_tester import cargar_y_predecir
 from core.sdf_converter import graph_to_mol, save_graph_as_sdf, split_sdf, smiles_csv_to_sdf_dir
 
@@ -131,11 +130,6 @@ class MenuBar(QMenuBar):
         explainer_action = QAction("Obtener GNNExplainer", self)
         explainer_action.triggered.connect(self.get_explanation_GNNExplainer)
         menu_explicacion.addAction(explainer_action)
-
-        # PGM Explainer
-        pgm_action = QAction("Obtener PGM Explainer", self)
-        pgm_action.triggered.connect(self.get_explanation_PGMExplainer)
-        menu_explicacion.addAction(pgm_action)
 
     def nuevo_archivo(self):
         self.parent.create_new_graph()
@@ -586,24 +580,6 @@ class MenuBar(QMenuBar):
 
             except Exception as e:
                 logger.error(f"Error en explicación GNNExplainer: {str(e)}", exc_info=True)
-
-    def get_explanation_PGMExplainer(self):
-        dialog = ModelTestDialog(self.parent)
-        if dialog.exec():
-            model_path, sdf_path = dialog.get_paths()
-            try:
-                # Obtener explicación PGM
-                plot_path = obtener_PGM_Explainer(model_path, sdf_path)
-
-                # mostrar el sdf por pantalla
-                self.parent.load_graph_from_file(sdf_path)
-
-                # Mostrar la imagen en un diálogo
-                self.image_dialog = ImageDialog(plot_path, self.parent)
-                self.image_dialog.show()
-
-            except Exception as e:
-                logger.error(f"Error en explicación PGM: {str(e)}", exc_info=True)
 
 
     def consultar_parametros_modelo(self):

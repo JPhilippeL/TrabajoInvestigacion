@@ -590,69 +590,6 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
 
     return texts
 
-def get_feature_names(periodic_elements, hybridization_types):
-    feature_names = []
-
-    # 1️⃣ Tipos de átomo (One-Hot)
-    # Coincide con: one_of_k_encoding_unk(atom.GetSymbol(), periodic_elements)
-    feature_names += [f"Atom_{el}" for el in periodic_elements]
-
-    # 2️⃣ Features Escalares (El "Sándwich" Central)
-    # El orden AQUÍ debe ser idéntico al return de get_atom_features
-    feature_names.append("Degree_norm")      # index relativo: 0
-    feature_names.append("TotalHs_norm")     # index relativo: 1
-    feature_names.append("IsAromatic")       # index relativo: 2
-    
-    # --- NUEVAS FEATURES ---
-    feature_names.append("FormalCharge")     # index relativo: 3
-    feature_names.append("GasteigerCharge")  # index relativo: 4
-    feature_names.append("IsHDonor")         # index relativo: 5
-    feature_names.append("IsHAcceptor")      # index relativo: 6
-
-    # 3️⃣ Hibridación (One-Hot)
-    # Coincide con: one_of_k_encoding_unk(atom.GetHybridization().name, hybridization_types)
-    feature_names += [f"Hybrid_{h}" for h in hybridization_types]
-
-    return feature_names
-
-def limpiar_columnas_zero(data, col_labels):
-    # Detectar columnas que NO son todas ceros
-    mask = ~(np.all(data == 0, axis=0))
-
-    # Filtrar
-    data_limpia = data[:, mask]
-    col_labels_limpias = [label for label, keep in zip(col_labels, mask) if keep]
-
-    return data_limpia, col_labels_limpias
-
-def filtrar_features_presentes(alfa_np, feature_names, muestra_x):
-    """
-    Filtra la matriz de importancia (alfa) y los nombres de features
-    para quedarse solo con aquellas que existen en la molécula original.
-    """
-    # 1. Asegurar que tenemos numpy array
-    if hasattr(muestra_x, 'cpu'):
-        x = muestra_x.cpu().numpy()
-    else:
-        x = muestra_x
-
-    # 2. Crear máscara: True si la columna (feature) tiene algún valor != 0 en algún nodo
-    # x tiene forma [Num_Nodos, Num_Features]
-    mask = np.any(x != 0, axis=0)
-
-    # 3. Verificación de seguridad de dimensiones
-    if len(feature_names) != len(mask):
-        logging.warning(f"Dimensión incorrecta: Nombres ({len(feature_names)}) vs Features ({len(mask)}). No se filtra.")
-        return alfa_np, feature_names
-
-    # 4. Filtrar nombres
-    feature_names_filtered = [name for name, present in zip(feature_names, mask) if present]
-
-    # 5. Filtrar matriz alfa
-    alfa_np_filtered = alfa_np[mask]
-
-    return alfa_np_filtered, feature_names_filtered
-
 def plot_graph_with_importance(graph, node_importance, edge_importance=None, edge_index=None, ax=None, cmap="plasma", node_idx_map=None):
     if ax is None:
         fig, ax = plt.subplots(figsize=(6, 6))
@@ -777,6 +714,31 @@ def plot_graph_with_importance(graph, node_importance, edge_importance=None, edg
     
     ax.axis("off")
     return ax
+
+def get_feature_names(periodic_elements, hybridization_types):
+    feature_names = []
+
+    # 1️⃣ Tipos de átomo (One-Hot)
+    # Coincide con: one_of_k_encoding_unk(atom.GetSymbol(), periodic_elements)
+    feature_names += [f"Atom_{el}" for el in periodic_elements]
+
+    # 2️⃣ Features Escalares (El "Sándwich" Central)
+    # El orden AQUÍ debe ser idéntico al return de get_atom_features
+    feature_names.append("Degree_norm")      # index relativo: 0
+    feature_names.append("TotalHs_norm")     # index relativo: 1
+    feature_names.append("IsAromatic")       # index relativo: 2
+    
+    # --- NUEVAS FEATURES ---
+    feature_names.append("FormalCharge")     # index relativo: 3
+    feature_names.append("GasteigerCharge")  # index relativo: 4
+    feature_names.append("IsHDonor")         # index relativo: 5
+    feature_names.append("IsHAcceptor")      # index relativo: 6
+
+    # 3️⃣ Hibridación (One-Hot)
+    # Coincide con: one_of_k_encoding_unk(atom.GetHybridization().name, hybridization_types)
+    feature_names += [f"Hybrid_{h}" for h in hybridization_types]
+
+    return feature_names
 
 def tensor_to_abs_numpy(tensor):
     """Convierte tensor a numpy, toma valor absoluto."""
