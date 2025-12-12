@@ -194,6 +194,7 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask = [1, 1, 1, 1, 1, 1], n
     
     # Generar muestras perturbadas
     perturbed_samples = generate_perturbed_samples(muestra, feature_mask, num_samples, noise_level)
+    perturbed_samples_embedding = []
 
     # Obtener modelo
     model, device, target_name = cargar_modelo(checkpoint_path)
@@ -210,20 +211,24 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask = [1, 1, 1, 1, 1, 1], n
         perturbed_for_model = onehot_to_indices(perturbed)  # <-- aquí el puente
         pred = predecir_molecula(model, perturbed_for_model, device)
         predicciones_perturbadas.append(pred)
+        perturbed_samples_embedding.append(perturbed_for_model)
 
     # Convertir a tensor [num_samples,1]
     predicciones_perturbadas = torch.tensor(predicciones_perturbadas, dtype=torch.float, device=device).unsqueeze(1)
 
     # Calcular distancias entre la muestra original y las perturbaciones
-    feature_distances = graph_feature_distance_list(muestra, perturbed_samples, metric='euclidean')
+    # feature_distances = graph_feature_distance_list(muestra, perturbed_samples, metric='euclidean')
+    feature_distances = graph_feature_distance_list(muestra_for_model, perturbed_samples_embedding, metric='euclidean')
     #feature_distances = embedding_distance_list(model, data_sample, perturbed_samples, device=device)
 
     # Precalcular todos los E_z^T (cada uno [d, N_z])
-    E_t_list = [data_z.x.t().to(device) for data_z in perturbed_samples]
+    # E_t_list = [data_z.x.t().to(device) for data_z in perturbed_samples]
+    E_t_list = [data_z.x.t().to(device) for data_z in perturbed_samples_embedding]
 
     # Lo mismo con los edges
     A_t_list = []
-    for data_z in perturbed_samples:
+    for data_z in perturbed_samples_embedding:
+    # for data_z in perturbed_samples:
         if data_z.edge_attr is not None:
             # Transponemos para que quede [Features x NumeroEdges]
             A_t_list.append(data_z.edge_attr.t().to(device))
@@ -239,9 +244,11 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask = [1, 1, 1, 1, 1, 1], n
     # ==========================================================================
     
     # 1. ALFA (Node Features) -> Filtrar -> Ordenar -> Normalizar
-    node_feature_names = get_feature_names(periodic_elements, hybridization_types)
+    # node_feature_names = get_feature_names(periodic_elements, hybridization_types)
+    node_feature_names = get_feature_names_embedding()
     alfa_sorted, row_labels_alfa = procesar_features_ordenadas(
-        alfa, node_feature_names, muestra.x
+        # alfa, node_feature_names, muestra.x
+        alfa, node_feature_names, muestra_for_model.x
     )
     col_labels_alfa = [""]
 
@@ -249,10 +256,11 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask = [1, 1, 1, 1, 1, 1], n
     # Reemplaza a Beta en el segundo heatmap
     if muestra.edge_attr is not None:
         num_bond_types = muestra.edge_attr.shape[1] - 1 # El último es distancia
-        edge_feature_names = ["Single", "Double", "Triple", "Aromatic"] + ["Distance"]
+        # edge_feature_names = ["Single", "Double", "Triple", "Aromatic"] + ["Distance"]
+        edge_feature_names = ["Bond Type", "Distance"]
         
         gamma_sorted, row_labels_gamma = procesar_features_ordenadas(
-            gamma, edge_feature_names, muestra.edge_attr
+            gamma, edge_feature_names, muestra_for_model.edge_attr
         )
     else:
         gamma_sorted = np.array([])
@@ -299,9 +307,9 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask = [1, 1, 1, 1, 1, 1], n
     
     plot_graph_with_importance(
         graph, 
-        node_importance=beta_np.flatten(), 
-        edge_importance=delta_normalized.flatten(), # Delta normalizado (max=1)
-        edge_index=muestra.edge_index,
+        node_importance=beta_np, 
+        edge_importance=delta_normalized, # Delta normalizado (max=1)
+        edge_index=muestra_for_model.edge_index,
         ax=ax_graph, 
         node_idx_map=node_idx_map,
         cmap="plasma"
@@ -739,6 +747,19 @@ def get_feature_names(periodic_elements, hybridization_types):
     feature_names += [f"Hybrid_{h}" for h in hybridization_types]
 
     return feature_names
+
+def get_feature_names_embedding():
+    return [
+        "Atom Symbol (Idx)", 
+        "Hybridization (Idx)", 
+        "Degree (Norm)", 
+        "Total Hs (Norm)", 
+        "Is Aromatic", 
+        "Formal Charge", 
+        "Gasteiger Charge", 
+        "Is Donor", 
+        "Is Acceptor"
+    ]
 
 def tensor_to_abs_numpy(tensor):
     """Convierte tensor a numpy, toma valor absoluto."""
