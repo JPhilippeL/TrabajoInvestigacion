@@ -2,14 +2,12 @@
 from ML.model_tester import cargar_modelo, predecir_molecula
 import torch
 import torch.nn as nn
-import torch.optim as optim
-import math
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import networkx as nx
 import matplotlib.ticker as mticker
 import numpy as np
-from ui.utils import RESULTADOS_DIR, periodic_elements, hybridization_types, N_BOND_TYPES
+from ui.utils import RESULTADOS_DIR, periodic_elements, hybridization_types
 import os
 import sys
 import logging
@@ -128,7 +126,6 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1], noise_level=0
     return data_new
 
 # Función para generar múltiples muestras perturbadas
-# La distribución de las muestras aleatorias tienen que seguir una distribucion gaussiana
 def generate_perturbed_samples(data, feature_mask, num_samples=50, noise_level=0.05):
     perturbed_samples = []
     for i in range(num_samples):
@@ -159,25 +156,6 @@ def graph_feature_distance_list(x, z_list, metric='euclidean'):
         
         distances.append(dist.item())
     
-    return distances
-
-
-def embedding_distance_list(model, x, z_list, edge_attr_list=None, batch=None, device='cpu'):
-    """
-    Calcula distancias euclidianas entre embeddings de x y cada z en z_list.
-    """
-    model.eval()
-    x, z_list = x.to(device), [z.to(device) for z in z_list]
-    batch = torch.zeros(x.num_nodes, dtype=torch.long, device=device) if batch is None else batch
-
-    with torch.no_grad():
-        emb_x = model.get_embedding(x.x, x.edge_index, getattr(x, 'edge_attr', None), batch)
-        distances = []
-        for i, z in enumerate(z_list):
-            z_batch = torch.zeros(z.num_nodes, dtype=torch.long, device=device)
-            emb_z = model.get_embedding(z.x, z.edge_index, getattr(z, 'edge_attr', None), z_batch)
-            distances.append(torch.norm(emb_x - emb_z).item())
-
     return distances
 
 def obtener_lime(checkpoint_path, sdf_path, feature_mask = [1, 1, 1, 1, 1, 1], num_samples=50, noise_level=0.05, device='cpu'):
@@ -217,24 +195,20 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask = [1, 1, 1, 1, 1, 1], n
     predicciones_perturbadas = torch.tensor(predicciones_perturbadas, dtype=torch.float, device=device).unsqueeze(1)
 
     # Calcular distancias entre la muestra original y las perturbaciones
-    # feature_distances = graph_feature_distance_list(muestra, perturbed_samples, metric='euclidean')
     feature_distances = graph_feature_distance_list(muestra_for_model, perturbed_samples_embedding, metric='euclidean')
-    #feature_distances = embedding_distance_list(model, data_sample, perturbed_samples, device=device)
 
-    # Precalcular todos los E_z^T (cada uno [d, N_z])
-    # E_t_list = [data_z.x.t().to(device) for data_z in perturbed_samples]
-    E_t_list = [data_z.x.t().to(device) for data_z in perturbed_samples_embedding]
+    # Obtener E
+    E_list = [data_z.x.to(device) for data_z in perturbed_samples_embedding]
 
     # Lo mismo con los edges
-    A_t_list = []
+    A_list = []
     for data_z in perturbed_samples_embedding:
     # for data_z in perturbed_samples:
         if data_z.edge_attr is not None:
-            # Transponemos para que quede [Features x NumeroEdges]
-            A_t_list.append(data_z.edge_attr.t().to(device))
+            A_list.append(data_z.edge_attr.to(device))
 
     # --------------- HACERLO CON OPTIMIZACION DE PYTORCH ----------------------
-    alfa, beta, gamma, delta, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_t_list, A_t_list, 0.01)
+    alfa, beta, gamma, delta, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_list, A_list, 0.01)
     # Verificar que aprendimos algo distinto de cero
     print(f"Max Alfa: {alfa.max().item():.4f}, Min Alfa: {alfa.min().item():.4f}")
     print(f"Max Beta: {beta.max().item():.4f}, Min Beta: {beta.min().item():.4f}")
@@ -244,10 +218,8 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask = [1, 1, 1, 1, 1, 1], n
     # ==========================================================================
     
     # 1. ALFA (Node Features) -> Filtrar -> Ordenar -> Normalizar
-    # node_feature_names = get_feature_names(periodic_elements, hybridization_types)
     node_feature_names = get_feature_names_embedding()
     alfa_sorted, row_labels_alfa = procesar_features_ordenadas(
-        # alfa, node_feature_names, muestra.x
         alfa, node_feature_names, muestra_for_model.x
     )
     col_labels_alfa = [""]
@@ -255,8 +227,6 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask = [1, 1, 1, 1, 1, 1], n
     # 2. GAMMA (Edge Features) -> Filtrar -> Ordenar -> Normalizar
     # Reemplaza a Beta en el segundo heatmap
     if muestra.edge_attr is not None:
-        num_bond_types = muestra.edge_attr.shape[1] - 1 # El último es distancia
-        # edge_feature_names = ["Single", "Double", "Triple", "Aromatic"] + ["Distance"]
         edge_feature_names = ["Bond Type", "Distance"]
         
         gamma_sorted, row_labels_gamma = procesar_features_ordenadas(
@@ -308,7 +278,7 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask = [1, 1, 1, 1, 1, 1], n
     plot_graph_with_importance(
         graph, 
         node_importance=beta_np, 
-        edge_importance=delta_normalized, # Delta normalizado (max=1)
+        edge_importance=delta_normalized,
         edge_index=muestra_for_model.edge_index,
         ax=ax_graph, 
         node_idx_map=node_idx_map,
@@ -348,7 +318,7 @@ def obtener_lime(checkpoint_path, sdf_path, feature_mask = [1, 1, 1, 1, 1, 1], n
     return plotfilename
 
 def obtener_argmin(feature_distances, predicciones_perturbadas, 
-                   E_t_list, A_t_list, 
+                   E_list, A_list, 
                    lr=0.05, 
                    epochs=2000, 
                    verbose=True):
@@ -364,21 +334,20 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
         if std_preds < 1e-5:
             logger.warning("¡CUIDADO! El modelo predice casi lo mismo para todas las muestras. Aumenta el noise_level.")
 
-    # 1. Stack
-    E_stack = torch.stack(E_t_list).to(device) 
-    has_edges = len(A_t_list) > 0 and A_t_list[0] is not None
+    # 1. Stack y normalizar
+    E_stack = stack_and_normalize(E_list, device)
+    has_edges = len(A_list) > 0 and A_list[0] is not None
     if has_edges:
-        A_stack = torch.stack(A_t_list).to(device)
-        d_edges, M_edges = A_stack.shape[1], A_stack.shape[2]
+        A_stack = stack_and_normalize(A_list, device)
+        M_edges, d_edges = A_stack.shape[1], A_stack.shape[2]
     else:
         d_edges, M_edges = 1, 1
 
-    num_samples, d_nodes, N_nodes = E_stack.shape
+    num_samples, N_nodes, d_nodes = E_stack.shape 
+    # N_nodes: Cantidad de átomos
+    # d_features: Cantidad de features
 
-    # 2. CAMBIO CLAVE: ELIMINAMOS LA NORMALIZACIÓN AGRESIVA AQUÍ
-    # Dejamos que los pesos aprendan su magnitud natural.
-    # La normalización visual la haces tú después con 'procesar_y_normalizar'.
-    # Para Nodos
+    # Normalizar nodos
     scale_nodes = 1.0 / d_nodes * N_nodes
     
     # Para Edges
@@ -390,6 +359,7 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
         scale_edges = 0.0
 
     # 3. Inicialización (Un poco más grande para ayudar al gradiente)
+    # Son los dos tensores columna
     alfa = nn.Parameter(torch.randn(d_nodes, 1, device=device) * 0.1)
     beta = nn.Parameter(torch.randn(N_nodes, 1, device=device) * 0.1)
     
@@ -411,26 +381,21 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
     optimizer = torch.optim.Adam(params, lr=lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=100)
 
-    # ... dentro de obtener_argmin ...
-
+    # Todas las distancias pasadas a tensor
     dists = torch.tensor(feature_distances, dtype=torch.float, device=device).view(-1, 1)
     
-    # --- CORRECCIÓN CRÍTICA AQUÍ ---
-    # NO usar .std() porque tus distancias son muy similares entre sí.
-    # Usamos la media para asegurar que el kernel cubra tus datos.
-    # Un buen heurístico es sigma = media * 0.75
+    # Media de las distancias
     dist_mean = dists.mean()
     sigma = dist_mean if dist_mean > 0 else 1.0
-    
-    # Calculamos pesos.
-    # Nota: Eliminamos el cuadrado del denominador dentro del exp para suavizar,
-    # o usamos 2*sigma^2 si sigma es suficientemente grande.
-    # Probemos esta forma robusta:
+    # sigma = media de las distancias
+    # Calculamos weights = e^Distancia(x,z)/sigma
+    # weights = e^-(distancias²) / 2 * sigma²
     weights = torch.exp(-(dists**2) / (2 * sigma**2))
     
-    # IMPORTANTE: Re-escalar los pesos para que sumen 'num_samples'.
+    # Se reescala weights para que sumen "num_samples"
+    # Como esto multiplica el loss, si es muy pequeño, deja de optimizar
     # Esto evita que el Loss sea pequeñísimo (0.0001) y que los gradientes mueran.
-    weights = weights / weights.sum() * num_samples
+    weights = (weights / weights.sum()) * num_samples
 
     targets = predicciones_perturbadas.view(-1, 1)
 
@@ -458,18 +423,28 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
         optimizer.zero_grad()
         
         # --- Nodos ---
-        Eb = torch.matmul(E_stack, beta) 
-        term_nodes = torch.matmul(alfa.t(), Eb).view(-1, 1)
+        # Eb = torch.matmul(E_stack, beta)
+        # hacemos E * alfa^t
+        Ea = torch.matmul(E_stack, alfa)
+        # Luego B^t * E * alfa^t
+        # term_nodes = torch.matmul(alfa.t(), Eb).view(-1, 1)
+        term_nodes = (Ea * beta).sum(dim=1)
         
         pred_approx = (term_nodes * scale_nodes) # + mu
         # pred_approx = term_nodes * scale_nodes
 
         # --- Edges ---
         if has_edges:
-            Ad = torch.matmul(A_stack, delta)
-            term_edges = torch.matmul(gamma.t(), Ad).view(-1, 1)
+            # Hacemos A * gamma^t
+            Ag = torch.matmul(A_stack, gamma)
+            # Ad = torch.matmul(A_stack, delta)
+            # term_edges = torch.matmul(gamma.t(), Ad).view(-1, 1)
+            # y ahora delta^t * A * gamma^t
+            term_edges = (Ag * delta).sum(dim=1)
+
             pred_approx += (term_edges * scale_edges)
 
+        # LOSS
         squared_error = (targets - pred_approx)**2
         loss = (weights * squared_error).mean() # Usar mean ayuda a estabilizar respecto al batch size
         
@@ -723,31 +698,6 @@ def plot_graph_with_importance(graph, node_importance, edge_importance=None, edg
     ax.axis("off")
     return ax
 
-def get_feature_names(periodic_elements, hybridization_types):
-    feature_names = []
-
-    # 1️⃣ Tipos de átomo (One-Hot)
-    # Coincide con: one_of_k_encoding_unk(atom.GetSymbol(), periodic_elements)
-    feature_names += [f"Atom_{el}" for el in periodic_elements]
-
-    # 2️⃣ Features Escalares (El "Sándwich" Central)
-    # El orden AQUÍ debe ser idéntico al return de get_atom_features
-    feature_names.append("Degree_norm")      # index relativo: 0
-    feature_names.append("TotalHs_norm")     # index relativo: 1
-    feature_names.append("IsAromatic")       # index relativo: 2
-    
-    # --- NUEVAS FEATURES ---
-    feature_names.append("FormalCharge")     # index relativo: 3
-    feature_names.append("GasteigerCharge")  # index relativo: 4
-    feature_names.append("IsHDonor")         # index relativo: 5
-    feature_names.append("IsHAcceptor")      # index relativo: 6
-
-    # 3️⃣ Hibridación (One-Hot)
-    # Coincide con: one_of_k_encoding_unk(atom.GetHybridization().name, hybridization_types)
-    feature_names += [f"Hybrid_{h}" for h in hybridization_types]
-
-    return feature_names
-
 def get_feature_names_embedding():
     return [
         "Atom Symbol (Idx)", 
@@ -821,3 +771,30 @@ def procesar_features_ordenadas(importance_tensor, feature_names, input_data):
     final_imp = normalizar_max(sorted_imp)
     
     return final_imp, sorted_names.tolist()
+
+# --- HELPER: STACK Y NORMALIZACIÓN GLOBAL ---
+def stack_and_normalize(tensor_list, device):
+    if not tensor_list: return None, 1.0
+    
+    # 1. Stack: [Samples, N_elementos, Features]
+    #    Asumimos que N es constante (LIME estándar). 
+    stacked = torch.stack(tensor_list).to(device)
+    
+    # 2. Calcular Min/Max Global
+    #    Aplanamos (Sample y N) para buscar el min/max de cada feature en todo el dataset
+    flattened = stacked.view(-1, stacked.shape[-1])
+    
+    val_min = flattened.min(dim=0).values
+    val_max = flattened.max(dim=0).values
+    val_range = val_max - val_min
+    val_range[val_range == 0] = 1.0 # Evitar división por 0
+    
+    # 3. Normalizar (Broadcasting de PyTorch hace la magia)
+    #    [S, N, F] - [F] funciona directo
+    normalized_stacked = (stacked - val_min) / val_range
+    
+    # Factor de escala para la predicción (1 / total_elementos)
+    # N_elementos = stacked.shape[1]
+    # scale = 1.0 / N_elementos
+    
+    return normalized_stacked
