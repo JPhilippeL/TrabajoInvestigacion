@@ -15,6 +15,7 @@ from ui.dialogs.train_multiple_models import TrainMultipleModelsDialog
 from ui.dialogs.transfer_learning_multiple_models import TransferLearningMultipleDialog
 from ui.dialogs.image_dialog import ImageDialog
 from ui.dialogs.csv_to_sdf import CSVtoSDFDialog
+from ui.dialogs.explanation_dialog import ExplanationDialog
 
 from ML.model_tester import test_model_on_directory
 from ML.model_tester import obtener_info_checkpoint
@@ -545,13 +546,13 @@ class MenuBar(QMenuBar):
                 logger.error("Error en testeo de todos los modelos: " + str(e), exc_info=True)
 
     def get_explanation_LIME(self):
-        dialog = ModelTestDialog(self.parent)
+        dialog = ExplanationDialog(self.parent)
         if dialog.exec():
-            model_path, sdf_path = dialog.get_paths()
+            model_path, sdf_path, target_path = dialog.get_paths()
             try:
                 # Obtener explicación LIME
                 # feature_mask espera: [Atom, Degree, Arom, Hybrid, BondType, BondDist]
-                plot_path = obtener_lime(model_path, sdf_path, num_samples=1000, noise_level=0.01, device='cpu')
+                plot_path = obtener_lime(model_path, sdf_path, target_path, num_samples=1000, noise_level=0.01, device='cpu')
 
                 # mostrar el sdf por pantalla
                 self.parent.load_graph_from_file(sdf_path)
@@ -564,12 +565,12 @@ class MenuBar(QMenuBar):
                 logger.error(f"Error en explicación LIME: {str(e)}", exc_info=True)
     
     def get_explanation_GNNExplainer(self):
-        dialog = ModelTestDialog(self.parent)
+        dialog = ExplanationDialog(self.parent)
         if dialog.exec():
-            model_path, sdf_path = dialog.get_paths()
+            model_path, sdf_path, target_path = dialog.get_paths()
             try:
                 # Obtener explicación Explain er
-                plot_path = obtener_GNN_Explainer(model_path, sdf_path)
+                plot_path = obtener_GNN_Explainer(model_path, sdf_path, target_path)
 
                 # mostrar el sdf por pantalla
                 self.parent.load_graph_from_file(sdf_path)
