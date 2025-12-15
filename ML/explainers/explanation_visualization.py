@@ -61,10 +61,6 @@ def guardar_dashboard_explicacion(
     ax_graph = fig.add_subplot(gs[0, :])
     node_idx_map = {str(n): int(n) for n in graph_obj.nodes}
     
-    # Importamos aquí para evitar ciclos circulares si plot_graph_with_importance está en este mismo archivo
-    # Si ya está definido arriba en este archivo, simplemente llámalo.
-    from ML.explainers.explanation_visualization import plot_graph_with_importance, heatmap, annotate_heatmap
-    
     plot_graph_with_importance(
         graph_obj, 
         node_importance=node_importance, 
@@ -95,7 +91,7 @@ def guardar_dashboard_explicacion(
         annotate_heatmap(im_g, gamma_sorted, textcolors=("white", "black"))
         ax_gamma.set_title("Edge Features", fontsize=14, pad=15)
     else:
-        ax_gamma.text(0.5, 0.5, "No edge features / Graph has no edges", ha='center')
+        ax_gamma.text(0.5, 0.5, "No edge features importance", ha='center')
 
     # 3. GESTIÓN DE DIRECTORIOS Y GUARDADO
     # Limpiamos nombres para evitar errores en sistema de archivos

@@ -161,7 +161,7 @@ def visualizar_custom_gnn(explanation, sdf_path, pred_val, target_name, mol_name
     delta_normalized = normalizar_max(edge_mask)
 
     # ==========================================================================
-    # LLAMADA A LA FUNCIÓN MAESTRA
+    # LLAMADA A VISUALIZACION
     # ==========================================================================
     # Esto genera el gráfico idéntico al de LIME, crea carpetas y guarda.
     

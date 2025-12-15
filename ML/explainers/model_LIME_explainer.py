@@ -215,7 +215,7 @@ def obtener_lime(
     print(f"Max Beta: {beta.max().item():.4f}, Min Beta: {beta.min().item():.4f}")
     
     # ==========================================================================
-    # PROCESAMIENTO DE MATRICES (Nueva Lógica)
+    # PROCESAMIENTO DE MATRICES
     # ==========================================================================
     
     # 1. ALFA (Node Features) -> Filtrar -> Ordenar -> Normalizar
