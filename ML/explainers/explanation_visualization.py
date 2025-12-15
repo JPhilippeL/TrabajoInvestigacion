@@ -125,7 +125,7 @@ def heatmap(data, row_labels, col_labels, ax, aspect='auto', **kwargs):
 
     # Colorbar
     cbar = ax.figure.colorbar(im, ax=ax)
-    cbar.ax.set_ylabel("Intensity", rotation=-90, va="bottom")
+    cbar.ax.set_ylabel("Feature Significance", rotation=-90, va="bottom")
 
     # Show all ticks and label them
     ax.set_xticks(range(len(col_labels)))
