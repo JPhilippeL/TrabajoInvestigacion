@@ -1,3 +1,4 @@
+# model_GNN_explainer.py
 from torch_geometric.explain import Explainer, GNNExplainer
 from ML.model_tester import cargar_modelo, predecir_molecula
 from ML.data_processing import mol_to_graph_data
@@ -8,11 +9,11 @@ import numpy as np
 import logging
 from core.sdf_converter import parse_sdf
 
-# --- IMPORTS DE VISUALIZACIÓN Y LIME ---
-# Usamos las funciones centralizadas
+# --- IMPORTS DE VISUALIZACIÓN Y UTILIDADES ---
+from ui.utils import RESULTADOS_DIR  # <--- Necesario para guardar la fiabilidad
 from ML.explainers.explanation_visualization import (
-    guardar_dashboard_explicacion, # <--- La función maestra
-    obtener_info_real              # <--- Para leer el txt
+    guardar_dashboard_explicacion, 
+    obtener_info_real              
 )
 
 # Funciones específicas de procesamiento de datos para explicación
@@ -20,6 +21,12 @@ from ML.explainers.model_LIME_explainer import (
     normalizar_max,
     get_feature_names_embedding,
     procesar_features_ordenadas
+)
+
+# --- IMPORTS DE FIABILIDAD (NUEVO) ---
+from ML.explainers.explanation_fidelity import (
+    calcular_curvas_fiability,
+    guardar_plot_fiability
 )
 
 logger = logging.getLogger(__name__)
@@ -32,6 +39,7 @@ def obtener_GNN_Explainer(checkpoint_path, sdf_path, target_data_path=None):
     
     # 1. Cargar Modelo
     model, device, model_target_name = cargar_modelo(checkpoint_path)
+    model.eval() # Importante
     
     # 2. Cargar Molécula
     suppl = Chem.SDMolSupplier(sdf_path, removeHs=False)
@@ -90,13 +98,17 @@ def obtener_GNN_Explainer(checkpoint_path, sdf_path, target_data_path=None):
         explanation=explanation, 
         sdf_path=sdf_path, 
         pred_val=pred_val,       
-        target_name=target_name_str, # Nombre del target (del txt o modelo)
-        real_val=real_val,           # Valor real (del txt)
+        target_name=target_name_str, 
+        real_val=real_val,           
         mol_name=mol_name,       
         algo_name="GNNExplainer",
         feature_names=feature_names,       
         original_x=data.x,
-        model_name=model_folder_name # Para crear la carpeta correcta
+        model_name=model_folder_name,
+        # --- NUEVOS ARGUMENTOS PARA FIABILITY ---
+        model=model,
+        data=data,
+        device=device
     )
     
     logger.info(f"Explicación GNNExplainer guardada en: {plotfilename}")
@@ -109,7 +121,9 @@ def obtener_GNN_Explainer(checkpoint_path, sdf_path, target_data_path=None):
 def visualizar_custom_gnn(explanation, sdf_path, pred_val, target_name, mol_name, 
                           model_name, # <--- Necesario para guardar en la carpeta del modelo
                           real_val=None, algo_name="GNNExplainer", 
-                          feature_names=None, original_x=None):
+                          feature_names=None, original_x=None,
+                          # Argumentos opcionales para Fiability
+                          model=None, data=None, device=None):
     
     graph = parse_sdf(sdf_path) 
     
@@ -127,7 +141,6 @@ def visualizar_custom_gnn(explanation, sdf_path, pred_val, target_name, mol_name
     # ==========================================================================
 
     # --- 1. ALFA (Node Features) ---
-    # Promediamos sobre los nodos para obtener importancia global de la feature
     if node_mask.ndim > 1:
         alfa_raw_tensor = torch.tensor(node_mask.mean(axis=0))
     else:
@@ -143,9 +156,6 @@ def visualizar_custom_gnn(explanation, sdf_path, pred_val, target_name, mol_name
         alfa_sorted, row_labels_alfa = None, []
 
     # --- 2. GAMMA (Edge Features) ---
-    # GNNExplainer estándar calcula importancia de la arista (Delta), 
-    # pero raramente importancia de atributos de arista (Gamma) por separado.
-    # Lo dejamos vacío.
     gamma_sorted = None
     row_labels_gamma = None
 
@@ -161,9 +171,39 @@ def visualizar_custom_gnn(explanation, sdf_path, pred_val, target_name, mol_name
     delta_normalized = normalizar_max(edge_mask)
 
     # ==========================================================================
-    # LLAMADA A VISUALIZACION
+    # === CÁLCULO DE FIABILITY (NUEVO) ===
     # ==========================================================================
-    # Esto genera el gráfico idéntico al de LIME, crea carpetas y guarda.
+    if model is not None and data is not None and device is not None:
+        try:
+            # 1. Calcular Curvas de FIABILIDAD
+            # beta_np ya contiene la importancia de nodos calculada por GNNExplainer
+            k_vals, fiab_plus, fiab_minus = calcular_curvas_fiability(
+                model, 
+                data, 
+                beta_np, 
+                device
+            )
+
+            # 3. Guardar (Solo pasamos datos puros)
+            fiab_path = guardar_plot_fiability(
+                k_values=k_vals, 
+                fiab_plus=fiab_plus, 
+                fiab_minus=fiab_minus, 
+                model_name=model_name,
+                mol_name=mol_name,
+                algo_name="GNNExplainer"
+            )
+            
+            logger.info(f"Gráfico Fiability guardado en: {fiab_path}")
+            
+        except Exception as e:
+            logger.error(f"Error calculando Fiability para GNNExplainer: {e}")
+            import traceback
+            traceback.print_exc()
+
+    # ==========================================================================
+    # LLAMADA A LA VISUALIZACION
+    # ==========================================================================
     
     save_path = guardar_dashboard_explicacion(
         graph_obj=graph,

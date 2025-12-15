@@ -11,6 +11,7 @@ from ML.data_processing import mol_to_graph_data, onehot_to_indices
 from rdkit import Chem
 from core.sdf_converter import parse_sdf
 from ML.explainers.explanation_visualization import obtener_info_real, guardar_dashboard_explicacion
+from ML.explainers.explanation_fidelity import calcular_curvas_fiability, guardar_plot_fiability
 
 SIGMADIST = 1
 MININICIAL = sys.float_info.max
@@ -254,7 +255,7 @@ def obtener_lime(
     # Preparamos el nombre del modelo para la carpeta
     model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
 
-    # LLAMADA A LA FUNCIÓN MAESTRA
+    # LLAMADA A LA FUNCIÓN Visualizacion
     plotfilename = guardar_dashboard_explicacion(
         graph_obj=parse_sdf(sdf_path),
         edge_index=muestra_for_model.edge_index,
@@ -273,6 +274,28 @@ def obtener_lime(
         algo_name="URVExplainer",
         model_name=model_folder_name  # <--- Pasamos esto para que cree la carpeta
     )
+
+    # ... (en obtener_lime o GNNExplainer) ...
+
+    # 1. Calcular Curvas de FIABILIDAD
+    k_vals, fiab_plus, fiab_minus = calcular_curvas_fiability(
+        model, 
+        muestra_for_model, 
+        beta, 
+        device
+    )
+
+    # 3. Guardar (Solo pasamos datos puros)
+    fiab_path = guardar_plot_fiability(
+        k_values=k_vals, 
+        fiab_plus=fiab_plus, 
+        fiab_minus=fiab_minus, 
+        model_name=model_folder_name,
+        mol_name=mol_name,
+        algo_name="URVExplainer"
+    )
+    
+    logger.info(f"Gráfico Fiability guardado en: {fiab_path}")
 
     return plotfilename
 
@@ -346,6 +369,7 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
     # Media de las distancias
     dist_mean = dists.mean()
     sigma = dist_mean if dist_mean > 0 else 1.0
+
     # sigma = media de las distancias
     # Calculamos weights = e^Distancia(x,z)/sigma
     # weights = e^-(distancias²) / 2 * sigma²
