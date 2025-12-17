@@ -299,7 +299,7 @@ def obtener_lime(
         target_name=target_name_str,
         real_val=real_val,
         pred_val=prediccion_original,
-        algo_name="URVExplainer",
+        algo_name="GraphExplainer",
         model_name=model_folder_name  # <--- Pasamos esto para que cree la carpeta
     )
 
@@ -320,7 +320,7 @@ def obtener_lime(
         fiab_minus=fiab_minus, 
         model_name=model_folder_name,
         mol_name=mol_name,
-        algo_name="URVExplainer"
+        algo_name="GraphExplainer"
     )
     
     logger.info(f"Gráfico Fiability guardado en: {fiab_path}")
