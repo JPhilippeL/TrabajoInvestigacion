@@ -8,7 +8,6 @@ import os
 import numpy as np
 import logging
 from core.sdf_converter import parse_sdf
-from ui.utils import RESULTADOS_DIR
 from ML.explainers.explanation_helper import ( 
     obtener_info_real, guardar_dashboard_explicacion,
     guardar_pesos,

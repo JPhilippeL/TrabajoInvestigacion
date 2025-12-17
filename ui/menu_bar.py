@@ -19,7 +19,7 @@ from ui.dialogs.explanation_dialog import ExplanationDialog
 
 from ML.model_tester import test_model_on_directory
 from ML.model_tester import obtener_info_checkpoint
-from ML.explainers.model_Graph_explainer import obtener_graph_explanation
+from ML.explainers.model_Graph_explainer import obtener_graph_explainer
 from ML.explainers.model_GNNExplainer import obtener_GNN_Explainer
 from ML.model_tester import cargar_y_predecir
 from core.sdf_converter import graph_to_mol, save_graph_as_sdf, split_sdf, smiles_csv_to_sdf_dir
@@ -552,7 +552,7 @@ class MenuBar(QMenuBar):
             try:
                 # Obtener explicación GraphExplanation
                 # feature_mask espera: [Atom, Degree, Arom, Hybrid, BondType, BondDist]
-                plot_path = obtener_graph_explanation(model_path, sdf_path, target_path, num_samples=1000, noise_level=0.01, device='cpu')
+                plot_path = obtener_graph_explainer(model_path, sdf_path, target_path, num_samples=1000, noise_level=0.01, device='cpu')
 
                 # mostrar el sdf por pantalla
                 self.parent.load_graph_from_file(sdf_path)

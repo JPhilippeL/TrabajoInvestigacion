@@ -3,7 +3,7 @@ from ML.model_tester import cargar_modelo, predecir_molecula
 import torch
 import torch.nn as nn
 import numpy as np
-from ui.utils import RESULTADOS_DIR, periodic_elements, hybridization_types
+from ui.utils import periodic_elements, hybridization_types
 import os
 import sys
 import logging
@@ -58,13 +58,16 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1], noise_level=0
         # B. FEATURES CONTINUAS (Ruido)
         # El ruido continuo SÍ se puede aplicar a todos (es suave), 
         # o también puedes hacerlo probabilístico. Aquí lo dejo a todos pero suave.
+        # B. FEATURES CONTINUAS (Ruido)
         if feature_mask[1]:
-            indices_continuous = [0, 1, 3, 4] 
+            indices_continuous = [0, 1, 3, 4] # Índices relativos al slice
             vals = x[i, end_atom:start_hybrid]
+            # Generar ruido para todos los índices de una vez
             noise = noise_level * torch.randn(len(indices_continuous))
-            for k, idx_rel in enumerate(indices_continuous):
-                vals[idx_rel] += noise[k]
-                # Poner q no peuda ser mayor a 1 y menor q 0
+            # Sumar ruido (vectorizado)
+            vals[indices_continuous] += noise
+            # Clamping (vectorizado) - Esto reemplaza tu bucle if/elif
+            vals[indices_continuous] = torch.clamp(vals[indices_continuous], min=0.0, max=1.0)
 
         # C. FEATURES BINARIAS (Flip) - CRÍTICO: Hacerlo Probabilístico
         if feature_mask[2]:
@@ -187,7 +190,7 @@ def graph_feature_distance_list(x, z_list, epsilon=0.5):
     
     return distances
 
-def obtener_graph_explanation(
+def obtener_graph_explainer(
         checkpoint_path, 
         sdf_path, 
         target_data_path=None, 
