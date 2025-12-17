@@ -132,26 +132,54 @@ def generate_perturbed_samples(data, feature_mask, num_samples=50, noise_level=0
 
 import torch
 
-def graph_feature_distance_list(x, z_list, metric='euclidean'):
-
-    # distancia promedio usando las features de nodos
-
-    distances = []
-    for z in z_list:
-        if x.x.shape != z.x.shape:
-            raise ValueError("x y z deben tener la misma forma de features")
-
-        diff = x.x - z.x
-
-        if metric == 'euclidean':
-            dist = torch.norm(diff, dim=1).mean()
-        elif metric == 'cosine':
-            sim = torch.nn.functional.cosine_similarity(x.x, z.x, dim=1)
-            dist = 1 - sim.mean()
-        else:
-            raise ValueError(f"Métrica '{metric}' no soportada.")
+def calculate_frobenius_distance(tensor_a, tensor_b):
+    """Calcula la distancia Frobenius normalizada por el tamaño."""
+    if tensor_a.shape != tensor_b.shape:
+        # Tienen q ser iguales
+        return torch.tensor(0.0, device=tensor_a.device) 
         
-        distances.append(dist.item())
+    diff = tensor_a - tensor_b
+    # Norma Frobenius
+    frob_dist = torch.norm(diff, p='fro')
+    
+    # Normalización propuesta por el profesor: (num_elementos * num_atributos)
+    # Esto es numel() en PyTorch (total de elementos en la matriz)
+    normalization_factor = tensor_a.numel() 
+    
+    if normalization_factor == 0: return torch.tensor(0.0, device=tensor_a.device)
+    
+    return frob_dist / normalization_factor
+
+def graph_feature_distance_list(x, z_list, epsilon=0.5):
+    """
+    Calcula la distancia combinada (Nodos + Aristas) usando norma Frobenius.
+    D = eps * dist_nodos + (1-eps) * dist_aristas
+    """
+    distances = []
+    
+    # Pre-calculamos factores de la muestra original
+    x_nodes = x.x
+    x_edges = x.edge_attr if x.edge_attr is not None else torch.empty(0)
+    
+    for z in z_list:
+        z_nodes = z.x
+        z_edges = z.edge_attr if z.edge_attr is not None else torch.empty(0)
+
+        # 1. Distancia de Nodos
+        dist_n = calculate_frobenius_distance(x_nodes, z_nodes)
+        
+        # 2. Distancia de Aristas
+        if x_edges.numel() > 0 and z_edges.numel() > 0:
+            dist_e = calculate_frobenius_distance(x_edges, z_edges)
+        else:
+            # Si no hay aristas en la molécula original, la distancia es 0
+            dist_e = torch.tensor(0.0, device=x.device)
+
+        # 3. Combinación Ponderada (Fórmula del profesor)
+        # Epsilon controla cuánto pesan los nodos vs las aristas
+        combined_dist = (epsilon * dist_n) + ((1 - epsilon) * dist_e)
+        
+        distances.append(combined_dist.item())
     
     return distances
 
@@ -197,7 +225,7 @@ def obtener_lime(
     predicciones_perturbadas = torch.tensor(predicciones_perturbadas, dtype=torch.float, device=device).unsqueeze(1)
 
     # Calcular distancias entre la muestra original y las perturbaciones
-    feature_distances = graph_feature_distance_list(muestra_for_model, perturbed_samples_embedding, metric='euclidean')
+    feature_distances = graph_feature_distance_list(muestra_for_model, perturbed_samples_embedding)
 
     # Obtener E
     E_list = [data_z.x.to(device) for data_z in perturbed_samples_embedding]
@@ -210,7 +238,7 @@ def obtener_lime(
             A_list.append(data_z.edge_attr.to(device))
 
     # --------------- HACERLO CON OPTIMIZACION DE PYTORCH ----------------------
-    alfa, beta, gamma, delta, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_list, A_list, 0.01)
+    alfa, beta, gamma, delta, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_list, A_list)
     # Verificar que aprendimos algo distinto de cero
     print(f"Max Alfa: {alfa.max().item():.4f}, Min Alfa: {alfa.min().item():.4f}")
     print(f"Max Beta: {beta.max().item():.4f}, Min Beta: {beta.min().item():.4f}")
@@ -300,8 +328,9 @@ def obtener_lime(
     return plotfilename
 
 def obtener_argmin(feature_distances, predicciones_perturbadas, 
-                   E_list, A_list, 
-                   lr=0.05, 
+                   E_list, A_list,
+                   sigma = 1, 
+                   lr=0.01, 
                    epochs=2000, 
                    verbose=True):
     
@@ -366,14 +395,8 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
     # Todas las distancias pasadas a tensor
     dists = torch.tensor(feature_distances, dtype=torch.float, device=device).view(-1, 1)
     
-    # Media de las distancias
-    dist_mean = dists.mean()
-    sigma = dist_mean if dist_mean > 0 else 1.0
-
-    # sigma = media de las distancias
-    # Calculamos weights = e^Distancia(x,z)/sigma
-    # weights = e^-(distancias²) / 2 * sigma²
-    weights = torch.exp(-(dists**2) / (2 * sigma**2))
+    # weights = e^-(distancias²) / sigma²
+    weights = torch.exp(-(dists**2) / sigma**2) # / (2 * sigma**2))
     
     # Se reescala weights para que sumen "num_samples"
     # Como esto multiplica el loss, si es muy pequeño, deja de optimizar
@@ -557,7 +580,7 @@ def stack_and_normalize(tensor_list, device):
     val_range = val_max - val_min
     val_range[val_range == 0] = 1.0 # Evitar división por 0
     
-    # 3. Normalizar (Broadcasting de PyTorch hace la magia)
+    # 3. Normalizar
     #    [S, N, F] - [F] funciona directo
     normalized_stacked = (stacked - val_min) / val_range
     
