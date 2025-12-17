@@ -378,3 +378,119 @@ def generar_titulo_explicacion(mol_name, target_name, real_val, pred_val, algo_n
 
     return (f"Compound: {mol_name}, {target_name}: {real_str},\n "
             f"Prediction: {pred_val:.4f}, Error: {error_str},\n {algo_name}")
+
+def guardar_pesos(alfa, beta, gamma, delta, model_name, mol_name, algo_name):
+    """
+    Guarda los tensores de la explicación en la carpeta 'Pesos'.
+    Formato: {variable}_{model_name}_{mol_name}.pt
+    """
+    # 1. Sanitizar nombre de la molécula para evitar errores de ruta
+    safe_mol_name = "".join([c for c in mol_name if c.isalnum() or c in (' ', '_', '-')]).strip()
+    safe_mol_name = safe_mol_name.replace(" ", "_")
+    
+    # 2. Definir directorio
+    # Asumimos que RESULTADOS_DIR está importado. Si no, usa una ruta relativa como './Resultados'
+    base_dir = os.path.join(RESULTADOS_DIR, model_name, "Pesos")
+    os.makedirs(base_dir, exist_ok=True)
+    
+    # 3. Diccionario de tensores a guardar
+    tensors_to_save = {
+        'alfa': alfa,
+        'beta': beta,
+        'gamma': gamma,
+        'delta': delta
+    }
+    
+    saved_paths = []
+    
+    for var_name, tensor in tensors_to_save.items():
+        if tensor is not None:
+            filename = f"{var_name}_{algo_name}_{model_name}_{safe_mol_name}.pt"
+            full_path = os.path.join(base_dir, filename)
+            
+            # Guardamos en CPU para evitar problemas de CUDA al cargar en otra máquina
+            torch.save(tensor.detach().cpu(), full_path)
+            saved_paths.append(full_path)
+            
+    print(f"--- Pesos guardados en: {base_dir} ---")
+    return base_dir
+
+def get_feature_names_embedding():
+    return [
+        "Atom Symbol", 
+        "Hybridization", 
+        "Degree", 
+        "Total Hs", 
+        "Is Aromatic", 
+        "Formal Charge", 
+        "Gasteiger Charge", 
+        "Is Donor", 
+        "Is Acceptor"
+    ]
+
+def normalizar_max(arr):
+    """
+    Normaliza dividiendo por el máximo absoluto.
+    - El máximo será 1.0
+    - El 0 real se queda en 0.
+    - Mantiene la proporción real entre features.
+    """
+    if arr is None or len(arr) == 0: return arr
+    
+    # Usamos max() del valor absoluto, que ya viene calculado en 'arr'
+    val_max = arr.max()
+    
+    if val_max == 0:
+        return np.zeros_like(arr)
+        
+    return arr / val_max
+
+def tensor_to_abs_numpy(tensor):
+    """Convierte tensor a numpy, toma valor absoluto."""
+    if tensor is None: return None
+    return np.abs(tensor.detach().cpu().numpy().reshape(-1, 1))
+
+def procesar_features_ordenadas(importance_tensor, feature_names, input_data=None):
+    """
+    Procesa features para Heatmaps usando Max Scaling.
+    MODIFICADO: Ya no filtra features que valen 0, porque en modo Embedding 
+    el 0 es una categoría válida (ej. Single Bond o Carbono).
+    """
+    if importance_tensor is None:
+        return None, []
+    
+    # 1. Obtener magnitudes crudas (Valor Absoluto)
+    raw_imp = tensor_to_abs_numpy(importance_tensor)
+    
+    # 2. SIN FILTRADO (Corrección para Embedding)
+    # En embedding, siempre queremos ver todas las features (9 nodos, 2 aristas).
+    # Asumimos que todas existen.
+    
+    # Si quieres, puedes mantener un filtrado de seguridad por dimensión,
+    # pero NO por contenido igual a cero.
+    filtered_imp = raw_imp
+    
+    # Aseguramos que feature_names sea numpy array para indexado cómodo si hiciera falta
+    filtered_names = np.array(feature_names)
+    
+    # Safety check de dimensiones
+    if len(filtered_names) != len(filtered_imp):
+        logger.warning(f"Dimension mismatch in processing: Names {len(filtered_names)} vs Imp {len(filtered_imp)}")
+        # Cortamos al mínimo común para evitar crash
+        min_len = min(len(filtered_names), len(filtered_imp))
+        filtered_names = filtered_names[:min_len]
+        filtered_imp = filtered_imp[:min_len]
+
+    if len(filtered_imp) == 0:
+        return np.array([]), []
+
+    # 3. Ordenar (Mayor a menor)
+    sort_idx = np.argsort(filtered_imp.flatten())[::-1]
+    
+    sorted_imp = filtered_imp[sort_idx]
+    sorted_names = filtered_names[sort_idx]
+    
+    # 4. NORMALIZAR CON MAX
+    final_imp = normalizar_max(sorted_imp)
+    
+    return final_imp, sorted_names.tolist()

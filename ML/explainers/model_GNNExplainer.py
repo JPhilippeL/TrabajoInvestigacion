@@ -8,26 +8,13 @@ import os
 import numpy as np
 import logging
 from core.sdf_converter import parse_sdf
-
-# --- IMPORTS DE VISUALIZACIÓN Y UTILIDADES ---
-from ui.utils import RESULTADOS_DIR  # <--- Necesario para guardar la fiabilidad
-from ML.explainers.explanation_visualization import (
-    guardar_dashboard_explicacion, 
-    obtener_info_real              
-)
-
-# Funciones específicas de procesamiento de datos para explicación
-from ML.explainers.model_LIME_explainer import (
-    normalizar_max,
-    get_feature_names_embedding,
-    procesar_features_ordenadas
-)
-
-# --- IMPORTS DE FIABILIDAD (NUEVO) ---
-from ML.explainers.explanation_fidelity import (
-    calcular_curvas_fiability,
-    guardar_plot_fiability
-)
+from ui.utils import RESULTADOS_DIR
+from ML.explainers.explanation_helper import ( 
+    obtener_info_real, guardar_dashboard_explicacion,
+    guardar_pesos,
+    normalizar_max, get_feature_names_embedding, 
+    procesar_features_ordenadas )
+from ML.explainers.explanation_fidelity import calcular_curvas_fidelity, guardar_plot_fidelity
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +92,7 @@ def obtener_GNN_Explainer(checkpoint_path, sdf_path, target_data_path=None):
         feature_names=feature_names,       
         original_x=data.x,
         model_name=model_folder_name,
-        # --- NUEVOS ARGUMENTOS PARA FIABILITY ---
+        # --- NUEVOS ARGUMENTOS PARA fidelity ---
         model=model,
         data=data,
         device=device
@@ -122,7 +109,7 @@ def visualizar_custom_gnn(explanation, sdf_path, pred_val, target_name, mol_name
                           model_name, # <--- Necesario para guardar en la carpeta del modelo
                           real_val=None, algo_name="GNNExplainer", 
                           feature_names=None, original_x=None,
-                          # Argumentos opcionales para Fiability
+                          # Argumentos opcionales para fidelity
                           model=None, data=None, device=None):
     
     graph = parse_sdf(sdf_path) 
@@ -171,13 +158,13 @@ def visualizar_custom_gnn(explanation, sdf_path, pred_val, target_name, mol_name
     delta_normalized = normalizar_max(edge_mask)
 
     # ==========================================================================
-    # === CÁLCULO DE FIABILITY (NUEVO) ===
+    # === CÁLCULO DE fidelity (NUEVO) ===
     # ==========================================================================
     if model is not None and data is not None and device is not None:
         try:
             # 1. Calcular Curvas de FIABILIDAD
             # beta_np ya contiene la importancia de nodos calculada por GNNExplainer
-            k_vals, fiab_plus, fiab_minus = calcular_curvas_fiability(
+            k_vals, fiab_minus = calcular_curvas_fidelity(
                 model, 
                 data, 
                 beta_np, 
@@ -185,19 +172,18 @@ def visualizar_custom_gnn(explanation, sdf_path, pred_val, target_name, mol_name
             )
 
             # 3. Guardar (Solo pasamos datos puros)
-            fiab_path = guardar_plot_fiability(
-                k_values=k_vals, 
-                fiab_plus=fiab_plus, 
+            fiab_path = guardar_plot_fidelity(
+                k_values=k_vals,
                 fiab_minus=fiab_minus, 
                 model_name=model_name,
                 mol_name=mol_name,
                 algo_name="GNNExplainer"
             )
             
-            logger.info(f"Gráfico Fiability guardado en: {fiab_path}")
+            logger.info(f"Gráfico fidelity guardado en: {fiab_path}")
             
         except Exception as e:
-            logger.error(f"Error calculando Fiability para GNNExplainer: {e}")
+            logger.error(f"Error calculando fidelity para GNNExplainer: {e}")
             import traceback
             traceback.print_exc()
 

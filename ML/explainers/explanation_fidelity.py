@@ -2,14 +2,16 @@ import matplotlib.pyplot as plt
 import torch
 import numpy as np
 import os
+from torch_geometric.utils import subgraph
+from torch_geometric.data import Data
 from ui.utils import RESULTADOS_DIR
 
 # Constante N: Número máximo de nodos a evaluar en la curva
 MAX_NODES_FIDELITY = 15
 
-def calcular_curvas_fiability(model, data, node_importance, device):
+def calcular_curvas_fidelity(model, data, node_importance, device):
     """
-    Calcula las curvas basándose en los nodos MENOS importantes (ruido).
+    Calcula las curvas eliminando FÍSICAMENTE los nodos menos importantes y sus aristas.
     """
     model.eval()
     data = data.to(device)
@@ -22,7 +24,6 @@ def calcular_curvas_fiability(model, data, node_importance, device):
         imp = np.array(node_importance).flatten()
 
     # === ORDEN ASCENDENTE (De Menor a Mayor Importancia) ===
-    # Los primeros índices son los MENOS importantes (ruido)
     sorted_indices = np.argsort(imp).copy() 
     # =======================================================
 
@@ -31,51 +32,44 @@ def calcular_curvas_fiability(model, data, node_importance, device):
         pred_original = model(data.x, data.edge_index, data.edge_attr, data.batch)
         val_orig = pred_original.item()
 
-    fiab_plus_list = []
-    fiab_minus_list = []
+    fiab_list = []
     k_values = []
 
     limit = min(num_nodes, MAX_NODES_FIDELITY)
 
     for k in range(limit + 1):
         k_values.append(k)
-        current_k_indices = sorted_indices[:k]
         
-        # --- Fidelity+ (Keep ONLY Low Imp) ---
-        # Dejamos solo el ruido. Esperamos que la predicción falle (Bajo Score).
-        mask_plus = torch.zeros(num_nodes, 1, device=device)
-        mask_plus[current_k_indices] = 1.0
-        
-        data_plus = data.clone()
-        data_plus.x = data.x * mask_plus
-        
-        with torch.no_grad():
-            pred_plus = model(data_plus.x, data_plus.edge_index, data_plus.edge_attr, data_plus.batch)
-            val_plus = pred_plus.item()
-        
-        diff_plus = abs(val_orig - val_plus)
-        fiab_plus = np.exp(-diff_plus) 
-        fiab_plus_list.append(fiab_plus)
+        # Índices de los nodos (ruido) a eliminar en esta iteración
+        current_k_indices = sorted_indices[:k] 
 
-        # --- Fidelity- (Remove ONLY Low Imp) ---
-        # Quitamos el ruido. Esperamos que la predicción se mantenga (Alto Score).
-        mask_minus = torch.ones(num_nodes, 1, device=device)
-        mask_minus[current_k_indices] = 0.0 
-        
-        data_minus = data.clone()
-        data_minus.x = data.x * mask_minus
+        # --- Fidelity (Physical Removal) ---
+        if k == 0:
+            # Si k=0, no eliminamos nada
+            data_minus = data
+        else:
+            # Aquí llamamos a la función de eliminación real
+            data_minus = eliminar_nodos_y_conexiones(data, current_k_indices)
         
         with torch.no_grad():
-            pred_minus = model(data_minus.x, data_minus.edge_index, data_minus.edge_attr, data_minus.batch)
-            val_minus = pred_minus.item()
+            # Nota: data_minus ahora tiene menos nodos y edge_index re-mapeado
+            # Es posible que el modelo falle si espera un tamaño fijo, 
+            # pero en GNNs estándar (GCN, GAT, GraphSAGE) esto funciona bien.
+            if data_minus.x.shape[0] == 0:
+                # Caso extremo: se borraron todos los nodos
+                # Definir comportamiento (ej: predicción 0 o mantener la anterior)
+                val_minus = 0.0 
+            else:
+                pred_minus = model(data_minus.x, data_minus.edge_index, data_minus.edge_attr, data_minus.batch)
+                val_minus = pred_minus.item()
             
         diff_minus = abs(val_orig - val_minus)
         fiab_minus = np.exp(-diff_minus)
-        fiab_minus_list.append(fiab_minus)
+        fiab_list.append(fiab_minus)
 
-    return k_values, fiab_plus_list, fiab_minus_list
+    return k_values, fiab_list
 
-def guardar_plot_fiability(k_values, fiab_plus, fiab_minus, model_name, mol_name, algo_name="Explainer"):
+def guardar_plot_fidelity(k_values, fiab_minus, model_name, mol_name, algo_name="Explainer"):
     """
     Genera el gráfico con los colores invertidos:
     - Fidelity- (Debe ser alto) -> VERDE
@@ -87,30 +81,25 @@ def guardar_plot_fiability(k_values, fiab_plus, fiab_minus, model_name, mol_name
     safe_mol_name = safe_mol_name.replace(" ", "_")
     
     # 2. Nombre de archivo
-    filename = f"FIABILITY_INV_{model_name}_{safe_mol_name}_{algo_name}.png"
+    filename = f"FIDELITY_{model_name}_{safe_mol_name}_{algo_name}.png"
     
     # 3. Directorios
     base_model_dir = os.path.join(RESULTADOS_DIR, model_name)
-    fiability_dir = os.path.join(base_model_dir, "Fiability")
-    os.makedirs(fiability_dir, exist_ok=True)
+    fidelity_dir = os.path.join(base_model_dir, "fidelity")
+    os.makedirs(fidelity_dir, exist_ok=True)
     
-    full_save_path = os.path.join(fiability_dir, filename)
+    full_save_path = os.path.join(fidelity_dir, filename)
 
     # 4. AUC
-    auc_plus = np.trapz(fiab_plus, k_values)
-    auc_minus = np.trapz(fiab_minus, k_values)
+    auc_minus = np.trapezoid(fiab_minus, k_values)
     
     plt.figure(figsize=(10, 6))
     
     # Etiquetas
-    label_plus = f'Fidelity+ (Keep ONLY Low Imp.)\nAUC: {auc_plus:.2f} (Ideal: Low)'
-    label_minus = f'Fidelity- (Remove ONLY Low Imp.)\nAUC: {auc_minus:.2f} (Ideal: High)'
+    label_minus = f'Fidelity (Remove ONLY Low Imp.)\nAUC: {auc_minus:.2f} (Ideal: High)'
 
     # === COLORES MODIFICADOS ===
-    # Fidelity+ -> Rojo (Queremos que baje)
-    plt.plot(k_values, fiab_plus, marker='o', label=label_plus, color='red', linestyle='-', linewidth=2)
-    
-    # Fidelity- -> Verde (Queremos que se mantenga alto)
+    # Fidelity -> Verde (Queremos que se mantenga alto)
     plt.plot(k_values, fiab_minus, marker='x', label=label_minus, color='green', linestyle='--', linewidth=2)
 
     plt.title(f"Noise Robustness Analysis ({algo_name}): {mol_name}", fontsize=12, fontweight='bold')
@@ -122,7 +111,6 @@ def guardar_plot_fiability(k_values, fiab_plus, fiab_minus, model_name, mol_name
     plt.axhline(0, color='gray', linestyle=':', alpha=0.5)
     
     # Rellenos (Match con los colores de las líneas)
-    plt.fill_between(k_values, fiab_plus, color='red', alpha=0.1)
     plt.fill_between(k_values, fiab_minus, color='green', alpha=0.1)
 
     plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left", borderaxespad=0,
@@ -136,3 +124,36 @@ def guardar_plot_fiability(k_values, fiab_plus, fiab_minus, model_name, mol_name
     plt.close()
     
     return full_save_path
+
+def eliminar_nodos_y_conexiones(data, indices_a_eliminar):
+    """
+    Crea un nuevo objeto Data eliminando los nodos especificados y
+    todas las aristas conectadas a ellos, re-indexando el grafo.
+    """
+    num_nodes = data.x.shape[0]
+    device = data.x.device
+    
+    # 1. Crear máscara booleana de los nodos que se quedan (KEEP)
+    subset_mask = torch.ones(num_nodes, dtype=torch.bool, device=device)
+    subset_mask[indices_a_eliminar] = False
+    
+    # 2. Filtrar aristas y re-etiquetar nodos (relabel_nodes=True es la clave)
+    # Esto asegura que si borras el nodo 0, el nodo 1 pasa a ser el nuevo 0 en edge_index
+    edge_index, edge_attr = subgraph(
+        subset_mask, 
+        data.edge_index, 
+        data.edge_attr, 
+        relabel_nodes=True, 
+        num_nodes=num_nodes
+    )
+    
+    # 3. Filtrar características de los nodos (x) y batch
+    x = data.x[subset_mask]
+    
+    # Si usas batch, también hay que recortarlo
+    batch = data.batch[subset_mask] if data.batch is not None else None
+    
+    # 4. Crear nuevo objeto data
+    new_data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, batch=batch)
+    
+    return new_data

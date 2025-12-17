@@ -19,7 +19,7 @@ from ui.dialogs.explanation_dialog import ExplanationDialog
 
 from ML.model_tester import test_model_on_directory
 from ML.model_tester import obtener_info_checkpoint
-from ML.explainers.model_LIME_explainer import obtener_lime
+from ML.explainers.model_Graph_explainer import obtener_graph_explanation
 from ML.explainers.model_GNNExplainer import obtener_GNN_Explainer
 from ML.model_tester import cargar_y_predecir
 from core.sdf_converter import graph_to_mol, save_graph_as_sdf, split_sdf, smiles_csv_to_sdf_dir
@@ -120,17 +120,17 @@ class MenuBar(QMenuBar):
 
 
         # Explicaciones
-        menu_explicacion = self.addMenu("Explicador LIME")
+        menu_explicacion = self.addMenu("Explicadores")
         
-        # LIME
-        lime_action =QAction("Obtener explicación LIME", self)
-        lime_action.triggered.connect(self.get_explanation_LIME)
-        menu_explicacion.addAction(lime_action)
+        # Graph_explainer
+        graph_explainer_action =QAction("Obtener GraphExplainer", self)
+        graph_explainer_action.triggered.connect(self.get_explanation_GraphExplainer)
+        menu_explicacion.addAction(graph_explainer_action)
 
         # GNN Explainer
-        explainer_action = QAction("Obtener GNNExplainer", self)
-        explainer_action.triggered.connect(self.get_explanation_GNNExplainer)
-        menu_explicacion.addAction(explainer_action)
+        gnn_explainer_action = QAction("Obtener GNNExplainer", self)
+        gnn_explainer_action.triggered.connect(self.get_explanation_GNNExplainer)
+        menu_explicacion.addAction(gnn_explainer_action)
 
     def nuevo_archivo(self):
         self.parent.create_new_graph()
@@ -545,14 +545,14 @@ class MenuBar(QMenuBar):
             except Exception as e:
                 logger.error("Error en testeo de todos los modelos: " + str(e), exc_info=True)
 
-    def get_explanation_LIME(self):
+    def get_explanation_GraphExplainer(self):
         dialog = ExplanationDialog(self.parent)
         if dialog.exec():
             model_path, sdf_path, target_path = dialog.get_paths()
             try:
-                # Obtener explicación LIME
+                # Obtener explicación GraphExplanation
                 # feature_mask espera: [Atom, Degree, Arom, Hybrid, BondType, BondDist]
-                plot_path = obtener_lime(model_path, sdf_path, target_path, num_samples=1000, noise_level=0.01, device='cpu')
+                plot_path = obtener_graph_explanation(model_path, sdf_path, target_path, num_samples=1000, noise_level=0.01, device='cpu')
 
                 # mostrar el sdf por pantalla
                 self.parent.load_graph_from_file(sdf_path)
@@ -562,7 +562,7 @@ class MenuBar(QMenuBar):
                 self.image_dialog.show()
 
             except Exception as e:
-                logger.error(f"Error en explicación LIME: {str(e)}", exc_info=True)
+                logger.error(f"Error en explicación GraphExplanation: {str(e)}", exc_info=True)
     
     def get_explanation_GNNExplainer(self):
         dialog = ExplanationDialog(self.parent)

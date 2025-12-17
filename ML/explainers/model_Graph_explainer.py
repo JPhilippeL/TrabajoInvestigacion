@@ -10,10 +10,17 @@ import logging
 from ML.data_processing import mol_to_graph_data, onehot_to_indices
 from rdkit import Chem
 from core.sdf_converter import parse_sdf
-from ML.explainers.explanation_visualization import obtener_info_real, guardar_dashboard_explicacion
-from ML.explainers.explanation_fidelity import calcular_curvas_fiability, guardar_plot_fiability
+from ML.explainers.explanation_helper import ( 
+    obtener_info_real, guardar_dashboard_explicacion,
+    guardar_pesos, tensor_to_abs_numpy, 
+    normalizar_max, get_feature_names_embedding, 
+    procesar_features_ordenadas )
+from ML.explainers.explanation_fidelity import calcular_curvas_fidelity, guardar_plot_fidelity
 
-SIGMADIST = 1
+ALGO_NAME = "GraphExplainer"
+# Probabilidad de que un nodo/arista específico sea modificado.
+    # Un 15% - 20% es razonable para mantener la estructura general.
+PERTURB_PROB = 0.15
 MININICIAL = sys.float_info.max
 logger = logging.getLogger(__name__)
 
@@ -23,10 +30,6 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1], noise_level=0
     data_new = data.clone()
     x = data_new.x
     num_nodes = x.shape[0]
-
-    # Probabilidad de que un nodo/arista específico sea modificado.
-    # Un 15% - 20% es razonable para mantener la estructura general.
-    PERTURB_PROB = 0.15 
     
     # === DEFINICIÓN DE INDICES ===
     len_atom = len(periodic_elements)
@@ -61,6 +64,7 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1], noise_level=0
             noise = noise_level * torch.randn(len(indices_continuous))
             for k, idx_rel in enumerate(indices_continuous):
                 vals[idx_rel] += noise[k]
+                # Poner q no peuda ser mayor a 1 y menor q 0
 
         # C. FEATURES BINARIAS (Flip) - CRÍTICO: Hacerlo Probabilístico
         if feature_mask[2]:
@@ -183,7 +187,7 @@ def graph_feature_distance_list(x, z_list, epsilon=0.5):
     
     return distances
 
-def obtener_lime(
+def obtener_graph_explanation(
         checkpoint_path, 
         sdf_path, 
         target_data_path=None, 
@@ -299,14 +303,12 @@ def obtener_lime(
         target_name=target_name_str,
         real_val=real_val,
         pred_val=prediccion_original,
-        algo_name="GraphExplainer",
-        model_name=model_folder_name  # <--- Pasamos esto para que cree la carpeta
+        algo_name=ALGO_NAME,
+        model_name=model_folder_name
     )
 
-    # ... (en obtener_lime o GNNExplainer) ...
-
     # 1. Calcular Curvas de FIABILIDAD
-    k_vals, fiab_plus, fiab_minus = calcular_curvas_fiability(
+    k_vals, fiab_minus = calcular_curvas_fidelity(
         model, 
         muestra_for_model, 
         beta, 
@@ -314,16 +316,15 @@ def obtener_lime(
     )
 
     # 3. Guardar (Solo pasamos datos puros)
-    fiab_path = guardar_plot_fiability(
-        k_values=k_vals, 
-        fiab_plus=fiab_plus, 
+    fiab_path = guardar_plot_fidelity(
+        k_values=k_vals,
         fiab_minus=fiab_minus, 
         model_name=model_folder_name,
         mol_name=mol_name,
-        algo_name="GraphExplainer"
+        algo_name=ALGO_NAME
     )
     
-    logger.info(f"Gráfico Fiability guardado en: {fiab_path}")
+    logger.info(f"Gráfico fidelity guardado en: {fiab_path}")
 
     return plotfilename
 
@@ -337,7 +338,7 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
     device = predicciones_perturbadas.device
     
     # --- DIAGNÓSTICO DE VARIANZA ---
-    # Si esto es 0 o muy bajo, LIME no puede aprender nada porque el modelo
+    # Si esto es 0 o muy bajo, no puede aprender nada porque el modelo
     # predice lo mismo para todas las perturbaciones.
     std_preds = predicciones_perturbadas.std().item()
     if verbose:
@@ -482,86 +483,6 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
     logger.info(f"R² (Varianza Explicada): {r_squared:.2%} (Ideal > 80%)")
 
     return alfa.detach(), beta.detach(), (gamma.detach() if has_edges else None), (delta.detach() if has_edges else None), loss_val
-
-def get_feature_names_embedding():
-    return [
-        "Atom Symbol", 
-        "Hybridization", 
-        "Degree", 
-        "Total Hs", 
-        "Is Aromatic", 
-        "Formal Charge", 
-        "Gasteiger Charge", 
-        "Is Donor", 
-        "Is Acceptor"
-    ]
-
-def tensor_to_abs_numpy(tensor):
-    """Convierte tensor a numpy, toma valor absoluto."""
-    if tensor is None: return None
-    return np.abs(tensor.detach().cpu().numpy().reshape(-1, 1))
-
-def normalizar_max(arr):
-    """
-    Normaliza dividiendo por el máximo absoluto.
-    - El máximo será 1.0
-    - El 0 real se queda en 0.
-    - Mantiene la proporción real entre features.
-    """
-    if arr is None or len(arr) == 0: return arr
-    
-    # Usamos max() del valor absoluto, que ya viene calculado en 'arr'
-    val_max = arr.max()
-    
-    if val_max == 0:
-        return np.zeros_like(arr)
-        
-    return arr / val_max
-
-def procesar_features_ordenadas(importance_tensor, feature_names, input_data=None):
-    """
-    Procesa features para Heatmaps usando Max Scaling.
-    MODIFICADO: Ya no filtra features que valen 0, porque en modo Embedding 
-    el 0 es una categoría válida (ej. Single Bond o Carbono).
-    """
-    if importance_tensor is None:
-        return None, []
-    
-    # 1. Obtener magnitudes crudas (Valor Absoluto)
-    raw_imp = tensor_to_abs_numpy(importance_tensor)
-    
-    # 2. SIN FILTRADO (Corrección para Embedding)
-    # En embedding, siempre queremos ver todas las features (9 nodos, 2 aristas).
-    # Asumimos que todas existen.
-    
-    # Si quieres, puedes mantener un filtrado de seguridad por dimensión,
-    # pero NO por contenido igual a cero.
-    filtered_imp = raw_imp
-    
-    # Aseguramos que feature_names sea numpy array para indexado cómodo si hiciera falta
-    filtered_names = np.array(feature_names)
-    
-    # Safety check de dimensiones
-    if len(filtered_names) != len(filtered_imp):
-        logger.warning(f"Dimension mismatch in processing: Names {len(filtered_names)} vs Imp {len(filtered_imp)}")
-        # Cortamos al mínimo común para evitar crash
-        min_len = min(len(filtered_names), len(filtered_imp))
-        filtered_names = filtered_names[:min_len]
-        filtered_imp = filtered_imp[:min_len]
-
-    if len(filtered_imp) == 0:
-        return np.array([]), []
-
-    # 3. Ordenar (Mayor a menor)
-    sort_idx = np.argsort(filtered_imp.flatten())[::-1]
-    
-    sorted_imp = filtered_imp[sort_idx]
-    sorted_names = filtered_names[sort_idx]
-    
-    # 4. NORMALIZAR CON MAX
-    final_imp = normalizar_max(sorted_imp)
-    
-    return final_imp, sorted_names.tolist()
 
 # --- HELPER: STACK Y NORMALIZACIÓN GLOBAL ---
 def stack_and_normalize(tensor_list, device):
