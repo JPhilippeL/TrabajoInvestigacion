@@ -99,7 +99,9 @@ def guardar_plot_fidelity_comparativo(
     ):
     """
     Genera un gráfico comparativo. Si fiab_gnn_explainer es None,
-    solo grafica GraphExplainer Explainer sin romper el código.
+    solo grafica GraphExplainer Explainer.
+    
+    El AUC se normaliza (dividiendo por max_k) para estar entre 0 y 1.
     """
     
     # 1. Sanitizar nombre
@@ -112,42 +114,55 @@ def guardar_plot_fidelity_comparativo(
     os.makedirs(fidelity_dir, exist_ok=True)
     full_save_path = os.path.join(fidelity_dir, filename)
 
-    # 3. Calcular Áreas bajo la curva (AUC) - GraphExpplainer EXPLAINER
-    auc_mine = np.trapezoid(fiab_my_explainer, k_values)
+    # === CÁLCULO DE AUC NORMALIZADO ===
+    
+    # Obtenemos el valor máximo de K (el ancho del gráfico)
+    max_k = k_values[-1] if len(k_values) > 0 else 0
 
-    # 4. Validar si existe GNNExplainer
+    # A) AUC GraphExplainer
+    try:
+        raw_auc_mine = np.trapezoid(fiab_my_explainer, k_values)
+    except AttributeError:
+        raw_auc_mine = np.trapz(fiab_my_explainer, k_values)
+        
+    # Normalizar
+    auc_mine = raw_auc_mine / max_k if max_k > 0 else 0.0
+
+    # B) AUC GNNExplainer (si existe)
     has_gnn = (fiab_gnn_explainer is not None) and (len(fiab_gnn_explainer) > 0)
     
     auc_gnn = 0.0
     if has_gnn:
         try:
-            auc_gnn = np.trapezoid(fiab_gnn_explainer, k_values)
+            raw_auc_gnn = np.trapezoid(fiab_gnn_explainer, k_values)
         except AttributeError:
-            auc_gnn = np.trapz(fiab_gnn_explainer, k_values)
+            raw_auc_gnn = np.trapz(fiab_gnn_explainer, k_values)
+            
+        # Normalizar
+        auc_gnn = raw_auc_gnn / max_k if max_k > 0 else 0.0
     
-    # 5. Plotting
+    # === PLOTTING ===
     plt.figure(figsize=(10, 6))
     
     # --- Estilo para GraphExplainer (El tuyo) ---
     plt.plot(k_values, fiab_my_explainer, 
              marker='o', color='#1f77b4', linestyle='-', linewidth=2.5,
-             label=f'GraphExplainer (AUC: {auc_mine:.2f})')
+             label=f'GraphExplainer (AUC Norm: {auc_mine:.2f})')
     
     # --- Estilo para GNNExplainer (Solo si existe) ---
     if has_gnn:
         plt.plot(k_values, fiab_gnn_explainer, 
                  marker='x', color='#ff7f0e', linestyle='--', linewidth=2, alpha=0.9,
-                 label=f'GNNExplainer (AUC: {auc_gnn:.2f})')
+                 label=f'GNNExplainer (AUC Norm: {auc_gnn:.2f})')
         
-        # Relleno sutil para destacar la diferencia (solo si hay ambos)
-        # Rellena donde 'graphexp' es mayor o menor que 'GNN'
+        # Relleno sutil para destacar la diferencia
         plt.fill_between(k_values, fiab_my_explainer, fiab_gnn_explainer, 
                          color='gray', alpha=0.1)
 
     # Decoración
     plt.title(f"{mode.capitalize()} Robustness Comparison: {mol_name}", fontsize=13, fontweight='bold')
     
-    # Etiqueta X dinámica según el modo
+    # Etiqueta X dinámica
     if mode == 'alfa':
         xlabel_text = "K (Node Features Perturbed - Least Important First)"
     elif mode == 'beta':
@@ -168,7 +183,7 @@ def guardar_plot_fidelity_comparativo(
     plt.legend(fontsize=10, loc="lower left", frameon=True, fancybox=True, shadow=True)
     plt.grid(True, linestyle='-', alpha=0.3)
     
-    # Ajustar ticks del eje X si son pocos valores (para que se vean enteros)
+    # Ajustar ticks
     if len(k_values) < 20:
         plt.xticks(k_values)
         
@@ -208,7 +223,6 @@ def calcular_curvas_fidelity_general(model, data, importance, device, mode= "bet
         total_elements = data.edge_attr.shape[1] # Num Features Aristas
     elif mode == 'delta':
         total_elements = data.edge_index.shape[1] # Num Aristas
-        max_steps*= 2
     else:
         raise ValueError(f"Modo {mode} no reconocido.")
 
