@@ -4,10 +4,172 @@ import numpy as np
 import os
 from torch_geometric.utils import subgraph
 from torch_geometric.data import Data
+from rdkit import Chem
 from ui.utils import RESULTADOS_DIR
+from ML.data_processing import mol_to_graph_data
+from ML.model_tester import cargar_modelo
 
 # Constante N: Número máximo de nodos a evaluar en la curva
 MAX_NODES_FIDELITY = 15
+
+def generar_comparativa_fidelity(
+    model_path, 
+    sdf_path, 
+    graphexplanation_path, 
+    gnnexplanation_path, 
+):
+    """
+    Función orquestadora completa: 
+    1. Procesa nombres y carga datos (SDF -> Grafo).
+    2. Carga el modelo (Checkpoints).
+    3. Carga tensores de explicación.
+    4. Calcula curvas y genera gráfico.
+    """
+    
+    # --- 1. Procesamiento de Strings y Nombres ---
+    # Extraemos el nombre del modelo del path
+    model_folder_name = model_path.split('/')[-1].split('.')[0]
+    
+    # Extraemos el ID y nombre de la molécula
+    mol_id = os.path.basename(sdf_path).split('.')[0]
+
+    # --- 3. Carga del Modelo ---
+    try:
+        model, device, _ = cargar_modelo(model_path)
+        model.eval()
+    except Exception as e:
+        print(f"Error cargando el modelo desde {model_path}: {e}")
+        return None
+    
+    # --- 2. Carga de Molécula y Conversión a Grafo ---
+    if not os.path.exists(sdf_path):
+        print(f"Error: No se encontró el archivo SDF en {sdf_path}")
+        return None
+
+    # Usamos RDKit para leer el SDF
+    mol = Chem.SDMolSupplier(sdf_path, removeHs=False)[0]
+    
+    if mol is None:
+        print(f"Error: No se pudo leer la molécula del SDF.")
+        return None
+
+    mol_name = mol.GetProp("_Name") if mol.HasProp("_Name") else mol_id
+    
+    # Convertimos a data object (asumiendo que esta función la tienes importada)
+    data = mol_to_graph_data(mol)
+
+    print(f"--- Iniciando Comparativa para {mol_name} (Modelo: {model_folder_name}) ---")
+
+    # --- 4. Carga de Tensores de Importancia ---
+    try:
+        # Asumiendo que graphexplanation_path es 'path_pesos_mio'
+        weights_mine = cargar_pesos_tensor(graphexplanation_path, device)
+        # Asumiendo que gnnexplanation_path es 'path_pesos_gnn'
+        weights_gnn = cargar_pesos_tensor(gnnexplanation_path, device)
+    except FileNotFoundError as e:
+        print(f"Error cargando archivos de pesos de explicación: {e}")
+        return None
+
+    # --- 5. Calcular Curva GraphExplainer (El tuyo) ---
+    print("Calculando curva para GraphExplainer...")
+    k_vals, fiab_mio = calcular_curvas_fidelity(model, data, weights_mine, device)
+
+    # --- 6. Calcular Curva GNNExplainer ---
+    print("Calculando curva para GNNExplainer...")
+    # Usamos _ en el primer retorno porque los k son idénticos
+    _, fiab_gnn = calcular_curvas_fidelity(model, data, weights_gnn, device)
+
+    # --- 7. Generar Gráfico ---
+    plot_path = guardar_plot_fidelity_comparativo(
+        k_values=k_vals,
+        fiab_my_explainer=fiab_mio,
+        fiab_gnn_explainer=fiab_gnn,
+        model_name=model_folder_name,
+        mol_name=mol_name
+    )
+    
+    return plot_path
+
+def guardar_plot_fidelity_comparativo(
+        k_values, 
+        fiab_my_explainer, 
+        fiab_gnn_explainer, 
+        model_name, 
+        mol_name
+    ):
+    """
+    Genera un gráfico comparativo entre Tu Explainer y GNNExplainer.
+    """
+    
+    # 1. Sanitizar nombre
+    safe_mol_name = "".join([c for c in mol_name if c.isalnum() or c in (' ', '_', '-')]).strip()
+    
+    # 2. Configurar Rutas
+    filename = f"COMPARATIVA_FIDELITY_{safe_mol_name}.png"
+    base_model_dir = os.path.join(RESULTADOS_DIR, model_name)
+    fidelity_dir = os.path.join(base_model_dir, "Fidelity_Comparison")
+    os.makedirs(fidelity_dir, exist_ok=True)
+    full_save_path = os.path.join(fidelity_dir, filename)
+
+    # 3. Calcular Áreas bajo la curva (AUC)
+    # Cuanto mayor sea el AUC, mejor es el modelo identificando ruido (mantiene la predicción alta)
+    auc_mine = np.trapezoid(fiab_my_explainer, k_values)
+    auc_gnn = np.trapezoid(fiab_gnn_explainer, k_values)
+    
+    # 4. Plotting
+    plt.figure(figsize=(10, 6))
+    
+    # --- Estilo para GraphExplainer (El tuyo) ---
+    plt.plot(k_values, fiab_my_explainer, 
+             marker='o', color='#1f77b4', linestyle='-', linewidth=2.5,
+             label=f'GraphExplainer (AUC: {auc_mine:.2f})')
+    
+    # --- Estilo para GNNExplainer (Benchmark) ---
+    plt.plot(k_values, fiab_gnn_explainer, 
+             marker='x', color='#ff7f0e', linestyle='--', linewidth=2, alpha=0.9,
+             label=f'GNNExplainer (AUC: {auc_gnn:.2f})')
+
+    # Decoración
+    plt.title(f"Robustness Comparison: {mol_name}", fontsize=13, fontweight='bold')
+    plt.xlabel("K (Nodes removed - Least Important First)", fontsize=11)
+    plt.ylabel("Prediction Stability (1.0 = Perfect)", fontsize=11)
+    
+    plt.ylim(-0.05, 1.05) 
+    plt.axhline(1, color='gray', linestyle=':', alpha=0.5)
+    
+    # Relleno sutil para destacar la diferencia
+    plt.fill_between(k_values, fiab_my_explainer, fiab_gnn_explainer, 
+                     color='gray', alpha=0.1)
+
+    plt.legend(fontsize=10, loc="lower left", frameon=True, fancybox=True, shadow=True)
+    plt.grid(True, linestyle='-', alpha=0.3)
+    plt.xticks(k_values)
+    plt.tight_layout()
+    
+    plt.savefig(full_save_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    
+    print(f"Gráfico comparativo guardado en: {full_save_path}")
+    return full_save_path
+
+def cargar_pesos_tensor(path, device='cpu'):
+    """
+    Carga un tensor guardado en .pt y asegura que esté en el formato correcto.
+    """
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"No se encontró el archivo de pesos: {path}")
+    
+    weights = torch.load(path, map_location=device)
+    
+    # Si por casualidad se guardó un diccionario (legacy), intentamos sacar 'beta'
+    if isinstance(weights, dict):
+        if 'beta' in weights:
+            weights = weights['beta']
+        else:
+            # Si es un dict pero no tiene beta, asumimos que es el tensor directo encapsulado
+            weights = list(weights.values())[0]
+            
+    return weights
 
 def calcular_curvas_fidelity(model, data, node_importance, device):
     """

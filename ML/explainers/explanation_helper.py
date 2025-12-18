@@ -98,13 +98,14 @@ def guardar_dashboard_explicacion(
     safe_mol_name = "".join([c for c in mol_name if c.isalnum() or c in (' ', '_', '-')]).strip()
     safe_algo_name = algo_name.lower().replace(" ", "")
     
-    # Crear directorios
-    os.makedirs(RESULTADOS_DIR, exist_ok=True)
-    model_results_dir = os.path.join(RESULTADOS_DIR, model_name)
-    os.makedirs(model_results_dir, exist_ok=True)
+    # --- CAMBIO AQUÍ ---
+    # Construimos la ruta: Resultados / NombreModelo / NombreAlgoritmo
+    # Asegúrate de que RESULTADOS_DIR esté definido o impórtalo
+    output_dir = os.path.join(RESULTADOS_DIR, model_name, safe_algo_name)
+    os.makedirs(output_dir, exist_ok=True)
     
     filename = f"{model_name}_{safe_mol_name}_{safe_algo_name}.png"
-    save_path = os.path.join(model_results_dir, filename)
+    save_path = os.path.join(output_dir, filename)
 
     plt.savefig(save_path, bbox_inches='tight')
     plt.close(fig)
@@ -381,19 +382,14 @@ def generar_titulo_explicacion(mol_name, target_name, real_val, pred_val, algo_n
 
 def guardar_pesos(alfa, beta, gamma, delta, model_name, mol_name, algo_name):
     """
-    Guarda los tensores de la explicación en la carpeta 'Pesos'.
-    Formato: {variable}_{model_name}_{mol_name}.pt
+    Guarda los tensores de la explicación en subcarpetas específicas por variable.
+    Ruta: Resultados/{model_name}/{variable}/{filename}
     """
-    # 1. Sanitizar nombre de la molécula para evitar errores de ruta
+    # 1. Sanitizar nombre de la molécula
     safe_mol_name = "".join([c for c in mol_name if c.isalnum() or c in (' ', '_', '-')]).strip()
     safe_mol_name = safe_mol_name.replace(" ", "_")
     
-    # 2. Definir directorio
-    # Asumimos que RESULTADOS_DIR está importado. Si no, usa una ruta relativa como './Resultados'
-    base_dir = os.path.join(RESULTADOS_DIR, model_name, "Pesos")
-    os.makedirs(base_dir, exist_ok=True)
-    
-    # 3. Diccionario de tensores a guardar
+    # 2. Diccionario de tensores a guardar
     tensors_to_save = {
         'alfa': alfa,
         'beta': beta,
@@ -403,17 +399,27 @@ def guardar_pesos(alfa, beta, gamma, delta, model_name, mol_name, algo_name):
     
     saved_paths = []
     
+    # 3. Iterar sobre cada variable para crear su propia carpeta y guardar
     for var_name, tensor in tensors_to_save.items():
         if tensor is not None:
-            filename = f"{var_name}_{algo_name}_{model_name}_{safe_mol_name}.pt"
-            full_path = os.path.join(base_dir, filename)
+            # CAMBIO PRINCIPAL:
+            # Definir directorio específico: Resultados/model_name/alfa (o beta, etc.)
+            specific_dir = os.path.join(RESULTADOS_DIR, model_name, var_name)
+            os.makedirs(specific_dir, exist_ok=True)
             
-            # Guardamos en CPU para evitar problemas de CUDA al cargar en otra máquina
+            # Construir nombre del archivo
+            filename = f"{var_name}_{algo_name}_{model_name}_{safe_mol_name}.pt"
+            full_path = os.path.join(specific_dir, filename)
+            
+            # Guardamos en CPU
             torch.save(tensor.detach().cpu(), full_path)
             saved_paths.append(full_path)
             
-    print(f"--- Pesos guardados en: {base_dir} ---")
-    return base_dir
+    # Retornamos la ruta base del modelo para referencia
+    base_model_dir = os.path.join(RESULTADOS_DIR, model_name)
+    print(f"--- Pesos guardados separadamente en subcarpetas de: {base_model_dir} ---")
+    
+    return saved_paths
 
 def get_feature_names_embedding():
     return [
@@ -494,35 +500,3 @@ def procesar_features_ordenadas(importance_tensor, feature_names, input_data=Non
     final_imp = normalizar_max(sorted_imp)
     
     return final_imp, sorted_names.tolist()
-
-def guardar_pesos(alfa, beta, gamma, delta, model_name, mol_name, algo_name):
-    # 1. Crear directorio base
-    base_dir = os.path.join(RESULTADOS_DIR, model_name, "Pesos")
-    os.makedirs(base_dir, exist_ok=True)
-    
-    # 2. Limpiar nombre molécula
-    safe_mol_name = "".join([c for c in mol_name if c.isalnum() or c in (' ', '_', '-')]).strip()
-    
-    # 3. Diccionario con los tensores a guardar
-    tensors_to_save = {
-        'alfa': alfa,
-        'beta': beta,
-        'gamma': gamma,
-        'delta': delta
-    }
-    
-    saved_paths = []
-
-    for var_name, tensor in tensors_to_save.items():
-        if tensor is not None:
-            # Construimos el nombre exacto que pediste:
-            # Ejemplo: beta_GNNExplainer_ModelV1_Mol123.pt
-            filename = f"{var_name}_{algo_name}_{model_name}_{safe_mol_name}.pt"
-            file_path = os.path.join(base_dir, filename)
-            
-            # Guardamos solo el tensor, detached y en CPU
-            torch.save(tensor.detach().cpu(), file_path)
-            saved_paths.append(file_path)
-
-    print(f"--- Archivos de pesos guardados en: {base_dir} ---")
-    return base_dir, safe_mol_name

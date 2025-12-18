@@ -16,11 +16,13 @@ from ui.dialogs.transfer_learning_multiple_models import TransferLearningMultipl
 from ui.dialogs.image_dialog import ImageDialog
 from ui.dialogs.csv_to_sdf import CSVtoSDFDialog
 from ui.dialogs.explanation_dialog import ExplanationDialog
+from ui.dialogs.explainer_comparer_dialog import ExplainerComparerDialog
 
 from ML.model_tester import test_model_on_directory
 from ML.model_tester import obtener_info_checkpoint
 from ML.explainers.model_Graph_explainer import obtener_graph_explainer
 from ML.explainers.model_GNNExplainer import obtener_GNN_Explainer
+from ML.explainers.explanation_fidelity import generar_comparativa_fidelity
 from ML.model_tester import cargar_y_predecir
 from core.sdf_converter import graph_to_mol, save_graph_as_sdf, split_sdf, smiles_csv_to_sdf_dir
 
@@ -131,6 +133,11 @@ class MenuBar(QMenuBar):
         gnn_explainer_action = QAction("Obtener GNNExplainer", self)
         gnn_explainer_action.triggered.connect(self.get_explanation_GNNExplainer)
         menu_explicacion.addAction(gnn_explainer_action)
+
+        # Comparador
+        explanation_comparer_action = QAction("Comparar Explicadores", self)
+        explanation_comparer_action.triggered.connect(self.get_explanation_comparer)
+        menu_explicacion.addAction(explanation_comparer_action)
 
     def nuevo_archivo(self):
         self.parent.create_new_graph()
@@ -574,6 +581,21 @@ class MenuBar(QMenuBar):
 
                 # mostrar el sdf por pantalla
                 self.parent.load_graph_from_file(sdf_path)
+
+                # Mostrar la imagen en un diálogo
+                self.image_dialog = ImageDialog(plot_path, self.parent)
+                self.image_dialog.show()
+
+            except Exception as e:
+                logger.error(f"Error en explicación GNNExplainer: {str(e)}", exc_info=True)
+
+    def get_explanation_comparer(self):
+        dialog = ExplainerComparerDialog(self.parent)
+        if dialog.exec():
+            model_path, sdf_path, graphexplanation_path, gnnexplanation_path = dialog.get_paths()
+            try:
+                # Obtener explicación Explain er
+                plot_path = generar_comparativa_fidelity(model_path, sdf_path, graphexplanation_path, gnnexplanation_path)
 
                 # Mostrar la imagen en un diálogo
                 self.image_dialog = ImageDialog(plot_path, self.parent)
