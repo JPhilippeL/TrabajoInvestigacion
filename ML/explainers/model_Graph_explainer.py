@@ -15,7 +15,7 @@ from ML.explainers.explanation_helper import (
     guardar_pesos, tensor_to_abs_numpy, 
     normalizar_max, get_feature_names_embedding, 
     procesar_features_ordenadas )
-from ML.explainers.explanation_fidelity import calcular_curvas_fidelity, guardar_plot_fidelity
+from ML.explainers.explanation_fidelity import calcular_curvas_fidelity_general, guardar_plot_fidelity
 
 ALGO_NAME = "GraphExplainer"
 # Probabilidad de que un nodo/arista específico sea modificado.
@@ -312,7 +312,7 @@ def obtener_graph_explainer(
     )
 
     # 1. Calcular Curvas de FIABILIDAD
-    k_vals, fiab_minus = calcular_curvas_fidelity(
+    k_vals, fiab_minus = calcular_curvas_fidelity_general(
         model, 
         muestra_for_model, 
         beta.abs(), 

@@ -17,7 +17,7 @@ from ML.explainers.explanation_helper import (
     tensor_to_abs_numpy, normalizar_max, 
     get_feature_names_embedding, procesar_features_ordenadas 
 )
-from ML.explainers.explanation_fidelity import calcular_curvas_fidelity, guardar_plot_fidelity
+from ML.explainers.explanation_fidelity import calcular_curvas_fidelity_general, guardar_plot_fidelity
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +86,7 @@ def ejecutar_pipeline_visualizacion(
     if model is not None and data is not None:
         try:
             logger.info("Calculando curvas de fidelity...")
-            k_vals, fiab_minus = calcular_curvas_fidelity(
+            k_vals, fiab_minus = calcular_curvas_fidelity_general(
                 model, data, beta_np, device
             )
             guardar_plot_fidelity(
