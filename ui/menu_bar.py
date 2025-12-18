@@ -592,17 +592,33 @@ class MenuBar(QMenuBar):
     def get_explanation_comparer(self):
         dialog = ExplainerComparerDialog(self.parent)
         if dialog.exec():
-            model_path, sdf_path, graphexplanation_path, gnnexplanation_path = dialog.get_paths()
-            try:
-                # Obtener explicación Explain er
-                plot_path = generar_comparativa_fidelity(model_path, sdf_path, graphexplanation_path, gnnexplanation_path)
+            # 1. Recuperar los 5 valores
+            model_path, sdf_path, graphexplanation_path, gnn_path_raw, mode = dialog.get_inputs()
+            
+            # 2. Lógica para manejar GNNExplainer como opcional/None
+            # Si el string está vacío (usuario no seleccionó nada), pasamos None.
+            if not gnn_path_raw.strip():
+                gnnexplanation_path = None
+            else:
+                gnnexplanation_path = gnn_path_raw
 
-                # Mostrar la imagen en un diálogo
-                self.image_dialog = ImageDialog(plot_path, self.parent)
-                self.image_dialog.show()
+            try:
+                # 3. Llamar a la función generadora pasando el MODO y el path (que puede ser None)
+                plot_path = generar_comparativa_fidelity(
+                    model_path, 
+                    sdf_path, 
+                    graphexplanation_path, 
+                    gnnexplanation_path, 
+                    mode=mode  # <--- Pasamos el modo seleccionado
+                )
+
+                # 4. Mostrar resultado si se generó
+                if plot_path:
+                    self.image_dialog = ImageDialog(plot_path, self.parent)
+                    self.image_dialog.show()
 
             except Exception as e:
-                logger.error(f"Error en explicación GNNExplainer: {str(e)}", exc_info=True)
+                logger.error(f"Error en explicación Comparativa ({mode}): {str(e)}", exc_info=True)
 
 
     def consultar_parametros_modelo(self):

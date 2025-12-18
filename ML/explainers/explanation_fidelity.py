@@ -15,26 +15,19 @@ MAX_NODES_FIDELITY = 15
 def generar_comparativa_fidelity(
     model_path, 
     sdf_path, 
-    graphexplanation_path, 
-    gnnexplanation_path,
-    mode = "alfa" 
+    graphexp_weights_path, 
+    gnnexp_weights_path, # Puede ser None
+    mode = "delta" 
 ):
     """
-    Función orquestadora completa: 
-    1. Procesa nombres y carga datos (SDF -> Grafo).
-    2. Carga el modelo (Checkpoints).
-    3. Carga tensores de explicación.
-    4. Calcula curvas y genera gráfico.
+    Función orquestadora completa.
     """
     
     # --- 1. Procesamiento de Strings y Nombres ---
-    # Extraemos el nombre del modelo del path
     model_folder_name = model_path.split('/')[-1].split('.')[0]
-    
-    # Extraemos el ID y nombre de la molécula
     mol_id = os.path.basename(sdf_path).split('.')[0]
 
-    # --- 3. Carga del Modelo ---
+    # --- 2. Carga del Modelo ---
     try:
         model, device, _ = cargar_modelo(model_path)
         model.eval()
@@ -42,12 +35,11 @@ def generar_comparativa_fidelity(
         print(f"Error cargando el modelo desde {model_path}: {e}")
         return None
     
-    # --- 2. Carga de Molécula y Conversión a Grafo ---
+    # --- 3. Carga de Molécula y Conversión a Grafo ---
     if not os.path.exists(sdf_path):
         print(f"Error: No se encontró el archivo SDF en {sdf_path}")
         return None
 
-    # Usamos RDKit para leer el SDF
     mol = Chem.SDMolSupplier(sdf_path, removeHs=False)[0]
     
     if mol is None:
@@ -55,39 +47,44 @@ def generar_comparativa_fidelity(
         return None
 
     mol_name = mol.GetProp("_Name") if mol.HasProp("_Name") else mol_id
-    
-    # Convertimos a data object (asumiendo que esta función la tienes importada)
     data = mol_to_graph_data(mol)
 
-    print(f"--- Iniciando Comparativa para {mol_name} (Modelo: {model_folder_name}) ---")
+    print(f"--- Comparativa ({mode}) para {mol_name} ---")
 
     # --- 4. Carga de Tensores de Importancia ---
-    try:
-        # Asumiendo que graphexplanation_path es 'path_pesos_mio'
-        weights_mine = cargar_pesos_tensor(graphexplanation_path, device)
-        # Asumiendo que gnnexplanation_path es 'path_pesos_gnn'
-        weights_gnn = cargar_pesos_tensor(gnnexplanation_path, device)
-    except FileNotFoundError as e:
-        print(f"Error cargando archivos de pesos de explicación: {e}")
-        return None
+    
+    # A) Carga GraphExplainer
+    tensor_graphexp = cargar_pesos_tensor(graphexp_weights_path, device)
 
-    # --- 5. Calcular Curva GraphExplainer (El tuyo) ---
-    print("Calculando curva para GraphExplainer...")
-    k_vals, fiab_mio = calcular_curvas_fidelity_general(model, data, weights_mine, device, mode)
+    # B) Carga GNNExplainer (Opcional)
+    tensor_gnn = None
+    if gnnexp_weights_path is not None or mode == "gamma":
+        tensor_gnn = cargar_pesos_tensor(gnnexp_weights_path, device)
+    else:
+        print("Info: Se omite resultados GNNExplainer.")
 
-    # --- 6. Calcular Curva GNNExplainer ---
-    print("Calculando curva para GNNExplainer...")
-    # Usamos _ en el primer retorno porque los k son idénticos
-    _, fiab_gnn = calcular_curvas_fidelity_general(model, data, weights_gnn, device, mode)
+    # --- 5. Calcular Curva GraphExplainer ---
+    print(f"Calculando curva {mode} para GraphExplainer...")
+    k_vals, fiab_graphexp = calcular_curvas_fidelity_general(model, data, tensor_graphexp, device, mode)
+
+    # --- 6. Calcular Curva GNNExplainer---
+    fiab_gnn = None
+    if tensor_gnn is not None:
+        print(f"Calculando curva {mode} para GNNExplainer...")
+        try:
+            _, fiab_gnn = calcular_curvas_fidelity_general(model, data, tensor_gnn, device, mode)
+        except ValueError as e:
+            print(f"Saltando GNNExplainer por incompatibilidad de dimensiones: {e}")
+            fiab_gnn = None
 
     # --- 7. Generar Gráfico ---
     plot_path = guardar_plot_fidelity_comparativo(
         k_values=k_vals,
-        fiab_my_explainer=fiab_mio,
+        fiab_my_explainer=fiab_graphexp,
         fiab_gnn_explainer=fiab_gnn,
         model_name=model_folder_name,
         mol_name=mol_name,
-        mode = mode
+        mode=mode
     )
     
     return plot_path
@@ -101,7 +98,8 @@ def guardar_plot_fidelity_comparativo(
         mode
     ):
     """
-    Genera un gráfico comparativo entre Tu Explainer y GNNExplainer.
+    Genera un gráfico comparativo. Si fiab_gnn_explainer es None,
+    solo grafica GraphExplainer Explainer sin romper el código.
     """
     
     # 1. Sanitizar nombre
@@ -109,17 +107,25 @@ def guardar_plot_fidelity_comparativo(
     
     # 2. Configurar Rutas
     filename = f"COMPARATIVA_FIDELITY_{safe_mol_name}_{mode}.png"
-    base_model_dir = os.path.join(RESULTADOS_DIR, model_name)
+    base_model_dir = os.path.join(RESULTADOS_DIR, model_name) # Asegúrate que RESULTADOS_DIR es accesible
     fidelity_dir = os.path.join(base_model_dir, "Fidelity_Comparison")
     os.makedirs(fidelity_dir, exist_ok=True)
     full_save_path = os.path.join(fidelity_dir, filename)
 
-    # 3. Calcular Áreas bajo la curva (AUC)
-    # Cuanto mayor sea el AUC, mejor es el modelo identificando ruido (mantiene la predicción alta)
+    # 3. Calcular Áreas bajo la curva (AUC) - GraphExpplainer EXPLAINER
     auc_mine = np.trapezoid(fiab_my_explainer, k_values)
-    auc_gnn = np.trapezoid(fiab_gnn_explainer, k_values)
+
+    # 4. Validar si existe GNNExplainer
+    has_gnn = (fiab_gnn_explainer is not None) and (len(fiab_gnn_explainer) > 0)
     
-    # 4. Plotting
+    auc_gnn = 0.0
+    if has_gnn:
+        try:
+            auc_gnn = np.trapezoid(fiab_gnn_explainer, k_values)
+        except AttributeError:
+            auc_gnn = np.trapz(fiab_gnn_explainer, k_values)
+    
+    # 5. Plotting
     plt.figure(figsize=(10, 6))
     
     # --- Estilo para GraphExplainer (El tuyo) ---
@@ -127,26 +133,45 @@ def guardar_plot_fidelity_comparativo(
              marker='o', color='#1f77b4', linestyle='-', linewidth=2.5,
              label=f'GraphExplainer (AUC: {auc_mine:.2f})')
     
-    # --- Estilo para GNNExplainer (Benchmark) ---
-    plt.plot(k_values, fiab_gnn_explainer, 
-             marker='x', color='#ff7f0e', linestyle='--', linewidth=2, alpha=0.9,
-             label=f'GNNExplainer (AUC: {auc_gnn:.2f})')
+    # --- Estilo para GNNExplainer (Solo si existe) ---
+    if has_gnn:
+        plt.plot(k_values, fiab_gnn_explainer, 
+                 marker='x', color='#ff7f0e', linestyle='--', linewidth=2, alpha=0.9,
+                 label=f'GNNExplainer (AUC: {auc_gnn:.2f})')
+        
+        # Relleno sutil para destacar la diferencia (solo si hay ambos)
+        # Rellena donde 'graphexp' es mayor o menor que 'GNN'
+        plt.fill_between(k_values, fiab_my_explainer, fiab_gnn_explainer, 
+                         color='gray', alpha=0.1)
 
     # Decoración
-    plt.title(f"{mode} Robustness Comparison: {mol_name}", fontsize=13, fontweight='bold')
-    plt.xlabel("K (Nodes removed - Least Important First)", fontsize=11)
+    plt.title(f"{mode.capitalize()} Robustness Comparison: {mol_name}", fontsize=13, fontweight='bold')
+    
+    # Etiqueta X dinámica según el modo
+    if mode == 'alfa':
+        xlabel_text = "K (Node Features Perturbed - Least Important First)"
+    elif mode == 'beta':
+        xlabel_text = "K (Nodes Removed - Least Important First)"
+    elif mode == 'gamma':
+        xlabel_text = "K (Edge Features Perturbed - Least Important First)"
+    elif mode == 'delta':
+        xlabel_text = "K (Edges Removed - Least Important First)"
+    else:
+        xlabel_text = "K (Elements Perturbed)"
+
+    plt.xlabel(xlabel_text, fontsize=11)
     plt.ylabel("Prediction Stability (1.0 = Perfect)", fontsize=11)
     
     plt.ylim(-0.05, 1.05) 
     plt.axhline(1, color='gray', linestyle=':', alpha=0.5)
     
-    # Relleno sutil para destacar la diferencia
-    plt.fill_between(k_values, fiab_my_explainer, fiab_gnn_explainer, 
-                     color='gray', alpha=0.1)
-
     plt.legend(fontsize=10, loc="lower left", frameon=True, fancybox=True, shadow=True)
     plt.grid(True, linestyle='-', alpha=0.3)
-    plt.xticks(k_values)
+    
+    # Ajustar ticks del eje X si son pocos valores (para que se vean enteros)
+    if len(k_values) < 20:
+        plt.xticks(k_values)
+        
     plt.tight_layout()
     
     plt.savefig(full_save_path, dpi=150, bbox_inches='tight')
@@ -163,63 +188,51 @@ def cargar_pesos_tensor(path, device='cpu'):
         raise FileNotFoundError(f"No se encontró el archivo de pesos: {path}")
     
     weights = torch.load(path, map_location=device)
-    
-    # Si por casualidad se guardó un diccionario (legacy), intentamos sacar 'beta'
-    if isinstance(weights, dict):
-        if 'beta' in weights:
-            weights = weights['beta']
-        else:
-            # Si es un dict pero no tiene beta, asumimos que es el tensor directo encapsulado
-            weights = list(weights.values())[0]
             
     return weights
 
-def calcular_curvas_fidelity_general(model, data, importance, device, mode = "beta", max_steps=15):
-    """
-    Calcula las curvas de fidelidad (Fidelity-) eliminando o perturbando información
-    menos importante progresivamente.
-    
-    Args:
-        mode (str): 'alfa' (features), 'beta' (nodos), 'gamma' (edge_attr), 'delta' (edges)
-    """
+def calcular_curvas_fidelity_general(model, data, importance, device, mode= "beta", max_steps=15):
     model.eval()
     data = data.to(device)
     
-    # === 1. Determinar el límite de iteración según el modo ===
+    # === 1. Determinar el límite y validar dimensiones ===
     if mode == 'alfa':
-        total_elements = data.x.shape[1] # Num Features
+        total_elements = data.x.shape[1] # Num Features Nodos
     elif mode == 'beta':
         total_elements = data.x.shape[0] # Num Nodos
     elif mode == 'gamma':
-        # Asumiendo que existen edge_attr
-        total_elements = data.edge_attr.shape[1] if data.edge_attr is not None else 0
+        # Si no hay atributos de arista, no se puede calcular gamma
+        if data.edge_attr is None:
+            print("Aviso: Modo gamma solicitado pero data.edge_attr es None. Retornando vacío.")
+            return [], []
+        total_elements = data.edge_attr.shape[1] # Num Features Aristas
     elif mode == 'delta':
         total_elements = data.edge_index.shape[1] # Num Aristas
+        max_steps*= 2
     else:
         raise ValueError(f"Modo {mode} no reconocido.")
 
-    limit = total_elements
-    print(total_elements)
-    if max_steps is not None:
-        limit = min(total_elements, max_steps)
-
-    # === 2. Procesar Importancia ===
-    # Aseguramos numpy aplanado y valor absoluto
+    # Procesar Importancia
     if torch.is_tensor(importance):
         imp = importance.detach().cpu().numpy().flatten()
     else:
         imp = np.array(importance).flatten()
-        
-    # Verificar que el tamaño de importance coincida con el elemento que estamos evaluando
+
+    # === CHECK DE SEGURIDAD ===
     if len(imp) != total_elements:
-        print(f"Advertencia: Longitud de importancia ({len(imp)}) != Elementos en modo {mode} ({total_elements}). Se recortará o fallará.")
+        raise ValueError(f"ERROR DE DIMENSIÓN: Modo '{mode}' espera {total_elements} elementos, "
+                         f"pero el vector de importancia tiene longitud {len(imp)}. "
+                         "Verifica que estás pasando el tensor correcto (alfa vs beta vs delta).")
+
+    limit = total_elements
+    if max_steps is not None:
+        limit = min(total_elements, max_steps)
 
     imp = np.abs(imp)
-    
-    # Orden ASCENDENTE (Fidelity-): quitamos primero lo que tiene MENOR importancia (ruido)
+    # Orden ascendente: primero eliminamos lo menos importante
     sorted_indices = np.argsort(imp).copy()
 
-    # === 3. Predicción Original ===
+    # Predicción Original
     with torch.no_grad():
         pred_original = model(data.x, data.edge_index, data.edge_attr, data.batch)
         val_orig = pred_original.item()
@@ -227,42 +240,42 @@ def calcular_curvas_fidelity_general(model, data, importance, device, mode = "be
     fiab_list = []
     k_values = []
 
-    # === 4. Bucle de Perturbación ===
+    # === Bucle Principal ===
     for k in range(limit + 1):
         k_values.append(k)
         
-        # Índices acumulados a eliminar/perturbar hasta el paso k
+        # Índices acumulados a perturbar
         current_indices = sorted_indices[:k]
 
         if k == 0:
             data_minus = data
         else:
-            # DESPACHADOR DE MODOS
-            if mode == 'alfa':
+            # === DESPACHADOR DE MODOS ===
+            if mode == 'alfa':     # Features Nodos (Enmascarar con media)
                 data_minus = ocultar_features_nodos(data, current_indices)
             
-            elif mode == 'beta':
-                # Tu función existente
+            elif mode == 'beta':   # Nodos (Eliminar nodo y conexiones)
                 data_minus = eliminar_nodos_y_conexiones(data, current_indices)
             
-            elif mode == 'gamma':
-                # Pendiente para la siguiente interacción
-                raise NotImplementedError("Modo Gamma aún no implementado")
+            elif mode == 'gamma':  # Features Aristas (Enmascarar con media)
+                data_minus = ocultar_features_aristas(data, current_indices)
                 
-            elif mode == 'delta':
-                # Pendiente para la siguiente interacción
-                raise NotImplementedError("Modo Delta aún no implementado")
+            elif mode == 'delta':  # Aristas (Eliminar conexión)
+                data_minus = eliminar_aristas_selectivas(data, current_indices)
 
-        # === 5. Inferencia sobre grafo modificado ===
+        # Inferencia
         with torch.no_grad():
-            # Protección para Beta/Delta si el grafo queda vacío
-            if data_minus.x.shape[0] == 0 or data_minus.edge_index.shape[1] == 0:
-                val_minus = 0.0 # O comportamiento neutro definido
+            # Check si el grafo quedó vacío o inválido
+            if data_minus.x.shape[0] == 0: # Sin nodos
+                val_minus = 0.0
+            elif data_minus.edge_index.shape[1] == 0 and mode == 'delta': 
+                # Si borramos todas las aristas, el GNN actúa solo sobre features de nodos aislados
+                pred_minus = model(data_minus.x, data_minus.edge_index, data_minus.edge_attr, data_minus.batch)
+                val_minus = pred_minus.item()
             else:
                 pred_minus = model(data_minus.x, data_minus.edge_index, data_minus.edge_attr, data_minus.batch)
                 val_minus = pred_minus.item()
 
-        # Cálculo de métrica Fidelity
         diff_minus = abs(val_orig - val_minus)
         fiab_minus = np.exp(-diff_minus)
         fiab_list.append(fiab_minus)
@@ -388,3 +401,63 @@ def eliminar_nodos_y_conexiones(data, indices_a_eliminar):
     new_data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, batch=batch)
     
     return new_data
+
+# ------- GAMMA ---------
+def ocultar_features_aristas(data, indices_features_a_ocultar):
+    """
+    MODO GAMMA: Perturba las features de las aristas (edge_attr) reemplazándolas 
+    por la media global de esa feature.
+    """
+    if data.edge_attr is None:
+        return data
+
+    # 1. Clonar edge_attr
+    edge_attr_mod = data.edge_attr.clone()
+    
+    # 2. Calcular media por columna (feature de arista)
+    # edge_attr shape: [Num_Edges, Num_Edge_Features]
+    feature_means = edge_attr_mod.mean(dim=0) 
+    
+    # 3. Reemplazar columnas
+    if len(indices_features_a_ocultar) > 0:
+        idx_tensor = torch.tensor(indices_features_a_ocultar, device=data.x.device)
+        # Protección de índices para evitar crash CUDA
+        if idx_tensor.max() >= edge_attr_mod.shape[1]:
+             raise ValueError(f"Índice {idx_tensor.max()} fuera de rango para {edge_attr_mod.shape[1]} features de arista.")
+             
+        edge_attr_mod[:, idx_tensor] = feature_means[idx_tensor]
+        
+    return Data(x=data.x, edge_index=data.edge_index, 
+                edge_attr=edge_attr_mod, batch=data.batch)
+
+# ------- DELTA ---------
+def eliminar_aristas_selectivas(data, indices_aristas_a_eliminar):
+    """
+    MODO DELTA: Elimina aristas específicas (edges) basándose en su índice.
+    No elimina nodos, solo desconecta.
+    """
+    num_edges = data.edge_index.shape[1]
+    device = data.x.device
+    
+    # 1. Crear máscara de aristas a MANTENER
+    # Inicialmente todas True
+    edge_mask = torch.ones(num_edges, dtype=torch.bool, device=device)
+    
+    # Poner en False las que queremos eliminar
+    if len(indices_aristas_a_eliminar) > 0:
+        idx_tensor = torch.tensor(indices_aristas_a_eliminar, device=device)
+        # Protección
+        if idx_tensor.max() >= num_edges:
+             raise ValueError(f"Índice de arista {idx_tensor.max()} fuera de rango (Total aristas: {num_edges})")
+        edge_mask[idx_tensor] = False
+        
+    # 2. Filtrar edge_index y edge_attr
+    new_edge_index = data.edge_index[:, edge_mask]
+    
+    new_edge_attr = None
+    if data.edge_attr is not None:
+        new_edge_attr = data.edge_attr[edge_mask]
+        
+    # 3. Retornar data (x y batch se mantienen igual)
+    return Data(x=data.x, edge_index=new_edge_index, 
+                edge_attr=new_edge_attr, batch=data.batch)
