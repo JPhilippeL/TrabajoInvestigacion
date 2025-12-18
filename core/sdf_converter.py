@@ -148,6 +148,10 @@ def smiles_csv_to_sdf_dir(csv_path, output_dir, minimoNodos = MINNODES):
     df = pd.read_csv(csv_path)
     if minimoNodos < MINNODES: minimoNodos = MINNODES
 
+    # (A) --- INICIALIZAR LISTAS PARA ESTADÍSTICAS ---
+    stats_nodos = [] # Para guardar num átomos por molécula
+    stats_edges = [] # Para guardar num enlaces por molécula
+
     # 1. Identificar columnas clave
     smiles_col = next((col for col in df.columns if col.lower() == "smiles"), None)
     if smiles_col is None:
@@ -237,6 +241,15 @@ def smiles_csv_to_sdf_dir(csv_path, output_dir, minimoNodos = MINNODES):
                 logger.warning(f"Fila {i}: Error sanitización ({e}), se omite.")
                 continue
 
+            # (B) --- RECOLECTAR ESTADÍSTICAS ---
+            # Es importante hacerlo sobre la molécula FINAL que se guarda (con Hidrógenos)
+            num_atoms = mol.GetNumAtoms()
+            num_bonds = mol.GetNumBonds()
+            
+            stats_nodos.append(num_atoms)
+            stats_edges.append(num_bonds)
+            # -----------------------------------
+
             # Definir Nombre (ID)
             name = (
                 str(row[name_col]).strip().replace(" ", "_")
@@ -262,7 +275,22 @@ def smiles_csv_to_sdf_dir(csv_path, output_dir, minimoNodos = MINNODES):
             
             files_created += 1
 
-    logger.info(f"Proceso finalizado. {files_created} moléculas procesadas exitosamente.")
+    # (C) --- CALCULAR Y MOSTRAR RESULTADOS ---
+    if files_created > 0:
+        avg_nodes = sum(stats_nodos) / len(stats_nodos)
+        avg_edges = sum(stats_edges) / len(stats_edges)
+        
+        print("\n" + "="*40)
+        print(f" RESULTADOS ESTADÍSTICOS ({files_created} moléculas)")
+        print("="*40)
+        print(f"Promedio de Nodos (Átomos):   {avg_nodes:.2f}")
+        print(f"Promedio de Edges (Enlaces):  {avg_edges:.2f}")
+        print(f"Mínimo Nodos: {min(stats_nodos)} | Máximo Nodos: {max(stats_nodos)}")
+        print("="*40 + "\n")
+        
+        logger.info(f"Stats: Avg Nodes={avg_nodes:.2f}, Avg Edges={avg_edges:.2f}")
+    else:
+        logger.warning("No se procesó ninguna molécula correctamente.")
 
 
 
