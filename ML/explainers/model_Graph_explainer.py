@@ -259,7 +259,6 @@ def obtener_graph_explainer(
     alfa_sorted, row_labels_alfa = procesar_features_ordenadas(
         alfa, node_feature_names, muestra_for_model.x
     )
-    col_labels_alfa = [""]
 
     # 2. GAMMA (Edge Features) -> Filtrar -> Ordenar -> Normalizar
     # Reemplaza a Beta en el segundo heatmap
@@ -272,7 +271,6 @@ def obtener_graph_explainer(
     else:
         gamma_sorted = np.array([])
         row_labels_gamma = []
-    col_labels_gamma = [""]
 
     # --- BETA (Nodos) ---
     beta_np = tensor_to_abs_numpy(beta)
@@ -289,6 +287,9 @@ def obtener_graph_explainer(
     
     # Preparamos el nombre del modelo para la carpeta
     model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
+
+    guardar_pesos(alfa, beta, gamma, delta, model_folder_name,
+                  mol_name, ALGO_NAME)
 
     # LLAMADA A LA FUNCIÓN Visualizacion
     plotfilename = guardar_dashboard_explicacion(
@@ -314,7 +315,7 @@ def obtener_graph_explainer(
     k_vals, fiab_minus = calcular_curvas_fidelity(
         model, 
         muestra_for_model, 
-        beta, 
+        beta.abs(), 
         device
     )
 

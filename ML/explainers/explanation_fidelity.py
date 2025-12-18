@@ -23,6 +23,8 @@ def calcular_curvas_fidelity(model, data, node_importance, device):
     else:
         imp = np.array(node_importance).flatten()
 
+    imp = np.abs(imp)
+
     # === ORDEN ASCENDENTE (De Menor a Mayor Importancia) ===
     sorted_indices = np.argsort(imp).copy() 
     # =======================================================
@@ -85,7 +87,7 @@ def guardar_plot_fidelity(k_values, fiab_minus, model_name, mol_name, algo_name=
     
     # 3. Directorios
     base_model_dir = os.path.join(RESULTADOS_DIR, model_name)
-    fidelity_dir = os.path.join(base_model_dir, "fidelity")
+    fidelity_dir = os.path.join(base_model_dir, "Fidelity")
     os.makedirs(fidelity_dir, exist_ok=True)
     
     full_save_path = os.path.join(fidelity_dir, filename)
