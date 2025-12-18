@@ -191,7 +191,7 @@ def cargar_pesos_tensor(path, device='cpu'):
             
     return weights
 
-def calcular_curvas_fidelity_general(model, data, importance, device, mode= "beta", max_steps=15):
+def calcular_curvas_fidelity_general(model, data, importance, device, mode= "beta", max_steps=None):
     model.eval()
     data = data.to(device)
     
@@ -284,9 +284,8 @@ def calcular_curvas_fidelity_general(model, data, importance, device, mode= "bet
 
 def guardar_plot_fidelity(k_values, fiab_minus, model_name, mol_name, algo_name="Explainer"):
     """
-    Genera el gráfico con los colores invertidos:
-    - Fidelity- (Debe ser alto) -> VERDE
-    - Fidelity+ (Debe ser bajo) -> ROJO
+    Genera el gráfico con Fidelity- (Verde).
+    El AUC se normaliza dividiendo por el número total de pasos K (0 a 1).
     """
     
     # 1. Sanitizar nombre
@@ -303,15 +302,28 @@ def guardar_plot_fidelity(k_values, fiab_minus, model_name, mol_name, algo_name=
     
     full_save_path = os.path.join(fidelity_dir, filename)
 
-    # 4. AUC
-    auc_minus = np.trapezoid(fiab_minus, k_values)
+    # 4. AUC Normalizado (0 a 1)
+    # Calculamos el área bruta
+    try:
+        raw_auc = np.trapezoid(fiab_minus, k_values) # NumPy 2.0+
+    except AttributeError:
+        raw_auc = np.trapz(fiab_minus, k_values)     # NumPy < 2.0
+
+    # Obtenemos el valor máximo de K (el ancho del gráfico)
+    max_k = k_values[-1] if len(k_values) > 0 else 0
     
+    # Normalizamos: Área / Ancho
+    if max_k > 0:
+        auc_norm = raw_auc / max_k
+    else:
+        auc_norm = 0.0 # Evitar división por cero si no hay pasos
+
     plt.figure(figsize=(10, 6))
     
-    # Etiquetas
-    label_minus = f'Fidelity (Remove ONLY Low Imp.)\nAUC: {auc_minus:.2f} (Ideal: High)'
+    # Etiquetas (Mostramos AUC normalizado)
+    label_minus = f'Fidelity (Remove ONLY Low Imp.)\nAUC Norm: {auc_norm:.2f} (0.0 - 1.0)'
 
-    # === COLORES MODIFICADOS ===
+    # === PLOTTING ===
     # Fidelity -> Verde (Queremos que se mantenga alto)
     plt.plot(k_values, fiab_minus, marker='x', label=label_minus, color='green', linestyle='--', linewidth=2)
 
@@ -323,19 +335,24 @@ def guardar_plot_fidelity(k_values, fiab_minus, model_name, mol_name, algo_name=
     plt.axhline(1, color='gray', linestyle=':', alpha=0.5)
     plt.axhline(0, color='gray', linestyle=':', alpha=0.5)
     
-    # Rellenos (Match con los colores de las líneas)
+    # Rellenos
     plt.fill_between(k_values, fiab_minus, color='green', alpha=0.1)
 
     plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left", borderaxespad=0,
                fontsize=9, frameon=True, fancybox=True, shadow=True, framealpha=0.9)
     
     plt.grid(True, linestyle='-', alpha=0.3)
-    plt.xticks(k_values)
+    
+    # Ajuste de ticks para que no se amontonen si hay muchos K
+    if len(k_values) < 20:
+        plt.xticks(k_values)
+    
     plt.tight_layout()
     
     plt.savefig(full_save_path, dpi=150, bbox_inches='tight')
     plt.close()
     
+    print(f"Gráfico guardado en: {full_save_path}")
     return full_save_path
 
 # ------- ALFA ---------
