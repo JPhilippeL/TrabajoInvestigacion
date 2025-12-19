@@ -5,7 +5,7 @@ import os
 from torch_geometric.utils import subgraph
 from torch_geometric.data import Data
 from rdkit import Chem
-from ui.utils import RESULTADOS_DIR
+from ui.utils import RESULTADOS_DIR, apply_paper_style, save_paper_figure
 from ML.data_processing import mol_to_graph_data
 from ML.model_tester import cargar_modelo
 
@@ -103,7 +103,8 @@ def guardar_plot_fidelity_comparativo(
     
     El AUC se normaliza (dividiendo por max_k) para estar entre 0 y 1.
     """
-    
+    apply_paper_style()
+
     # 1. Sanitizar nombre
     safe_mol_name = "".join([c for c in mol_name if c.isalnum() or c in (' ', '_', '-')]).strip()
     
@@ -142,55 +143,57 @@ def guardar_plot_fidelity_comparativo(
         auc_gnn = raw_auc_gnn / max_k if max_k > 0 else 0.0
     
     # === PLOTTING ===
-    plt.figure(figsize=(10, 6))
+    plt.figure()
     
     # --- Estilo para GraphExplainer (El tuyo) ---
     plt.plot(k_values, fiab_my_explainer, 
              marker='o', color='#1f77b4', linestyle='-', linewidth=2.5,
-             label=f'GraphExplainer (AUC Norm: {auc_mine:.2f})')
+             label=f'GraphExplainer (AUC: {auc_mine:.2f})')
     
     # --- Estilo para GNNExplainer (Solo si existe) ---
     if has_gnn:
         plt.plot(k_values, fiab_gnn_explainer, 
                  marker='x', color='#ff7f0e', linestyle='--', linewidth=2, alpha=0.9,
-                 label=f'GNNExplainer (AUC Norm: {auc_gnn:.2f})')
+                 label=f'GNNExplainer (AUC: {auc_gnn:.2f})')
         
         # Relleno sutil para destacar la diferencia
         plt.fill_between(k_values, fiab_my_explainer, fiab_gnn_explainer, 
                          color='gray', alpha=0.1)
 
     # Decoración
-    plt.title(f"{mode.capitalize()} Robustness Comparison: {mol_name}", fontsize=13, fontweight='bold')
+    # plt.title(f"{mode.capitalize()} Robustness Comparison: {mol_name}", fontsize=13, fontweight='bold')
     
-    # Etiqueta X dinámica
-    if mode == 'alfa':
-        xlabel_text = "K (Node Features Perturbed - Least Important First)"
-    elif mode == 'beta':
-        xlabel_text = "K (Nodes Removed - Least Important First)"
-    elif mode == 'gamma':
-        xlabel_text = "K (Edge Features Perturbed - Least Important First)"
-    elif mode == 'delta':
-        xlabel_text = "K (Edges Removed - Least Important First)"
-    else:
-        xlabel_text = "K (Elements Perturbed)"
+    # 1. Definir el subíndice (u) según el modo
+    subscript_map = {
+        'alfa': 'n_a',  # n con subíndice a
+        'beta': 'n',
+        'gamma': 'e_a', # e con subíndice a
+        'delta': 'e'
+    }
+    
+    # Obtiene el valor correspondiente o 'u' si el modo no está en la lista
+    sub = subscript_map.get(mode, 'u')
 
-    plt.xlabel(xlabel_text, fontsize=11)
-    plt.ylabel("Prediction Stability (1.0 = Perfect)", fontsize=11)
+    # 2. Construir el string con formato LaTeX
+    # - r"" indica raw string (para que Python ignore los backslashes \)
+    # - f"" permite insertar variables
+    # - \mathrm{...} hace que la fuente sea recta (como en la imagen)
+    # - {{ }} se usa para poner llaves literales de LaTeX dentro de un f-string
+    ylabel_text = rf"$\mathrm{{RegFidelity}}_{{({sub})}}^{{k}}$"
+
+    plt.ylabel(ylabel_text)
+    plt.xlabel("K")
     
     plt.ylim(-0.05, 1.05) 
     plt.axhline(1, color='gray', linestyle=':', alpha=0.5)
     
-    plt.legend(fontsize=10, loc="lower left", frameon=True, fancybox=True, shadow=True)
+    plt.legend(loc="best", frameon=True)
     plt.grid(True, linestyle='-', alpha=0.3)
-    
-    # Ajustar ticks
-    if len(k_values) < 20:
+
+    if len(k_values) < 15:
         plt.xticks(k_values)
-        
-    plt.tight_layout()
-    
-    plt.savefig(full_save_path, dpi=150, bbox_inches='tight')
-    plt.close()
+
+    save_paper_figure(full_save_path)
     
     print(f"Gráfico comparativo guardado en: {full_save_path}")
     return full_save_path
