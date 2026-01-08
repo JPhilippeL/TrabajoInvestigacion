@@ -134,6 +134,16 @@ class MenuBar(QMenuBar):
         gnn_explainer_action.triggered.connect(self.get_explanation_GNNExplainer)
         menu_explicacion.addAction(gnn_explainer_action)
 
+        # Batch Graph_explainer
+        batch_graph_explainer_action =QAction("Obtener GraphExplainer de Directorio", self)
+        batch_graph_explainer_action.triggered.connect(self.get_batch_explanation_GraphExplainer)
+        menu_explicacion.addAction(batch_graph_explainer_action)
+
+        # Batch GNN Explainer
+        batch_gnn_explainer_action = QAction("Obtener GNNExplainer de Directorio", self)
+        batch_gnn_explainer_action.triggered.connect(self.get_batch_explanation_GNNExplainer)
+        menu_explicacion.addAction(batch_gnn_explainer_action)
+
         # Comparador
         explanation_comparer_action = QAction("Comparar Explicadores", self)
         explanation_comparer_action.triggered.connect(self.get_explanation_comparer)
@@ -588,6 +598,76 @@ class MenuBar(QMenuBar):
 
             except Exception as e:
                 logger.error(f"Error en explicación GNNExplainer: {str(e)}", exc_info=True)
+
+    def get_batch_explanation_GraphExplainer(self):
+        """
+        Procesa un directorio completo de archivos SDF usando GraphExplainer.
+        Reutiliza BatchModelTestDialog para seleccionar Modelo, Directorio y Targets.
+        """
+        dialog = BatchModelTestDialog(self.parent)
+        if dialog.exec():
+            model_path, directory_path, target_path = dialog.get_paths()
+            try:
+                # Filtrar archivos .sdf
+                sdf_files = [f for f in os.listdir(directory_path) if f.endswith('.sdf')]
+
+                if not sdf_files:
+                    logger.warning(f"No se encontraron archivos .sdf en {directory_path}")
+                    return
+
+                logger.info(f"Iniciando procesamiento batch GraphExplainer para {len(sdf_files)} archivos.")
+
+                for sdf_file in sdf_files:
+                    full_sdf_path = os.path.join(directory_path, sdf_file)
+                    
+                    # Llamada a la función explicadora
+                    # Asumimos que esta función ya gestiona el guardado de la imagen internamente
+                    obtener_graph_explainer(
+                        model_path, 
+                        full_sdf_path, 
+                        target_path, 
+                        num_samples=1000, 
+                        noise_level=0.01, 
+                        device='cpu'
+                    )
+                    logger.info(f"Procesado: {sdf_file}")
+
+                logger.info("Procesamiento batch GraphExplainer finalizado.")
+
+            except Exception as e:
+                logger.error(f"Error en batch GraphExplainer: {str(e)}", exc_info=True)
+
+    def get_batch_explanation_GNNExplainer(self):
+        """
+        Procesa un directorio completo de archivos SDF usando GNNExplainer.
+        Reutiliza BatchModelTestDialog para seleccionar Modelo, Directorio y Targets.
+        """
+        dialog = BatchModelTestDialog(self.parent)
+        if dialog.exec():
+            model_path, directory_path, target_path = dialog.get_paths()
+            try:
+                # Filtrar archivos .sdf
+                sdf_files = [f for f in os.listdir(directory_path) if f.endswith('.sdf')]
+
+                if not sdf_files:
+                    logger.warning(f"No se encontraron archivos .sdf en {directory_path}")
+                    return
+
+                logger.info(f"Iniciando procesamiento batch GNNExplainer para {len(sdf_files)} archivos.")
+
+                for sdf_file in sdf_files:
+                    full_sdf_path = os.path.join(directory_path, sdf_file)
+
+                    # Llamada a la función explicadora
+                    # Asumimos que esta función ya gestiona el guardado de la imagen internamente
+                    obtener_GNN_Explainer(model_path, full_sdf_path, target_path)
+                    
+                    logger.info(f"Procesado: {sdf_file}")
+
+                logger.info("Procesamiento batch GNNExplainer finalizado.")
+
+            except Exception as e:
+                logger.error(f"Error en batch GNNExplainer: {str(e)}", exc_info=True)
 
     def get_explanation_comparer(self):
         dialog = ExplainerComparerDialog(self.parent)
