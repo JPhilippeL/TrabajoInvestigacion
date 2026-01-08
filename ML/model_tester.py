@@ -167,9 +167,10 @@ def test_model_on_directory(checkpoint_path, sdf_dir, targets_file):
         plt.figure(figsize=(6, 6))
         plt.scatter(y_true, y_pred, alpha=0.7)
         plt.plot([min(y_true), max(y_true)], [min(y_true), max(y_true)], color='red', linestyle='--')
-        plt.xlabel("Valor real")
-        plt.ylabel("Predicción")
-        plt.title(f"Scatter Plot - {model_name_no_ext} - {folder_name}")
+        plt.xlabel("Real Solubility", fontsize = 20)
+        plt.ylabel("Predicted Solubility", fontsize = 20)
+        plt.tick_params(axis='both', which='major', labelsize=16)
+        # plt.title(f"Scatter Plot - {model_name_no_ext} - {folder_name}")
         plt.grid(True)
         plt.tight_layout()
 
