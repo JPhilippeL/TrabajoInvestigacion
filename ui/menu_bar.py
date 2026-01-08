@@ -17,12 +17,13 @@ from ui.dialogs.image_dialog import ImageDialog
 from ui.dialogs.csv_to_sdf import CSVtoSDFDialog
 from ui.dialogs.explanation_dialog import ExplanationDialog
 from ui.dialogs.explainer_comparer_dialog import ExplainerComparerDialog
+from ui.dialogs.batch_explainer_comparer_dialog import BatchComparerDialog
 
 from ML.model_tester import test_model_on_directory
 from ML.model_tester import obtener_info_checkpoint
 from ML.explainers.model_Graph_explainer import obtener_graph_explainer
 from ML.explainers.model_GNNExplainer import obtener_GNN_Explainer
-from ML.explainers.explanation_fidelity import generar_comparativa_fidelity
+from ML.explainers.explanation_fidelity import generar_comparativa_fidelity, save_auc_results_csv, calcular_aucs_fidelity_batch
 from ML.model_tester import cargar_y_predecir
 from core.sdf_converter import graph_to_mol, save_graph_as_sdf, split_sdf, smiles_csv_to_sdf_dir
 
@@ -628,7 +629,8 @@ class MenuBar(QMenuBar):
                         target_path, 
                         num_samples=1000, 
                         noise_level=0.01, 
-                        device='cpu'
+                        device='cpu',
+                        imagen = False
                     )
                     logger.info(f"Procesado: {sdf_file}")
 
@@ -660,7 +662,7 @@ class MenuBar(QMenuBar):
 
                     # Llamada a la función explicadora
                     # Asumimos que esta función ya gestiona el guardado de la imagen internamente
-                    obtener_GNN_Explainer(model_path, full_sdf_path, target_path)
+                    obtener_GNN_Explainer(model_path, full_sdf_path, target_path, imagen=False)
                     
                     logger.info(f"Procesado: {sdf_file}")
 
@@ -684,7 +686,7 @@ class MenuBar(QMenuBar):
 
             try:
                 # 3. Llamar a la función generadora pasando el MODO y el path (que puede ser None)
-                plot_path = generar_comparativa_fidelity(
+                plot_path, auc_graph_explainer, auc_gnn_explainer = generar_comparativa_fidelity(
                     model_path, 
                     sdf_path, 
                     graphexplanation_path, 
@@ -699,6 +701,113 @@ class MenuBar(QMenuBar):
 
             except Exception as e:
                 logger.error(f"Error en explicación Comparativa ({mode}): {str(e)}", exc_info=True)
+
+    def get_batch_explanation_comparer(self):
+        """
+        Calcula métricas de fidelidad para todo un directorio de SDFs comparando
+        GraphExplainer vs GNNExplainer (si existe), buscando los pesos automáticamente.
+        """
+        # Suponemos que este diálogo devuelve:
+        # model_path: Ruta al modelo .pt
+        # sdfs_dir: Ruta al directorio con los .sdf
+        # weights_root_dir: Ruta raíz de los pesos (dentro debe haber carpetas alpha, beta, etc.)
+        # mode: String 'alpha', 'beta', 'gamma' o 'delta'
+        dialog = BatchComparerDialog(self.parent)
+        
+        if dialog.exec():
+            model_path, sdfs_dir, weights_root_dir, mode = dialog.get_inputs()
+            
+            # Construir la ruta específica del modo (ej: .../pesos/alpha)
+            weights_mode_dir = os.path.join(weights_root_dir, mode)
+            
+            if not os.path.exists(weights_mode_dir):
+                logger.error(f"No existe el directorio de pesos para el modo {mode}: {weights_mode_dir}")
+                return
+
+            results = []  # Lista para guardar diccionarios: {'name': str, 'auc_graph': float, 'auc_gnn': float}
+            
+            try:
+                # Filtrar solo archivos .sdf
+                sdf_files = [f for f in os.listdir(sdfs_dir) if f.endswith('.sdf')]
+                
+                if not sdf_files:
+                    logger.warning(f"No hay archivos .sdf en {sdfs_dir}")
+                    return
+
+                logger.info(f"Iniciando comparativa Batch ({mode}). Total archivos: {len(sdf_files)}")
+
+                # Listar todos los archivos de pesos una sola vez para no leer disco en cada iteración
+                # Esto mejora el rendimiento si hay muchos archivos.
+                all_weight_files = os.listdir(weights_mode_dir)
+
+                for sdf_file in sdf_files:
+                    mol_name = os.path.splitext(sdf_file)[0] # Nombre sin extensión (el "componente")
+                    full_sdf_path = os.path.join(sdfs_dir, sdf_file)
+
+                    # --- Lógica de Matching ---
+                    # Buscamos archivos en weights_mode_dir que contengan 'mol_name'
+                    # Nota: Aseguramos que el match sea robusto (ej: que 'mol1' no haga match con 'mol10')
+                    # Una forma simple es verificar que el nombre esté contenido.
+                    matches = [w for w in all_weight_files if mol_name in w]
+                    
+                    if not matches:
+                        logger.warning(f"Saltando {mol_name}: No se encontraron pesos en {mode}.")
+                        continue
+
+                    # Identificar cuál es cual
+                    path_graph_explainer = None
+                    path_gnn_explainer = None
+
+                    for w_file in matches:
+                        full_w_path = os.path.join(weights_mode_dir, w_file)
+                        if "GraphExplainer" in w_file:
+                            path_graph_explainer = full_w_path
+                        elif "GNNExplainer" in w_file: 
+                            # Asumimos que si no es GraphExplainer y hizo match, es el GNNExplainer
+                            # O buscamos explícitamente el string si tus archivos lo tienen.
+                            path_gnn_explainer = full_w_path
+                    
+                    # Verificar requisitos mínimos
+                    if not path_graph_explainer and not path_gnn_explainer:
+                         logger.warning(f"Saltando {mol_name}: Archivos encontrados pero no se identificó el tipo de explainer.")
+                         continue
+
+                    # --- Llamada a la función generadora ---
+                    try:
+                        # LLAMADA NUEVA OPTIMIZADA
+                        auc_graph, auc_gnn = calcular_aucs_fidelity_batch(
+                            model_path, 
+                            full_sdf_path, 
+                            path_graph_explainer, 
+                            path_gnn_explainer, 
+                            mode=mode
+                        )
+                        
+                        # Guardar en memoria solo si el cálculo fue exitoso
+                        if auc_graph is not None:
+                            results.append({
+                                "name": mol_name,
+                                "auc_graph": auc_graph,
+                                "auc_gnn": auc_gnn if auc_gnn is not None else "N/A"
+                            })
+                            logger.info(f"Procesado {mol_name} | G: {auc_graph:.4f}")
+                        else:
+                             logger.warning(f"Fallo cálculo para {mol_name}")
+
+                    except Exception as e_inner:
+                        logger.error(f"Error procesando {mol_name}: {e_inner}")
+
+                # --- Guardar resultados finales ---
+                if results:
+                    model_name_clean = os.path.splitext(os.path.basename(model_path))[0]
+
+                    # Llamada a la función externa actualizada
+                    save_auc_results_csv(results, mode, model_name_clean)
+                else:
+                    logger.warning("No se generaron resultados para guardar.")
+
+            except Exception as e:
+                logger.error(f"Error global en Batch Comparer: {str(e)}", exc_info=True)
 
 
     def consultar_parametros_modelo(self):

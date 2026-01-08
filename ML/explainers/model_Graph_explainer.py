@@ -197,7 +197,8 @@ def obtener_graph_explainer(
         feature_mask=[1, 1, 1, 1, 1, 1], 
         num_samples=50, 
         noise_level=0.05, 
-        device='cpu'):
+        device='cpu',
+        imagen = True):
     
     mol = Chem.SDMolSupplier(sdf_path, removeHs=False)[0]
     muestra = mol_to_graph_data(mol, 'one_hot')
@@ -249,6 +250,16 @@ def obtener_graph_explainer(
     # Verificar que aprendimos algo distinto de cero
     print(f"Max Alfa: {alfa.max().item():.4f}, Min Alfa: {alfa.min().item():.4f}")
     print(f"Max Beta: {beta.max().item():.4f}, Min Beta: {beta.min().item():.4f}")
+
+    # Preparamos el nombre del modelo para la carpeta
+    model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
+
+    guardar_pesos(alfa, beta, gamma, delta, model_folder_name,
+                  mol_name, ALGO_NAME)
+    
+    if imagen == False:
+        logger.info("Pesos guardados, no se hizo imagen")
+        return 1
     
     # ==========================================================================
     # PROCESAMIENTO DE MATRICES
@@ -284,12 +295,7 @@ def obtener_graph_explainer(
         delta_normalized = normalizar_max(delta_np) 
     else:
         delta_normalized = np.array([])
-    
-    # Preparamos el nombre del modelo para la carpeta
-    model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
 
-    guardar_pesos(alfa, beta, gamma, delta, model_folder_name,
-                  mol_name, ALGO_NAME)
 
     # LLAMADA A LA FUNCIÓN Visualizacion
     plotfilename = guardar_dashboard_explicacion(

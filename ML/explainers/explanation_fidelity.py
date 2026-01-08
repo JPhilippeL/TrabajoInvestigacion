@@ -1,3 +1,4 @@
+import csv
 import matplotlib.pyplot as plt
 import torch
 import numpy as np
@@ -8,6 +9,8 @@ from rdkit import Chem
 from ui.utils import RESULTADOS_DIR, apply_paper_style, save_paper_figure
 from ML.data_processing import mol_to_graph_data
 from ML.model_tester import cargar_modelo
+import logging
+logger = logging.getLogger(__name__)
 
 # Constante N: Número máximo de nodos a evaluar en la curva
 MAX_NODES_FIDELITY = 15
@@ -78,7 +81,7 @@ def generar_comparativa_fidelity(
             fiab_gnn = None
 
     # --- 7. Generar Gráfico ---
-    plot_path = guardar_plot_fidelity_comparativo(
+    plot_path, auc_graph_explainer, auc_gnn_explainer = guardar_plot_fidelity_comparativo(
         k_values=k_vals,
         fiab_my_explainer=fiab_graphexp,
         fiab_gnn_explainer=fiab_gnn,
@@ -87,7 +90,7 @@ def generar_comparativa_fidelity(
         mode=mode
     )
     
-    return plot_path
+    return plot_path, auc_graph_explainer, auc_gnn_explainer
 
 def guardar_plot_fidelity_comparativo(
         k_values, 
@@ -122,12 +125,12 @@ def guardar_plot_fidelity_comparativo(
 
     # A) AUC GraphExplainer
     try:
-        raw_auc_mine = np.trapezoid(fiab_my_explainer, k_values)
+        raw_auc_graph_explainer = np.trapezoid(fiab_my_explainer, k_values)
     except AttributeError:
-        raw_auc_mine = np.trapz(fiab_my_explainer, k_values)
+        raw_auc_graph_explainer = np.trapz(fiab_my_explainer, k_values)
         
     # Normalizar
-    auc_mine = raw_auc_mine / max_k if max_k > 0 else 0.0
+    auc_graph_explainer = raw_auc_graph_explainer / max_k if max_k > 0 else 0.0
 
     # B) AUC GNNExplainer (si existe)
     has_gnn = (fiab_gnn_explainer is not None) and (len(fiab_gnn_explainer) > 0)
@@ -148,7 +151,7 @@ def guardar_plot_fidelity_comparativo(
     # --- Estilo para GraphExplainer (El tuyo) ---
     plt.plot(k_values, fiab_my_explainer, 
              marker='o', color='#1f77b4', linestyle='-', linewidth=2.5,
-             label=f'GraphExplainer (AUC: {auc_mine:.2f})')
+             label=f'GraphExplainer (AUC: {auc_graph_explainer:.2f})')
     
     # --- Estilo para GNNExplainer (Solo si existe) ---
     if has_gnn:
@@ -196,7 +199,7 @@ def guardar_plot_fidelity_comparativo(
     save_paper_figure(full_save_path)
     
     print(f"Gráfico comparativo guardado en: {full_save_path}")
-    return full_save_path
+    return full_save_path, auc_graph_explainer, auc_gnn
 
 def cargar_pesos_tensor(path, device='cpu'):
     """
@@ -495,3 +498,121 @@ def eliminar_aristas_selectivas(data, indices_aristas_a_eliminar):
     # 3. Retornar data (x y batch se mantienen igual)
     return Data(x=data.x, edge_index=new_edge_index, 
                 edge_attr=new_edge_attr, batch=data.batch)
+
+def save_auc_results_csv(results, mode, model_name):
+    """
+    Guarda la lista de resultados en: RESULTADOS_DIR / model_name / auc_results / auc_results_{mode}.csv
+    """
+    try:
+        # 1. Definir la ruta de la carpeta: Resultados/NombreModelo/auc_results
+        output_folder = os.path.join(RESULTADOS_DIR, model_name, "auc_results")
+        
+        # 2. Crear directorios si no existen
+        os.makedirs(output_folder, exist_ok=True)
+
+        # 3. Definir nombre del archivo
+        csv_filename = f"auc_results_{mode}.csv"
+        csv_path = os.path.join(output_folder, csv_filename)
+        
+        # 4. Escribir CSV
+        fieldnames = ["name", "auc_graph", "auc_gnn"]
+        
+        with open(csv_path, mode='w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            for data in results:
+                writer.writerow(data)
+                
+        logging.getLogger(__name__).info(f"Resultados AUC guardados exitosamente en: {csv_path}")
+
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Error al guardar CSV: {str(e)}", exc_info=True)
+
+def calcular_aucs_fidelity_batch(
+    model_path, 
+    sdf_path, 
+    graphexp_weights_path, 
+    gnnexp_weights_path, # Puede ser None
+    mode="delta" 
+):
+    """
+    Versión optimizada para BATCH processing.
+    NO genera imágenes, NO guarda archivos.
+    Calcula curvas y retorna directamente las AUCs normalizadas.
+    """
+    
+    # --- 1. Carga del Modelo ---
+    try:
+        # Nota: Si estás en un bucle muy grande, sería ideal cargar el modelo FUERA 
+        # de esta función y pasarlo como argumento 'model' en lugar de 'model_path'
+        # para no cargarlo de disco 1000 veces.
+        model, device, _ = cargar_modelo(model_path)
+        model.eval()
+    except Exception as e:
+        logger.error(f"Error cargando modelo {model_path}: {e}")
+        return None, None
+    
+    # --- 2. Carga de Molécula ---
+    if not os.path.exists(sdf_path):
+        return None, None
+
+    mol = Chem.SDMolSupplier(sdf_path, removeHs=False)[0]
+    if mol is None:
+        return None, None
+        
+    data = mol_to_graph_data(mol)
+
+    # --- 3. Carga de Tensores ---
+    try:
+        tensor_graphexp = cargar_pesos_tensor(graphexp_weights_path, device)
+        
+        tensor_gnn = None
+        if gnnexp_weights_path is not None or mode == "gamma":
+            tensor_gnn = cargar_pesos_tensor(gnnexp_weights_path, device)
+            
+    except Exception as e:
+        logger.warning(f"Error cargando tensores para {os.path.basename(sdf_path)}: {e}")
+        return None, None
+
+    # --- 4. Cálculo GraphExplainer ---
+    # Obtenemos la curva (lista de fiabilidad) y los pasos k
+    k_vals, fiab_graphexp = calcular_curvas_fidelity_general(model, data, tensor_graphexp, device, mode)
+    
+    # Cálculo de AUC GraphExplainer
+    max_k = k_vals[-1] if len(k_vals) > 0 else 0
+    
+    if max_k > 0:
+        try:
+            raw_auc_graph = np.trapezoid(fiab_graphexp, k_vals) # NumPy 2.0+
+        except AttributeError:
+            raw_auc_graph = np.trapz(fiab_graphexp, k_vals)     # NumPy < 2.0
+        
+        auc_graph = raw_auc_graph / max_k # Normalización (0 a 1)
+    else:
+        auc_graph = 0.0
+
+    # --- 5. Cálculo GNNExplainer (Opcional) ---
+    auc_gnn = None
+    
+    if tensor_gnn is not None:
+        try:
+            # Usamos los mismos k_vals si es posible, o recalculamos si la estructura lo requiere
+            # Generalmente recalculamos para asegurar consistencia si dimensions difieren ligeramente
+            _, fiab_gnn = calcular_curvas_fidelity_general(model, data, tensor_gnn, device, mode)
+            
+            if max_k > 0 and len(fiab_gnn) > 0:
+                try:
+                    raw_auc_gnn = np.trapezoid(fiab_gnn, k_vals)
+                except AttributeError:
+                    raw_auc_gnn = np.trapz(fiab_gnn, k_vals)
+                    
+                auc_gnn = raw_auc_gnn / max_k
+            else:
+                auc_gnn = 0.0
+                
+        except ValueError:
+            # Si fallan las dimensiones de GNNExplainer, devolvemos None pero mantenemos el resultado de GraphExplainer
+            auc_gnn = None
+
+    # Retornamos valores puros
+    return auc_graph, auc_gnn
