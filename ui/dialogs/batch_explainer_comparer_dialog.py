@@ -41,6 +41,16 @@ class BatchComparerDialog(QDialog):
         self.weights_dir_btn = QPushButton("Seleccionar...")
         self.weights_dir_btn.clicked.connect(self.browse_weights_dir)
 
+        # En el __init__ añade el campo para Targets
+        self.targets_input = QLineEdit()
+        self.targets_input.setPlaceholderText("Archivo de targets (.txt)")
+        self.targets_input.setText(self.settings.value("batchComparer/last_targets_path", ""))
+        self.targets_btn = QPushButton("Seleccionar...")
+        self.targets_btn.clicked.connect(self.browse_targets)
+
+        # Añádelo al form_layout
+        form_layout.addRow("Targets (.txt):", self._with_button(self.targets_input, self.targets_btn))
+
         # ---------- Layout ----------
         form_layout = QFormLayout()
         
@@ -94,6 +104,11 @@ class BatchComparerDialog(QDialog):
         path = QFileDialog.getExistingDirectory(self, "Seleccionar Raíz de Pesos")
         if path: self.weights_dir_input.setText(path)
 
+    # --- Método browse ---
+    def browse_targets(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Seleccionar Targets", "", "Texto (*.txt *.csv)")
+        if path: self.targets_input.setText(path)
+
     # ---------- Accept ----------
     def accept(self):
         # Guardar settings para recordar la próxima vez
@@ -101,6 +116,7 @@ class BatchComparerDialog(QDialog):
         self.settings.setValue("batchComparer/last_model_path", self.model_path_input.text())
         self.settings.setValue("batchComparer/last_sdf_dir", self.sdf_dir_input.text())
         self.settings.setValue("batchComparer/last_weights_dir", self.weights_dir_input.text())
+        self.settings.setValue("batchComparer/last_targets_path", self.targets_input.text())
         super().accept()
 
     # ---------- Get Inputs ----------
@@ -116,5 +132,6 @@ class BatchComparerDialog(QDialog):
             self.model_path_input.text(),
             self.sdf_dir_input.text(),
             self.weights_dir_input.text(),
+            self.targets_input.text(),  # <--- NUEVO
             self.mode_combo.currentText()
         )

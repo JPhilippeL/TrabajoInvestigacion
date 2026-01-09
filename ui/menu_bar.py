@@ -19,12 +19,11 @@ from ui.dialogs.explanation_dialog import ExplanationDialog
 from ui.dialogs.explainer_comparer_dialog import ExplainerComparerDialog
 from ui.dialogs.batch_explainer_comparer_dialog import BatchComparerDialog
 
-from ML.model_tester import test_model_on_directory
-from ML.model_tester import obtener_info_checkpoint
+from ML.model_tester import test_model_on_directory,cargar_y_predecir, cargar_modelo, obtener_info_checkpoint
 from ML.explainers.model_Graph_explainer import obtener_graph_explainer
 from ML.explainers.model_GNNExplainer import obtener_GNN_Explainer
 from ML.explainers.explanation_fidelity import generar_comparativa_fidelity, save_auc_results_csv, calcular_aucs_fidelity_batch
-from ML.model_tester import cargar_y_predecir, cargar_modelo
+from ML.data_processing import read_targets, mol_to_graph_data
 from core.sdf_converter import graph_to_mol, save_graph_as_sdf, split_sdf, smiles_csv_to_sdf_dir
 
 logger = logging.getLogger(__name__)
@@ -718,9 +717,11 @@ class MenuBar(QMenuBar):
         # weights_root_dir: Ruta raíz de los pesos (dentro debe haber carpetas alpha, beta, etc.)
         # mode: String 'alpha', 'beta', 'gamma' o 'delta'
         dialog = BatchComparerDialog(self.parent)
+
+        UMBRAL_ERROR = 0.6767
         
         if dialog.exec():
-            model_path, sdfs_dir, weights_root_dir, mode = dialog.get_inputs()
+            model_path, sdfs_dir, weights_root_dir, targets_path, mode = dialog.get_inputs()
             
             # Construir la ruta específica del modo (ej: .../pesos/alpha)
             weights_mode_dir = os.path.join(weights_root_dir, mode)
@@ -747,15 +748,41 @@ class MenuBar(QMenuBar):
 
                 # Cargar modelo
                 model, device, targetname = cargar_modelo(model_path)
+                targets_dict = read_targets(targets_path)
 
                 for sdf_file in sdf_files:
                     mol_name = os.path.splitext(sdf_file)[0] # Nombre sin extensión (el "componente")
                     full_sdf_path = os.path.join(sdfs_dir, sdf_file)
 
-                    # --- Lógica de Matching ---
-                    # Buscamos archivos en weights_mode_dir que contengan 'mol_name'
-                    # Nota: Aseguramos que el match sea robusto (ej: que 'mol1' no haga match con 'mol10')
-                    # Una forma simple es verificar que el nombre esté contenido.
+                    # --- FILTRO DE ERROR ---
+                    
+                    # A) Obtener Valor Real
+                    if mol_name not in targets_dict:
+                        logger.warning(f"Saltando {mol_name}: No tiene valor target asociado.")
+                        continue
+                    y_real = targets_dict[mol_name]
+
+                    # B) Obtener Valor Predicho (Inferencia rápida)
+                    try:
+                        mol = Chem.SDMolSupplier(full_sdf_path, removeHs=False)[0] # Ojo con removeHs
+                        if mol is None: continue
+                        data = mol_to_graph_data(mol).to(device)
+                        
+                        with torch.no_grad():
+                            pred_tensor = model(data.x, data.edge_index, data.edge_attr, data.batch)
+                            y_pred = pred_tensor.item()
+                    except Exception as e:
+                        logger.error(f"Error en inferencia {mol_name}: {e}")
+                        continue
+
+                    # C) Calcular Error y Filtrar
+                    error_abs = abs(y_real - y_pred)
+                    
+                    if error_abs >= UMBRAL_ERROR:
+                        # Si el error es grande, saltamos esta molécula
+                        # logger.info(f"Saltando {mol_name}: Error {error_abs:.4f} > {UMBRAL_ERROR}")
+                        continue
+
                     matches = []
                     for w in all_weight_files:
                         if w.endswith(f"_{mol_name}.pt"):
