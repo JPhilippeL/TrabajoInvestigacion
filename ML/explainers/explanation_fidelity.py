@@ -529,7 +529,7 @@ def save_auc_results_csv(results, mode, model_name):
         logging.getLogger(__name__).error(f"Error al guardar CSV: {str(e)}", exc_info=True)
 
 def calcular_aucs_fidelity_batch(
-    model_path, 
+    model, device, 
     sdf_path, 
     graphexp_weights_path, 
     gnnexp_weights_path, # Puede ser None
@@ -540,17 +540,6 @@ def calcular_aucs_fidelity_batch(
     NO genera imágenes, NO guarda archivos.
     Calcula curvas y retorna directamente las AUCs normalizadas.
     """
-    
-    # --- 1. Carga del Modelo ---
-    try:
-        # Nota: Si estás en un bucle muy grande, sería ideal cargar el modelo FUERA 
-        # de esta función y pasarlo como argumento 'model' en lugar de 'model_path'
-        # para no cargarlo de disco 1000 veces.
-        model, device, _ = cargar_modelo(model_path)
-        model.eval()
-    except Exception as e:
-        logger.error(f"Error cargando modelo {model_path}: {e}")
-        return None, None
     
     # --- 2. Carga de Molécula ---
     if not os.path.exists(sdf_path):
@@ -567,7 +556,7 @@ def calcular_aucs_fidelity_batch(
         tensor_graphexp = cargar_pesos_tensor(graphexp_weights_path, device)
         
         tensor_gnn = None
-        if gnnexp_weights_path is not None or mode == "gamma":
+        if gnnexp_weights_path is not None and mode != "gamma":
             tensor_gnn = cargar_pesos_tensor(gnnexp_weights_path, device)
             
     except Exception as e:

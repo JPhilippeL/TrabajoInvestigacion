@@ -24,7 +24,7 @@ from ML.model_tester import obtener_info_checkpoint
 from ML.explainers.model_Graph_explainer import obtener_graph_explainer
 from ML.explainers.model_GNNExplainer import obtener_GNN_Explainer
 from ML.explainers.explanation_fidelity import generar_comparativa_fidelity, save_auc_results_csv, calcular_aucs_fidelity_batch
-from ML.model_tester import cargar_y_predecir
+from ML.model_tester import cargar_y_predecir, cargar_modelo
 from core.sdf_converter import graph_to_mol, save_graph_as_sdf, split_sdf, smiles_csv_to_sdf_dir
 
 logger = logging.getLogger(__name__)
@@ -149,6 +149,11 @@ class MenuBar(QMenuBar):
         explanation_comparer_action = QAction("Comparar Explicadores", self)
         explanation_comparer_action.triggered.connect(self.get_explanation_comparer)
         menu_explicacion.addAction(explanation_comparer_action)
+
+        # batch_Comparador
+        batch_explanation_comparer_action = QAction("Comparar Explicadores Batch", self)
+        batch_explanation_comparer_action.triggered.connect(self.get_batch_explanation_comparer)
+        menu_explicacion.addAction(batch_explanation_comparer_action)
 
     def nuevo_archivo(self):
         self.parent.create_new_graph()
@@ -740,6 +745,9 @@ class MenuBar(QMenuBar):
                 # Esto mejora el rendimiento si hay muchos archivos.
                 all_weight_files = os.listdir(weights_mode_dir)
 
+                # Cargar modelo
+                model, device, targetname = cargar_modelo(model_path)
+
                 for sdf_file in sdf_files:
                     mol_name = os.path.splitext(sdf_file)[0] # Nombre sin extensión (el "componente")
                     full_sdf_path = os.path.join(sdfs_dir, sdf_file)
@@ -748,7 +756,10 @@ class MenuBar(QMenuBar):
                     # Buscamos archivos en weights_mode_dir que contengan 'mol_name'
                     # Nota: Aseguramos que el match sea robusto (ej: que 'mol1' no haga match con 'mol10')
                     # Una forma simple es verificar que el nombre esté contenido.
-                    matches = [w for w in all_weight_files if mol_name in w]
+                    matches = []
+                    for w in all_weight_files:
+                        if w.endswith(f"_{mol_name}.pt"):
+                            matches.append(w)
                     
                     if not matches:
                         logger.warning(f"Saltando {mol_name}: No se encontraron pesos en {mode}.")
@@ -776,7 +787,7 @@ class MenuBar(QMenuBar):
                     try:
                         # LLAMADA NUEVA OPTIMIZADA
                         auc_graph, auc_gnn = calcular_aucs_fidelity_batch(
-                            model_path, 
+                            model, device,
                             full_sdf_path, 
                             path_graph_explainer, 
                             path_gnn_explainer, 
