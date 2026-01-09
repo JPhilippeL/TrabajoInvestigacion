@@ -48,9 +48,6 @@ class BatchComparerDialog(QDialog):
         self.targets_btn = QPushButton("Seleccionar...")
         self.targets_btn.clicked.connect(self.browse_targets)
 
-        # Añádelo al form_layout
-        form_layout.addRow("Targets (.txt):", self._with_button(self.targets_input, self.targets_btn))
-
         # ---------- Layout ----------
         form_layout = QFormLayout()
         
@@ -65,6 +62,9 @@ class BatchComparerDialog(QDialog):
         
         # Fila SDFs
         form_layout.addRow("Directorio SDFs:", self._with_button(self.sdf_dir_input, self.sdf_dir_btn))
+
+        # Añádelo al form_layout
+        form_layout.addRow("Targets (.txt):", self._with_button(self.targets_input, self.targets_btn))
         
         # Fila Pesos
         form_layout.addRow("Dir. Raíz Pesos:", self._with_button(self.weights_dir_input, self.weights_dir_btn))
