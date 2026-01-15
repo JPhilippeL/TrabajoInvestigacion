@@ -21,7 +21,7 @@ logging.basicConfig(
     stream=sys.stdout
 )
 
-from ui.utils import RESULTADOS_DIR, MODELOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, ATOM_EMB_PR, HYBRID_EMB_PR, BOND_EMB_PR, OTHER_EDGE_FEATURES, OTHER_NODE_FEATURES
+from ui.utils.utils import RESULTADOS_DIR, MODELOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, ATOM_EMB_PR, HYBRID_EMB_PR, BOND_EMB_PR, OTHER_EDGE_FEATURES, OTHER_NODE_FEATURES
 HEADS = 4  # Número de cabezas para GAT y GraphTransformer
 
 
@@ -427,10 +427,6 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
     plt.close()
     
     logging.info(f"Gráfico de pérdidas guardado en {os.path.join(model_results_dir, f'{model_name}_loss_curve.png')}")
-
-import os
-import torch
-import gc
 
 def save_model(
     model,

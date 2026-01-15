@@ -5,7 +5,7 @@ from rdkit.Chem import AllChem
 import torch
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from ui.utils import periodic_elements, hybridization_types
+from ui.utils.utils import periodic_elements, hybridization_types
 from sklearn.model_selection import train_test_split
 import math
 import logging

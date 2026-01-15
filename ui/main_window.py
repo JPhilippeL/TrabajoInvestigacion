@@ -3,13 +3,13 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from ui.graph.graph_view import MoleculeGraphView
 from graph_managment.sdf_converter import parse_sdf
-from ui.welcome_screen import WelcomeScreen
+from ui.utils.welcome_screen import WelcomeScreen
 from ui.menu_bar import MenuBar
 from PySide6.QtWidgets import QTextEdit
 from PySide6.QtGui import QTextCursor
 import networkx as nx
 import logging
-from ui.logger import QtHandler
+from ui.utils.logger import QtHandler
 from ML.controllers.training_controller_process import TrainingControllerProcess
 from ML.controllers.testing_controller_process import TestingControllerProcess
 

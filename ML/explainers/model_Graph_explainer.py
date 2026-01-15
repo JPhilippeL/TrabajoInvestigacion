@@ -3,7 +3,7 @@ from ML.model_tester import cargar_modelo, predecir_molecula
 import torch
 import torch.nn as nn
 import numpy as np
-from ui.utils import periodic_elements, hybridization_types
+from ui.utils.utils import periodic_elements, hybridization_types
 import os
 import sys
 import logging

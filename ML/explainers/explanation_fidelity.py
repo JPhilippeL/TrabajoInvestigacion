@@ -6,7 +6,7 @@ import os
 from torch_geometric.utils import subgraph
 from torch_geometric.data import Data
 from rdkit import Chem
-from ui.utils import RESULTADOS_DIR, apply_paper_style, save_paper_figure
+from ui.utils.utils import RESULTADOS_DIR, apply_paper_style, save_paper_figure
 from ML.data_processing import mol_to_graph_data
 from ML.model_tester import cargar_modelo
 import logging

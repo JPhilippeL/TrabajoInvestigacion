@@ -11,7 +11,7 @@ from math import sqrt
 from ML.data_processing import read_targets, load_data_from_sdf, mol_to_graph_data
 import logging
 import sys
-from ui.utils import RESULTADOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, OTHER_EDGE_FEATURES, OTHER_NODE_FEATURES
+from ui.utils.utils import RESULTADOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, OTHER_EDGE_FEATURES, OTHER_NODE_FEATURES
 import csv
 from scipy.stats import pearsonr
 

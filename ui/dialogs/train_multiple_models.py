@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox, QDialogButtonBox, QPushButton, QFileDialog, QHBoxLayout
 )
 from PySide6.QtCore import QSettings
-from ui.utils import ATOM_EMB_PR, HYBRID_EMB_PR, BOND_EMB_PR
+from ui.utils.utils import ATOM_EMB_PR, HYBRID_EMB_PR, BOND_EMB_PR
 
 
 class TrainMultipleModelsDialog(QDialog):
