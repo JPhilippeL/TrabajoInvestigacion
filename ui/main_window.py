@@ -2,7 +2,7 @@ from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QMessageBox, QS
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from ui.graph.graph_view import MoleculeGraphView
-from core.sdf_converter import parse_sdf
+from graph_managment.sdf_converter import parse_sdf
 from ui.welcome_screen import WelcomeScreen
 from ui.menu_bar import MenuBar
 from PySide6.QtWidgets import QTextEdit

@@ -24,7 +24,7 @@ from ML.explainers.model_Graph_explainer import obtener_graph_explainer
 from ML.explainers.model_GNNExplainer import obtener_GNN_Explainer
 from ML.explainers.explanation_fidelity import generar_comparativa_fidelity, save_auc_results_csv, calcular_aucs_fidelity_batch
 from ML.data_processing import read_targets, mol_to_graph_data
-from core.sdf_converter import graph_to_mol, save_graph_as_sdf, split_sdf, smiles_csv_to_sdf_dir
+from graph_managment.sdf_converter import graph_to_mol, save_graph_as_sdf, split_sdf, smiles_csv_to_sdf_dir
 
 logger = logging.getLogger(__name__)
 

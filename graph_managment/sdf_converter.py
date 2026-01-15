@@ -108,12 +108,6 @@ def save_graph_as_sdf(graph, file_path):
         writer.close()
     except Exception as e:
         raise RuntimeError(f"Error al guardar la molécula: {str(e)}")
-    
-import os
-from rdkit import Chem
-
-import os
-from rdkit import Chem
 
 def split_sdf(sdf_file, output_dir):
     """

@@ -6,7 +6,7 @@ import logging
 from rdkit import Chem
 
 from torch_geometric.explain import Explainer, GNNExplainer
-from core.sdf_converter import parse_sdf
+from graph_managment.sdf_converter import parse_sdf
 
 # Tus módulos existentes
 from ML.model_tester import cargar_modelo, predecir_molecula

@@ -9,7 +9,7 @@ import sys
 import logging
 from ML.data_processing import mol_to_graph_data, onehot_to_indices
 from rdkit import Chem
-from core.sdf_converter import parse_sdf
+from graph_managment.sdf_converter import parse_sdf
 from ML.explainers.explanation_helper import ( 
     obtener_info_real, guardar_dashboard_explicacion,
     guardar_pesos, tensor_to_abs_numpy, 
