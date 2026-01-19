@@ -9,10 +9,12 @@ import platform
 import datetime
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
-from .utils.constants import PROCESSED_DATA_DIR, c1, c2, structure_types, amino_acids
 
+from .utils.constants import PROCESSED_DATA_DIR, c1, c2, structure_types, amino_acids
+import logging
+
+logger = logging.getLogger(__name__)
 COLUMNA_ID_LIGAND = "id"
-errors = []
 processing_details = []
 
 def DB_Generation(
@@ -32,13 +34,10 @@ def DB_Generation(
     # Start timing
     start_time = time.time()
     
-    # Track any errors that occur
-    errors = []
-    
     # Validate ratios
     if abs(train_ratio + val_ratio + test_ratio - 1.0) > 1e-6:
         error_msg = f"Ratios must sum to 1.0, got: {train_ratio + val_ratio + test_ratio}"
-        errors.append(error_msg)
+        logger.error(error_msg)
         raise ValueError(error_msg)
     
     # Set up output directory
@@ -87,8 +86,7 @@ def DB_Generation(
                 "pocket_entries": 0
             },
             "output": {}
-        },
-        "errors": errors
+        }
     }
 
     # -------------------------
@@ -175,7 +173,7 @@ def DB_Generation(
     print("\nStep 5/5: Finalizing...")
     # Write detailed processing information
     details_path = os.path.join(output_dir, "details.txt")
-    write_details_file(details_path, processing_details)
+    write_details_file(details_path, processing_details, start_time)
     print(f"Processing details written to {details_path}")
     
     # Clean up temporary files if requested
@@ -198,7 +196,6 @@ def DB_Generation(
         "test_count": processing_details['split_info']['test_count'],
         "output_dir": output_dir,
         "details_file": details_path,
-        "errors": len(errors)
     }
 
 def process_protein_files(dssp_dir, output_global_dir):
@@ -229,7 +226,7 @@ def process_protein_files(dssp_dir, output_global_dir):
                 
                 if df.empty:
                     error_msg = f"Error: Empty DataFrame for {protein_id} (DSSP parse failed)"
-                    errors.append(error_msg)
+                    logger.error(error_msg)
                     failed_count += 1
                     continue
                 
@@ -250,7 +247,7 @@ def process_protein_files(dssp_dir, output_global_dir):
                 success_count += 1
             except Exception as e:
                 error_msg = f"Error processing DSSP file {dssp_file}: {str(e)}"
-                errors.append(error_msg)
+                logger.error(error_msg)
                 print(error_msg)
                 failed_count += 1
                 
@@ -318,7 +315,7 @@ def process_pocket_file(pocket_csv, dssp_dir, output_pocket_dir):
                     if not positions or len(seq) != len(positions):
                         # Mensaje de error más descriptivo
                         error_msg = f"Skipping {protein_id}: Invalid Positions (SeqLen: {len(seq)} vs PosLen: {len(positions)})"
-                        errors.append(error_msg)
+                        logger.error(error_msg)
                         print(error_msg)
                         skipped_count += 1
                         continue
@@ -327,7 +324,7 @@ def process_pocket_file(pocket_csv, dssp_dir, output_pocket_dir):
                     dssp_path = os.path.join(dssp_dir, f"{protein_id}_protein.dssp")
                     if not os.path.exists(dssp_path):
                         error_msg = f"Skipping {protein_id}: DSSP file not found at {dssp_path}"
-                        errors.append(error_msg)
+                        logger.error(error_msg)
                         print(error_msg)
                         skipped_count += 1
                         continue
@@ -376,7 +373,7 @@ def process_pocket_file(pocket_csv, dssp_dir, output_pocket_dir):
                 except Exception as e:
                     # Capturar error específico por fila para no detener todo el proceso
                     error_msg = f"Error processing pocket for {row.get('PDB', 'unknown')}: {str(e)}"
-                    errors.append(error_msg)
+                    logger.error(error_msg)
                     print(error_msg)
                     skipped_count += 1
             
@@ -387,7 +384,7 @@ def process_pocket_file(pocket_csv, dssp_dir, output_pocket_dir):
             }
         except Exception as e:
             error_msg = f"CRITICAL Error processing pocket file {pocket_csv}: {str(e)}"
-            errors.append(error_msg)
+            logger.error(error_msg)
             print(error_msg)
             processing_details["pocket_processing"] = {
                 "success_count": 0,
@@ -428,12 +425,12 @@ def process_ligand_files(ligand_dir, output_csv):
                         success_count += 1
                     else:
                         error_msg = f"Warning: File {ligand_file} is empty or invalid format"
-                        errors.append(error_msg)
+                        logger.error(error_msg)
                         print(error_msg)
                         failed_count += 1
             except Exception as e:
                 error_msg = f"Error processing ligand file {ligand_file}: {str(e)}"
-                errors.append(error_msg)
+                logger.error(error_msg)
                 print(error_msg)
                 failed_count += 1
                 
@@ -495,7 +492,7 @@ def copy_files_for_split(source_dir, split_ids, target_dir):
                 copied_count += 1
             else:
                 error_msg = f"Warning: {src_file} not found."
-                errors.append(error_msg)
+                logger.error(error_msg)
                 print(error_msg)
                 missing_count += 1
         return copied_count, missing_count
@@ -542,7 +539,7 @@ def combine_global_seq_for_split(dssp_dir, split_ids, output_filename, include_i
             records.append({"id": pdbid, "seq": seq})
         else:
             error_msg = f"Warning: DSSP file for {pdbid} not found."
-            errors.append(error_msg)
+            logger.error(error_msg)
             print(error_msg)
             missing_count += 1
     if records:
@@ -552,7 +549,7 @@ def combine_global_seq_for_split(dssp_dir, split_ids, output_filename, include_i
         return len(df), missing_count
     else:
         error_msg = f"No global seq records combined for {output_filename}"
-        errors.append(error_msg)
+        logger.error(error_msg)
         print(error_msg)
         return 0, missing_count
 
@@ -567,7 +564,7 @@ def combine_pocket_seq_for_split(pocket_csv, split_ids, output_filename, include
     missing_count = len(split_ids) - len(df_subset)
     if missing_count > 0:
         error_msg = f"Warning: {missing_count} pocket sequences not found for split IDs."
-        errors.append(error_msg)
+        logger.error(error_msg)
         print(error_msg)
     df_subset.to_csv(output_filename, index=include_index, float_format='%.6f')
     print(f"Saved combined pocket seq file: {output_filename}")
@@ -639,14 +636,6 @@ def write_details_file(output_path, details, start_time):
             for key, count in details['file_counts']['output'].items():
                 f.write(f"  {key}: {count}\n")
             f.write("\n")
-        
-        # Errors
-        if errors:
-            f.write("Errors and Warnings:\n")
-            for i, error in enumerate(errors):
-                f.write(f"  {i+1}. {error}\n")
-        else:
-            f.write("No errors reported during processing.\n")
 
 def parse_dssp_file(dssp_path):
         """
@@ -677,7 +666,7 @@ def parse_dssp_file(dssp_path):
             return pd.DataFrame(records)
         except Exception as e:
             error_msg = f"Error parsing DSSP file {dssp_path}: {str(e)}"
-            errors.append(error_msg)
+            logger.error(error_msg)
             print(error_msg)
             return pd.DataFrame(columns=['residue', 'chain', 'aa', 'structure'])
 
