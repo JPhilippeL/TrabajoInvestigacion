@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QGraphicsEllipseItem, QGraphicsTextItem, QGraphicsItem, QMenu
 from PySide6.QtGui import QBrush, QColor, QFont
 from PySide6.QtCore import Signal, QObject, Qt
-from ui.utils.utils import ATOM_COLORS, ATOM_TEXT_COLORS, ATOM_COLORS_DEFAULT, ATOM_TEXT_COLORS_DEFAULT
+from ui.utils.gui_style import ATOM_COLORS, ATOM_TEXT_COLORS, ATOM_COLORS_DEFAULT, ATOM_TEXT_COLORS_DEFAULT
 
 NODE_RADIUS = 20
 

@@ -21,7 +21,7 @@ logging.basicConfig(
     stream=sys.stdout
 )
 
-from ui.utils.utils import RESULTADOS_DIR, MODELOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, ATOM_EMB_PR, HYBRID_EMB_PR, BOND_EMB_PR, OTHER_EDGE_FEATURES, OTHER_NODE_FEATURES
+from ui.utils.constants import RESULTADOS_DIR, MODELOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, ATOM_EMB_PR, HYBRID_EMB_PR, BOND_EMB_PR, OTHER_EDGE_FEATURES, OTHER_NODE_FEATURES
 HEADS = 4  # Número de cabezas para GAT y GraphTransformer
 
 
@@ -313,7 +313,7 @@ def train(model, train_loader, device, epochs=20, lr=0.001, val_loader=None, pat
     # --- CAMBIO 1: Scheduler ---
     # Si la valid loss no mejora en 'patience_scheduler' épocas, reducimos el LR a la mitad (factor 0.5)
     patience_scheduler = max(10, patience // 4) if patience > 0 else 15
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=patience_scheduler, verbose=True)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=patience_scheduler)
     
     criterion = torch.nn.MSELoss()
 

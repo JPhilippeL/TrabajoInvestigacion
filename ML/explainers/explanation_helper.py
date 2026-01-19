@@ -11,7 +11,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
-from ui.utils.utils import RESULTADOS_DIR  # Asegúrate de que esto se pueda importar aquí
+from ui.utils.constants import RESULTADOS_DIR  # Asegúrate de que esto se pueda importar aquí
 
 # --- FUNCIÓN MAESTRA ---
 def guardar_dashboard_explicacion(

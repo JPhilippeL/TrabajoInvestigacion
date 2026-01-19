@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QSettings
 
 # Asegúrate de importar tus valores por defecto:
-from ui.utils.utils import ATOM_EMB_PR, HYBRID_EMB_PR, BOND_EMB_PR
+from ui.utils.constants import ATOM_EMB_PR, HYBRID_EMB_PR, BOND_EMB_PR
 
 
 class TrainConfigDialog(QDialog):

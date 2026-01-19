@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QGraphicsScene, QInputDialog, QMessageBox, QGraphicsLineItem
 from PySide6.QtGui import QColor, QPen, Qt, QTransform
 from PySide6.QtCore import QPointF
-from ui.utils.utils import BACKGROUND_COLOR
+from ui.utils.gui_style import BACKGROUND_COLOR
 from ui.graph_interface.edge_item import EdgeItem
 from ui.graph_interface.node_item import NodeItem
 from graph_managment.graph_manager import GraphManager

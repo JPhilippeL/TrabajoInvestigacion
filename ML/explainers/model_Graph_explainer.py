@@ -3,7 +3,7 @@ from ML.model_tester import cargar_modelo, predecir_molecula
 import torch
 import torch.nn as nn
 import numpy as np
-from ui.utils.utils import periodic_elements, hybridization_types
+from ui.utils.constants import periodic_elements, hybridization_types
 import os
 import sys
 import logging
@@ -19,8 +19,8 @@ from ML.explainers.explanation_fidelity import calcular_curvas_fidelity_general,
 
 ALGO_NAME = "GraphExplainer"
 # Probabilidad de que un nodo/arista específico sea modificado.
-    # Un 15% - 20% es razonable para mantener la estructura general.
 PERTURB_PROB = 0.15
+# Un 15% - 20% es razonable para mantener la estructura general.
 MININICIAL = sys.float_info.max
 logger = logging.getLogger(__name__)
 
