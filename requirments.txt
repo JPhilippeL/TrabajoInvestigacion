@@ -1,8 +1,0 @@
-PySide6
-torch
-torch geometric
-rdkit
-scikit-learn
-numpy
-networkX
-matplotlib
