@@ -1,5 +1,5 @@
 # model_explainer.py
-from ML.model_tester import cargar_modelo, predecir_molecula
+from GNNs.model_tester import cargar_modelo, predecir_molecula
 import torch
 import torch.nn as nn
 import numpy as np
@@ -7,15 +7,15 @@ from ui.utils.constants import periodic_elements, hybridization_types
 import os
 import sys
 import logging
-from ML.data_processing import mol_to_graph_data, onehot_to_indices
+from GNNs.data_processing import mol_to_graph_data, onehot_to_indices
 from rdkit import Chem
 from graph_managment.sdf_converter import parse_sdf
-from ML.explainers.explanation_helper import ( 
+from GNNs.explainers.explanation_helper import ( 
     obtener_info_real, guardar_dashboard_explicacion,
     guardar_pesos, tensor_to_abs_numpy, 
     normalizar_max, get_feature_names_embedding, 
     procesar_features_ordenadas )
-from ML.explainers.explanation_fidelity import calcular_curvas_fidelity_general, guardar_plot_fidelity
+from GNNs.explainers.explanation_fidelity import calcular_curvas_fidelity_general, guardar_plot_fidelity
 
 ALGO_NAME = "GraphExplainer"
 # Probabilidad de que un nodo/arista específico sea modificado.

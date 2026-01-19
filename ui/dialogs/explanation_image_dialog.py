@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLineEdit,
+    QDialog, QVBoxLayout, QForGNNsayout, QLineEdit,
     QPushButton, QFileDialog, QDialogButtonBox, QWidget, QHBoxLayout
 )
 from PySide6.QtCore import QSettings
@@ -56,7 +56,7 @@ class FullExplainerConfigDialog(QDialog):
         self.delta_browse_btn.clicked.connect(lambda: self.browse_generic(self.delta_path_input))
 
         # ---------- Layout ----------
-        form_layout = QFormLayout()
+        form_layout = QForGNNsayout()
         
         # Agrupamos visualmente
         form_layout.addRow("<b>Entradas Principales:</b>", QWidget()) # Separador visual vacío

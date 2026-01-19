@@ -4,7 +4,7 @@ import argparse
 import time
 import torch
 import gc
-from ML.transfer_trainer import transfer_train
+from GNNs.transfer_trainer import transfer_train
 
 def main():
     parser = argparse.ArgumentParser()

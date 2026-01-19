@@ -16,7 +16,7 @@ class TestingControllerProcess:
         self.process = QProcess()
         self.process.setProgram(sys.executable)
         self.process.setArguments([
-            "-m", "ML.workers.tester_worker",
+            "-m", "GNNs.workers.tester_worker",
             "--models_dir", models_dir,
             "--sdf_dir", sdf_dir,
             "--targets_file", targets_file,

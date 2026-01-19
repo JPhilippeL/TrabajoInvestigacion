@@ -5,8 +5,8 @@ import os
 import gc
 import logging
 from sklearn.model_selection import train_test_split
-from ML.model_trainer import create_model, train
-from ML.data_processing import read_targets, load_data_from_sdf, create_dataloader
+from GNNs.model_trainer import create_model, train
+from GNNs.data_processing import read_targets, load_data_from_sdf, create_dataloader
 from ui.utils.constants import MODELOS_DIR
 
 logging.basicConfig(level=logging.INFO,

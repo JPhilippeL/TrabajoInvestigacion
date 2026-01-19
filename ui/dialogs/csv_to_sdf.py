@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLineEdit, QPushButton, QFileDialog,
+    QDialog, QVBoxLayout, QForGNNsayout, QLineEdit, QPushButton, QFileDialog,
     QHBoxLayout, QDialogButtonBox, QMessageBox
 )
 from PySide6.QtCore import QSettings
@@ -17,7 +17,7 @@ class CSVtoSDFDialog(QDialog):
         self.settings = QSettings("Investigacion", "Analisis Molecular")
 
         layout = QVBoxLayout()
-        form_layout = QFormLayout()
+        form_layout = QForGNNsayout()
 
         # ---------- CSV file ----------
         self.csv_file_input = QLineEdit()

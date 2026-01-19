@@ -9,15 +9,15 @@ from torch_geometric.explain import Explainer, GNNExplainer
 from graph_managment.sdf_converter import parse_sdf
 
 # Tus módulos existentes
-from ML.model_tester import cargar_modelo, predecir_molecula
-from ML.data_processing import mol_to_graph_data
-from ML.explainers.explanation_helper import ( 
+from GNNs.model_tester import cargar_modelo, predecir_molecula
+from GNNs.data_processing import mol_to_graph_data
+from GNNs.explainers.explanation_helper import ( 
     obtener_info_real, guardar_dashboard_explicacion,
     guardar_pesos,
     tensor_to_abs_numpy, normalizar_max, 
     get_feature_names_embedding, procesar_features_ordenadas 
 )
-from ML.explainers.explanation_fidelity import calcular_curvas_fidelity_general, guardar_plot_fidelity
+from GNNs.explainers.explanation_fidelity import calcular_curvas_fidelity_general, guardar_plot_fidelity
 
 logger = logging.getLogger(__name__)
 

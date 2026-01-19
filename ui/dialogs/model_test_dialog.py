@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLineEdit,
+    QDialog, QVBoxLayout, QForGNNsayout, QLineEdit,
     QPushButton, QFileDialog, QDialogButtonBox, QWidget, QHBoxLayout
 )
 from PySide6.QtCore import QSettings
@@ -25,7 +25,7 @@ class ModelTestDialog(QDialog):
         self.sdf_browse_btn = QPushButton("Seleccionar...")
         self.sdf_browse_btn.clicked.connect(self.browse_sdf)
 
-        form_layout = QFormLayout()
+        form_layout = QForGNNsayout()
         form_layout.addRow("Modelo (.pt):", self._with_button(self.model_path_input, self.model_browse_btn))
         form_layout.addRow("Molécula (.sdf):", self._with_button(self.sdf_path_input, self.sdf_browse_btn))
 

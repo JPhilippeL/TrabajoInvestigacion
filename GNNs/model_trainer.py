@@ -12,7 +12,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from torch_geometric.nn import GINConv, GINEConv, GATConv, global_add_pool, TransformerConv
 
-from ML.data_processing import prepare_sdf_training_data
+from GNNs.data_processing import prepare_sdf_training_data
 
 logging.basicConfig(
     level=logging.INFO,
@@ -64,12 +64,12 @@ class GINNet(torch.nn.Module):
         self.convs = torch.nn.ModuleList()
 
         for i in range(num_layers):
-            mlp = torch.nn.Sequential(
+            GNNsp = torch.nn.Sequential(
                 torch.nn.Linear(hidden_dim, hidden_dim),
                 torch.nn.ReLU(),
                 torch.nn.Linear(hidden_dim, hidden_dim)
             )
-            self.convs.append(GINConv(mlp))
+            self.convs.append(GINConv(GNNsp))
 
         self.fc = torch.nn.Sequential(
             torch.nn.Linear(hidden_dim, fc_hidden_dim),
@@ -109,12 +109,12 @@ class GINENet(torch.nn.Module):
         self.convs = torch.nn.ModuleList()
 
         for _ in range(num_layers):
-            mlp = torch.nn.Sequential(
+            GNNsp = torch.nn.Sequential(
                 torch.nn.Linear(hidden_dim, hidden_dim),
                 torch.nn.ReLU(),
                 torch.nn.Linear(hidden_dim, hidden_dim)
             )
-            self.convs.append(GINEConv(mlp, edge_dim = edge_dim))
+            self.convs.append(GINEConv(GNNsp, edge_dim = edge_dim))
 
         self.fc = torch.nn.Sequential(
             torch.nn.Linear(hidden_dim, fc_hidden_dim),

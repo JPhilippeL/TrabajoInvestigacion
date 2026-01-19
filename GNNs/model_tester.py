@@ -3,12 +3,12 @@
 import torch
 from rdkit import Chem
 from torch_geometric.data import Data
-from ML.model_trainer import create_model, calc_dim
+from GNNs.model_trainer import create_model, calc_dim
 import os
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error, r2_score
 from math import sqrt
-from ML.data_processing import read_targets, load_data_from_sdf, mol_to_graph_data
+from GNNs.data_processing import read_targets, load_data_from_sdf, mol_to_graph_data
 import logging
 import sys
 from ui.utils.constants import RESULTADOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, OTHER_EDGE_FEATURES, OTHER_NODE_FEATURES

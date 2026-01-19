@@ -10,8 +10,8 @@ from PySide6.QtGui import QTextCursor
 import networkx as nx
 import logging
 from ui.utils.logger import QtHandler
-from ML.controllers.training_controller_process import TrainingControllerProcess
-from ML.controllers.testing_controller_process import TestingControllerProcess
+from GNNs.controllers.training_controller_process import TrainingControllerProcess
+from GNNs.controllers.testing_controller_process import TestingControllerProcess
 
 class MainWindow(QMainWindow):
     def __init__(self):

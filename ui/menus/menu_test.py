@@ -8,7 +8,7 @@ from ui.dialogs.batch_model_test_dialog import BatchModelTestDialog
 from ui.dialogs.test_all_models_dialog import BatchAllModelsTestDialog
 from ui.dialogs.image_dialog import ImageDialog
 
-from ML.model_tester import test_model_on_directory,cargar_y_predecir, obtener_info_checkpoint
+from GNNs.model_tester import test_model_on_directory,cargar_y_predecir, obtener_info_checkpoint
 
 logger = logging.getLogger(__name__)
 

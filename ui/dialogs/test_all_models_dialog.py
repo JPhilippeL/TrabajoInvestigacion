@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLineEdit,
+    QDialog, QVBoxLayout, QForGNNsayout, QLineEdit,
     QPushButton, QFileDialog, QDialogButtonBox, QWidget, QHBoxLayout
 )
 from PySide6.QtCore import QSettings
@@ -30,7 +30,7 @@ class BatchAllModelsTestDialog(QDialog):
         self.targets_browse_btn.clicked.connect(self.browse_targets_file)
 
         # Form layout
-        form_layout = QFormLayout()
+        form_layout = QForGNNsayout()
         form_layout.addRow("Directorio de modelos:", self._with_button(self.models_dir_input, self.models_browse_btn))
         form_layout.addRow("Directorio de SDFs:", self._with_button(self.sdf_dir_input, self.sdf_browse_btn))
         form_layout.addRow("Archivo de targets (.txt):", self._with_button(self.targets_file_input, self.targets_browse_btn))

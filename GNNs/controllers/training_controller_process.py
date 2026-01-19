@@ -36,7 +36,7 @@ class TrainingControllerProcess:
         self.process = QProcess()
         self.process.setProgram(sys.executable)  # ejecuta el mismo Python
         self.process.setArguments([
-            "-m", "ML.workers.trainer_worker",
+            "-m", "GNNs.workers.trainer_worker",
             "--sdf_dir", sdf_dir,
             "--target_file", target_file,
             "--model_type", model_type,
@@ -78,7 +78,7 @@ class TrainingControllerProcess:
         self.process = QProcess()
         self.process.setProgram(sys.executable)
         self.process.setArguments([
-            "-m", "ML.workers.transfer_trainer_worker",
+            "-m", "GNNs.workers.transfer_trainer_worker",
             "--sdf_dir", sdf_dir,
             "--target_file", target_file,
             "--pretrained_model_path", pretrained_model_path,
@@ -142,7 +142,7 @@ class TrainingControllerProcess:
         self.process = QProcess()
         self.process.setProgram(sys.executable)
         self.process.setArguments([
-            "-m", "ML.workers.multiple_models_trainer_worker",
+            "-m", "GNNs.workers.multiple_models_trainer_worker",
             "--sdf_dir", sdf_dir,
             "--target_file", target_file,
             "--epochs", str(epochs),
@@ -176,7 +176,7 @@ class TrainingControllerProcess:
         self.process = QProcess()
         self.process.setProgram(sys.executable)
         self.process.setArguments([
-            "-m", "ML.workers.multiple_transfer_trainer_worker",
+            "-m", "GNNs.workers.multiple_transfer_trainer_worker",
             "--pretrained_model_directory_path", pretrained_model_directory_path,
             "--sdf_dir", sdf_dir,
             "--target_file", target_file,
@@ -209,7 +209,7 @@ class TrainingControllerProcess:
         self.process = QProcess()
         self.process.setProgram(sys.executable)
         self.process.setArguments([
-            "-m", "ML.workers.multiple_transfer_trainer_worker",
+            "-m", "GNNs.workers.multiple_transfer_trainer_worker",
             "--pretrained_model_directory_path", pretrained_model_directory_path,
             "--sdf_dir", sdf_dir,
             "--target_file", target_file,
@@ -242,7 +242,7 @@ class TrainingControllerProcess:
         self.process = QProcess()
         self.process.setProgram(sys.executable)
         self.process.setArguments([
-            "-m", "ML.workers.multiple_transfer_trainer_worker",
+            "-m", "GNNs.workers.multiple_transfer_trainer_worker",
             "--pretrained_model_directory_path", pretrained_model_directory_path,
             "--sdf_dir", sdf_dir,
             "--target_file", target_file,

@@ -11,11 +11,11 @@ from ui.dialogs.explanation_dialog import ExplanationDialog
 from ui.dialogs.explainer_comparer_dialog import ExplainerComparerDialog
 from ui.dialogs.batch_explainer_comparer_dialog import BatchComparerDialog
 
-from ML.model_tester import cargar_modelo
-from ML.explainers.model_Graph_explainer import obtener_graph_explainer
-from ML.explainers.model_GNNExplainer import obtener_GNN_Explainer
-from ML.explainers.explanation_fidelity import generar_comparativa_fidelity, save_auc_results_csv, calcular_aucs_fidelity_batch
-from ML.data_processing import read_targets, mol_to_graph_data
+from GNNs.model_tester import cargar_modelo
+from GNNs.explainers.model_Graph_explainer import obtener_graph_explainer
+from GNNs.explainers.model_GNNExplainer import obtener_GNN_Explainer
+from GNNs.explainers.explanation_fidelity import generar_comparativa_fidelity, save_auc_results_csv, calcular_aucs_fidelity_batch
+from GNNs.data_processing import read_targets, mol_to_graph_data
 
 logger = logging.getLogger(__name__)
 

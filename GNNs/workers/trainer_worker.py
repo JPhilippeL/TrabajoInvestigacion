@@ -3,7 +3,7 @@ import argparse
 import time
 import torch
 import gc
-from ML.model_trainer import train_and_save_model
+from GNNs.model_trainer import train_and_save_model
 
 
 def main():

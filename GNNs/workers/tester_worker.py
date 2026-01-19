@@ -5,10 +5,10 @@ import gc
 import sys
 import os
 
-# Aseguramos que Python encuentre el módulo ML si ejecutas desde la raíz
+# Aseguramos que Python encuentre el módulo GNNs si ejecutas desde la raíz
 sys.path.append(os.getcwd())
 
-from ML.model_tester import test_all_models_in_directory
+from GNNs.model_tester import test_all_models_in_directory
 
 def main():
     parser = argparse.ArgumentParser()
