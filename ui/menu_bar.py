@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import QMenuBar
 import logging
 from ui.menus import MenuMolecula, MenuExplainerGNN, MenuTestGNN, MenuTrainGNN, MenuTransferGNN
+from URVDEEPTAF.ui.menus import MenuURVDEEPTAF
 
 logger = logging.getLogger(__name__)
 
@@ -28,3 +29,7 @@ class MenuBar(QMenuBar):
         # 5. Menú Explicadores
         self.menu_explicacion = MenuExplainerGNN(self.parent)
         self.addMenu(self.menu_explicacion)
+
+        # Menu deeptaf
+        self.menu_urvdeepdtaf = MenuURVDEEPTAF
+        self.addMenu(self.menu_urvdeepdtaf)

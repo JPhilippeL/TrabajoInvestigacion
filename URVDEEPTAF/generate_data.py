@@ -24,7 +24,7 @@ def DB_Generation(
     pocket_file,              # Path to pocket CSV file
     
     # Optional parameters with defaults
-    output_dir=None,          # Output directory (defaults to 'data' in current directory)
+    output_dir=None,          # Output directory (defaults to PROCESSED_DATA_DIR in current directory)
     train_ratio=0.70,         # Train set ratio
     val_ratio=0.15,           # Validation set ratio
     test_ratio=0.15,          # Test set ratio
@@ -42,9 +42,9 @@ def DB_Generation(
     
     # Set up output directory
     if output_dir is None:
-        output_dir = os.path.join(os.getcwd(), "data")
+        output_dir = os.path.join(os.getcwd(), PROCESSED_DATA_DIR)
     # else:
-    #    output_dir = os.path.join(output_dir, "data")
+    #    output_dir = os.path.join(output_dir, PROCESSED_DATA_DIR)
     
     # Create temporary processing directory
     proc_dir = os.path.join(output_dir, "processed")
@@ -394,7 +394,7 @@ def process_pocket_file(pocket_csv, dssp_dir, output_pocket_dir):
 
 def process_ligand_files(ligand_dir, output_csv):
         """
-        Process ligand .smi files (filenames like <pdbid>_ligand.smi) and combine them into one CSV.
+        Process ligand .smi files and combine them into one CSV.
         Export with index=False.
         """
         # CORRECCIÓN 1: Añadido el '*' antes de .smi
