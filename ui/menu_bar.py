@@ -198,7 +198,7 @@ class MenuBar(QMenuBar):
     def verificar_molecula(self):
         if not self.parent.graph_view:
             mensaje = "No hay una molécula cargada para verificar."
-            QMessageBox.warning(self.parent, "Verificación", mensaje)
+            logger.warning(mensaje)
             return
 
         try:
