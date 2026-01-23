@@ -9,6 +9,8 @@ from URVDEEPTAF.urvdtaf_generate_data import DB_Generation
 # Nuevos imports para el entrenamiento
 from URVDEEPTAF.ui.dialogs.train_urvdtaf_dialog import TrainDialog
 from URVDEEPTAF.urvdtaf_trainer import train
+from URVDEEPTAF.ui.dialogs.test_urvdtaf_dialog import TestDialog
+from URVDEEPTAF.urvdtaf_tester import test_model
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,11 @@ class MenuURVDEEPTAF(QMenu):
         train_action = QAction("Entrenar Modelo", self)
         train_action.triggered.connect(self.entrenar_modelo_urvdeepdtaf)
         self.addAction(train_action)
+
+        # 3. Test Model (Nueva Acción)
+        test_action = QAction("Evaluar Modelo", self)
+        test_action.triggered.connect(self.testear_modelo_urvdeepdtaf)
+        self.addAction(test_action)
 
     # --- GENERACIÓN DE DATOS ---
     def generar_data_urvdeepdtaf(self):
@@ -78,10 +85,34 @@ class MenuURVDEEPTAF(QMenu):
                 logger.info(f"Entrenamiento completado. Resultados en: {run_dir}")
                 
                 # Feedback visual para el usuario cuando termine (útil ya que la UI se descongela aquí)
-                QMessageBox.information(
-                    self.main_window, 
-                    "Éxito", 
-                    f"Entrenamiento completado exitosamente.\nResultados guardados en:\n{run_dir}"
-                )
             except Exception as e:
                 logger.error(f"Error crítico durante el entrenamiento: {e}")
+
+    # --- NUEVA ACCIÓN: EVALUACIÓN DE MODELO ---
+    def testear_modelo_urvdeepdtaf(self):
+        dialog = TestDialog(self.main_window)
+        
+        if dialog.exec():
+            params = dialog.get_inputs()
+            
+            # Validación: Necesitamos el modelo (.pt) y los datos
+            if not params["model_path"] or not params["data_path"]:
+                QMessageBox.warning(
+                    self.main_window, 
+                    "Faltan rutas", 
+                    "Debe seleccionar tanto el archivo de pesos del modelo como la carpeta de datos."
+                )
+                return
+
+            logger.info(f"Iniciando evaluación del modelo con pesos en: {params['model_path']}")
+            
+            try:
+                # La función test_model retorna un diccionario de métricas
+                metrics = test_model(**params)
+                
+                # Formateamos las métricas principales para mostrarlas en el mensaje de éxito
+                metrics_text = "\n".join([f"{k}: {v:.4f}" for k, v in metrics.items()])
+                
+                logger.info("Evaluación completada exitosamente.")
+            except Exception as e:
+                logger.error(f"Error crítico durante la evaluación: {e}")
