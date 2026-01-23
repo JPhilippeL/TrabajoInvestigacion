@@ -73,7 +73,7 @@ class DBGenerationDialog(QDialog):
         self.cleanup_check.setChecked(is_checked)
 
         # ---------- Layout Principal ----------
-        form_layout = QFormLayout() # Nota: Corregí QForGNNsayout a QFormLayout
+        form_layout = QFormLayout() # Nota: Corregí QFormLayout a QFormLayout
         
         form_layout.addRow(QLabel("<b>Parámetros Requeridos:</b>"))
         form_layout.addRow("Dir. DSSP:", self._with_button(self.dssp_dir_input, self.dssp_btn))

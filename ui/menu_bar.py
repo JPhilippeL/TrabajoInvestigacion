@@ -31,5 +31,5 @@ class MenuBar(QMenuBar):
         self.addMenu(self.menu_explicacion)
 
         # Menu deeptaf
-        self.menu_urvdeepdtaf = MenuURVDEEPTAF
+        self.menu_urvdeepdtaf = MenuURVDEEPTAF(self.parent)
         self.addMenu(self.menu_urvdeepdtaf)

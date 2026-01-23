@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QForGNNsayout, QLineEdit,
+    QDialog, QVBoxLayout, QFormLayout, QLineEdit,
     QPushButton, QFileDialog, QDialogButtonBox, QWidget, QHBoxLayout,
     QComboBox  # <--- Importante: añadir QComboBox
 )
@@ -50,7 +50,7 @@ class ExplainerComparerDialog(QDialog):
         self.sdf_browse_btn.clicked.connect(self.browse_sdf)
 
         # ---------- Layout ----------
-        form_layout = QForGNNsayout()
+        form_layout = QFormLayout()
         form_layout.addRow("Modo de Análisis:", self.mode_combo) # <--- Nuevo campo
         form_layout.addRow("Modelo Base (.pt):", self._with_button(self.model_path_input, self.model_browse_btn))
         form_layout.addRow("Molécula (.sdf):", self._with_button(self.sdf_path_input, self.sdf_browse_btn))

@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QForGNNsayout, QLineEdit, QPushButton, QFileDialog,
+    QDialog, QVBoxLayout, QFormLayout, QLineEdit, QPushButton, QFileDialog,
     QHBoxLayout, QDialogButtonBox
 )
 from PySide6.QtCore import QSettings
@@ -16,7 +16,7 @@ class SDFSplitDialog(QDialog):
         self.settings = QSettings("Investigacion", "Analisis Molecular")
 
         layout = QVBoxLayout()
-        form_layout = QForGNNsayout()
+        form_layout = QFormLayout()
 
         # ---------- SDF file ----------
         self.sdf_file_input = QLineEdit()
