@@ -4,11 +4,11 @@ import logging
 
 # Imports existentes
 from URVDEEPTAF.ui.dialogs.generate_data_dialog import DBGenerationDialog
-from URVDEEPTAF.generate_data import DB_Generation
+from URVDEEPTAF.urvdtaf_generate_data import DB_Generation
 
 # Nuevos imports para el entrenamiento
 from URVDEEPTAF.ui.dialogs.train_urvdtaf_dialog import TrainDialog
-from URVDEEPTAF.trainer import train
+from URVDEEPTAF.urvdtaf_trainer import train
 
 logger = logging.getLogger(__name__)
 

@@ -3,9 +3,9 @@ import torch.nn as nn
 import numpy as np
 from tqdm import tqdm
 from typing import Dict, List, Tuple, Optional, Union, Any
-import URVDEEPTAF.metrics as metrics
+import URVDEEPTAF.urvdtaf_metrics as urvdtaf_metrics
 from torch_geometric.nn import NNConv, global_add_pool
-from .dataset import PT_FEATURE_SIZE, GNN_NODE_FEATURE_SIZE
+from .urvdtaf_dataset import PT_FEATURE_SIZE, GNN_NODE_FEATURE_SIZE
 
 CHAR_SMI_SET_LEN = 64
 
@@ -716,13 +716,13 @@ def test(
     # Compute additional metrics
     metrics_dict = {
         'loss': avg_loss,
-        'c_index': metrics.c_index(targets, outputs),
-        'RMSE': metrics.RMSE(targets, outputs),
-        'MAE': metrics.MAE(targets, outputs),
-        'SD': metrics.SD(targets, outputs),
-        'CORR': metrics.CORR(targets, outputs),
-        'MSE': metrics.MSE(targets, outputs),
-        'R2': metrics.R2(targets, outputs),
+        'c_index': urvdtaf_metrics.c_index(targets, outputs),
+        'RMSE': urvdtaf_metrics.RMSE(targets, outputs),
+        'MAE': urvdtaf_metrics.MAE(targets, outputs),
+        'SD': urvdtaf_metrics.SD(targets, outputs),
+        'CORR': urvdtaf_metrics.CORR(targets, outputs),
+        'MSE': urvdtaf_metrics.MSE(targets, outputs),
+        'R2': urvdtaf_metrics.R2(targets, outputs),
     }
 
     return metrics_dict, outputs, targets

@@ -7,8 +7,8 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from .dataset import MyDataset, collate_gnn
-from .model import (
+from .urvdtaf_dataset import MyDataset, collate_gnn
+from .urvdtaf_model import (
     MODEL_DICT,
     GNN_MODELS,
     test

@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QSettings
 
 # IMPORTANTE: Asegúrate de importar MODEL_DICT desde tu archivo de modelos
-from URVDEEPTAF.model import MODEL_DICT 
+from URVDEEPTAF.urvdtaf_model import MODEL_DICT 
 
 class TrainDialog(QDialog):
     def __init__(self, parent=None):
