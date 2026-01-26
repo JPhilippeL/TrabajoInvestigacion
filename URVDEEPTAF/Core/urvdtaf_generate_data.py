@@ -10,7 +10,7 @@ import datetime
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 
-from .utils.constants import PROCESSED_DATA_DIR, c1, c2, structure_types, amino_acids
+from URVDEEPTAF.utils.constants import PROCESSED_DATA_DIR, c1, c2, structure_types, amino_acids
 import logging
 
 logger = logging.getLogger(__name__)

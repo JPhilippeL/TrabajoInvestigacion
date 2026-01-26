@@ -4,13 +4,15 @@ import logging
 
 # Imports existentes
 from URVDEEPTAF.ui.dialogs.generate_data_dialog import DBGenerationDialog
-from URVDEEPTAF.urvdtaf_generate_data import DB_Generation
+from URVDEEPTAF.Core.urvdtaf_generate_data import DB_Generation
 
 # Nuevos imports para el entrenamiento
 from URVDEEPTAF.ui.dialogs.train_urvdtaf_dialog import TrainDialog
-from URVDEEPTAF.urvdtaf_trainer import train
+from URVDEEPTAF.Core.urvdtaf_trainer import train
 from URVDEEPTAF.ui.dialogs.test_urvdtaf_dialog import TestDialog
-from URVDEEPTAF.urvdtaf_tester import test_model
+from URVDEEPTAF.Core.urvdtaf_tester import test_model
+
+from URVDEEPTAF.workers import DBGenerationThread
 
 logger = logging.getLogger(__name__)
 
@@ -40,27 +42,41 @@ class MenuURVDEEPTAF(QMenu):
 
     # --- GENERACIÓN DE DATOS ---
     def generar_data_urvdeepdtaf(self):
-        # Nota: Usamos self.main_window en lugar de self.parent para evitar errores de PySide
         dialog = DBGenerationDialog(self.main_window) 
         
         if dialog.exec():
-            # 1. Obtener parametros
             params = dialog.get_inputs()
-            
-            # 2. Validar
             if not params["dssp_dir"] or not params["pocket_file"]:
-                logger.exception("Intento de generar data sin directorios requeridos.")
+                QMessageBox.warning(self.main_window, "Error", "Faltan directorios requeridos.")
                 return
 
-            logger.info(f"Iniciando DB_Generation con: {params}")
+            logger.info("Iniciando generación de datos en segundo plano...")
             
-            # 3. Llamada a la función lógica
-            try:
-                DB_Generation(**params)
-                logger.info("Generación de datos completada exitosamente.")
-            except Exception as e:
-                # CAMBIO AQUÍ: Usar logger.exception en lugar de logger.exception
-                logger.exception("Error crítico durante la generación de datos:")
+            # BLOQUEAR la ventana principal temporalmente para que el usuario no toque nada
+            # (Opcional, pero recomendado)
+            self.main_window.setEnabled(False) 
+
+            # 1. CREAR EL HILO
+            self.generation_thread = DBGenerationThread(params)
+
+            # 2. CONECTAR LAS SEÑALES (Éxito y Error) a nuestras funciones
+            self.generation_thread.finished_success.connect(self.on_generation_success)
+            self.generation_thread.finished_error.connect(self.on_generation_error)
+
+            # 3. ¡INICIAR! (Esto llama al método 'run()' sin bloquear la UI)
+            self.generation_thread.start()
+
+    # --- FUNCIONES DE RESPUESTA (SLOTS) ---
+
+    def on_generation_success(self, results):
+        """Se ejecuta cuando el hilo termina correctamente"""
+        self.main_window.setEnabled(True) # Desbloquear la ventana
+        logger.info("Generación de datos completada exitosamente.")
+
+    def on_generation_error(self, error_msg):
+        """Se ejecuta si hubo una excepción en el hilo"""
+        self.main_window.setEnabled(True) # Desbloquear la ventana
+        logger.error(f"Error en generación: {error_msg}")
 
     # --- ENTRENAMIENTO DE MODELO ---
     # Igual que el anterior, esto congelará la UI.
