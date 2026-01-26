@@ -49,7 +49,7 @@ class MenuURVDEEPTAF(QMenu):
             
             # 2. Validar
             if not params["dssp_dir"] or not params["pocket_file"]:
-                logger.error("Intento de generar data sin directorios requeridos.")
+                logger.exception("Intento de generar data sin directorios requeridos.")
                 return
 
             logger.info(f"Iniciando DB_Generation con: {params}")
@@ -59,7 +59,8 @@ class MenuURVDEEPTAF(QMenu):
                 DB_Generation(**params)
                 logger.info("Generación de datos completada exitosamente.")
             except Exception as e:
-                logger.error(f"Error durante la generación de datos: {e}")
+                # CAMBIO AQUÍ: Usar logger.exception en lugar de logger.exception
+                logger.exception("Error crítico durante la generación de datos:")
 
     # --- ENTRENAMIENTO DE MODELO ---
     # Igual que el anterior, esto congelará la UI.
@@ -72,7 +73,7 @@ class MenuURVDEEPTAF(QMenu):
             
             # 2. Validación básica
             if not params["data_path"]:
-                logger.error("No se puede iniciar el entrenamiento sin un directorio de datos.")
+                logger.exception("No se puede iniciar el entrenamiento sin un directorio de datos.")
                 QMessageBox.warning(self.main_window, "Error", "Debe seleccionar un directorio de datos.")
                 return
 
@@ -86,7 +87,7 @@ class MenuURVDEEPTAF(QMenu):
                 
                 # Feedback visual para el usuario cuando termine (útil ya que la UI se descongela aquí)
             except Exception as e:
-                logger.error(f"Error crítico durante el entrenamiento: {e}")
+                logger.exception(f"Error crítico durante el entrenamiento: {e}")
 
     # --- NUEVA ACCIÓN: EVALUACIÓN DE MODELO ---
     def testear_modelo_urvdeepdtaf(self):
@@ -115,4 +116,4 @@ class MenuURVDEEPTAF(QMenu):
                 
                 logger.info("Evaluación completada exitosamente.")
             except Exception as e:
-                logger.error(f"Error crítico durante la evaluación: {e}")
+                logger.exception(f"Error crítico durante la evaluación: {e}")

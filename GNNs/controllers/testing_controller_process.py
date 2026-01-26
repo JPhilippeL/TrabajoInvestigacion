@@ -40,7 +40,7 @@ class TestingControllerProcess:
                 logger.info(f"Resumen guardado en: {resumen_path}")
             elif line.startswith("ERROR|"):
                 _, msg = line.split("|", 1)
-                logger.error(f"Error en test: {msg}")
+                logger.exception(f"Error en test: {msg}")
             else:
                 #logger.info(line)
                 self.parent.log(line)
@@ -50,5 +50,5 @@ class TestingControllerProcess:
             return
         data = bytes(self.process.readAllStandardError().data()).decode().strip()
         if data:
-            logger.error(data)
+            logger.exception(data)
             self.parent.log(f"[stderr] {data}")

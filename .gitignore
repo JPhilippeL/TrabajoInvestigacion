@@ -1,5 +1,7 @@
 Modelos/
 data/
+DEEPTAFDATA/
+dtafRuns/
 Resultados/
 Resultados 2025/
 best_model_tmp.pt

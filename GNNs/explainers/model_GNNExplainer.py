@@ -165,7 +165,7 @@ def ejecutar_pipeline_visualizacion(
                 model_name=model_name, mol_name=mol_name, algo_name=algo_name
             )
         except Exception as e:
-            logger.error(f"Error calculando fidelity: {e}")
+            logger.exception(f"Error calculando fidelity: {e}")
 
     # ---------------------------------------------------------
     # C. PROCESAMIENTO PARA HEATMAPS (Aquí sí alteramos el orden)

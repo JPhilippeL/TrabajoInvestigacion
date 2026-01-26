@@ -198,7 +198,7 @@ def obtener_info_checkpoint(model_path):
     """
     if not os.path.exists(model_path):
         error_msg = f"El archivo '{model_path}' no existe."
-        logger.error(error_msg)
+        logger.exception(error_msg)
         return error_msg
 
     try:
@@ -231,7 +231,7 @@ def obtener_info_checkpoint(model_path):
 
     except Exception as e:
         error_msg = f"Error al consultar parámetros del modelo: {str(e)}"
-        logger.error(error_msg)
+        logger.exception(error_msg)
         return error_msg
 
 

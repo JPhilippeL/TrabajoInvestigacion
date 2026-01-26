@@ -59,7 +59,7 @@ class MenuExplainerGNN(QMenu):
         self.addAction(batch_explanation_comparer_action)
 
     def get_explanation_GraphExplainer(self):
-        dialog = ExplanationDialog(self.parent)
+        dialog = ExplanationDialog(self.main_window)
         if dialog.exec():
             model_path, sdf_path, target_path = dialog.get_paths()
             try:
@@ -68,17 +68,17 @@ class MenuExplainerGNN(QMenu):
                 plot_path = obtener_graph_explainer(model_path, sdf_path, target_path, num_samples=1000, noise_level=0.01, device='cpu')
 
                 # mostrar el sdf por pantalla
-                self.parent.load_graph_from_file(sdf_path)
+                self.main_window.load_graph_from_file(sdf_path)
 
                 # Mostrar la imagen en un diálogo
-                self.image_dialog = ImageDialog(plot_path, self.parent)
+                self.image_dialog = ImageDialog(plot_path, self.main_window)
                 self.image_dialog.show()
 
             except Exception as e:
-                logger.error(f"Error en explicación GraphExplanation: {str(e)}", exc_info=True)
+                logger.exception(f"Error en explicación GraphExplanation: {str(e)}", exc_info=True)
     
     def get_explanation_GNNExplainer(self):
-        dialog = ExplanationDialog(self.parent)
+        dialog = ExplanationDialog(self.main_window)
         if dialog.exec():
             model_path, sdf_path, target_path = dialog.get_paths()
             try:
@@ -86,21 +86,21 @@ class MenuExplainerGNN(QMenu):
                 plot_path = obtener_GNN_Explainer(model_path, sdf_path, target_path)
 
                 # mostrar el sdf por pantalla
-                self.parent.load_graph_from_file(sdf_path)
+                self.main_window.load_graph_from_file(sdf_path)
 
                 # Mostrar la imagen en un diálogo
-                self.image_dialog = ImageDialog(plot_path, self.parent)
+                self.image_dialog = ImageDialog(plot_path, self.main_window)
                 self.image_dialog.show()
 
             except Exception as e:
-                logger.error(f"Error en explicación GNNExplainer: {str(e)}", exc_info=True)
+                logger.exception(f"Error en explicación GNNExplainer: {str(e)}", exc_info=True)
 
     def get_batch_explanation_GraphExplainer(self):
         """
         Procesa un directorio completo de archivos SDF usando GraphExplainer.
         Reutiliza BatchModelTestDialog para seleccionar Modelo, Directorio y Targets.
         """
-        dialog = BatchModelTestDialog(self.parent)
+        dialog = BatchModelTestDialog(self.main_window)
         if dialog.exec():
             model_path, directory_path, target_path = dialog.get_paths()
             try:
@@ -132,14 +132,14 @@ class MenuExplainerGNN(QMenu):
                 logger.info("Procesamiento batch GraphExplainer finalizado.")
 
             except Exception as e:
-                logger.error(f"Error en batch GraphExplainer: {str(e)}", exc_info=True)
+                logger.exception(f"Error en batch GraphExplainer: {str(e)}", exc_info=True)
 
     def get_batch_explanation_GNNExplainer(self):
         """
         Procesa un directorio completo de archivos SDF usando GNNExplainer.
         Reutiliza BatchModelTestDialog para seleccionar Modelo, Directorio y Targets.
         """
-        dialog = BatchModelTestDialog(self.parent)
+        dialog = BatchModelTestDialog(self.main_window)
         if dialog.exec():
             model_path, directory_path, target_path = dialog.get_paths()
             try:
@@ -164,10 +164,10 @@ class MenuExplainerGNN(QMenu):
                 logger.info("Procesamiento batch GNNExplainer finalizado.")
 
             except Exception as e:
-                logger.error(f"Error en batch GNNExplainer: {str(e)}", exc_info=True)
+                logger.exception(f"Error en batch GNNExplainer: {str(e)}", exc_info=True)
 
     def get_explanation_comparer(self):
-        dialog = ExplainerComparerDialog(self.parent)
+        dialog = ExplainerComparerDialog(self.main_window)
         if dialog.exec():
             # 1. Recuperar los 5 valores
             model_path, sdf_path, graphexplanation_path, gnn_path_raw, mode = dialog.get_inputs()
@@ -191,11 +191,11 @@ class MenuExplainerGNN(QMenu):
 
                 # 4. Mostrar resultado si se generó
                 if plot_path:
-                    self.image_dialog = ImageDialog(plot_path, self.parent)
+                    self.image_dialog = ImageDialog(plot_path, self.main_window)
                     self.image_dialog.show()
 
             except Exception as e:
-                logger.error(f"Error en explicación Comparativa ({mode}): {str(e)}", exc_info=True)
+                logger.exception(f"Error en explicación Comparativa ({mode}): {str(e)}", exc_info=True)
 
     def get_batch_explanation_comparer(self):
         """
@@ -207,7 +207,7 @@ class MenuExplainerGNN(QMenu):
         # sdfs_dir: Ruta al directorio con los .sdf
         # weights_root_dir: Ruta raíz de los pesos (dentro debe haber carpetas alpha, beta, etc.)
         # mode: String 'alpha', 'beta', 'gamma' o 'delta'
-        dialog = BatchComparerDialog(self.parent)
+        dialog = BatchComparerDialog(self.main_window)
 
         UMBRAL_ERROR = 0.6767
         
@@ -218,7 +218,7 @@ class MenuExplainerGNN(QMenu):
             weights_mode_dir = os.path.join(weights_root_dir, mode)
             
             if not os.path.exists(weights_mode_dir):
-                logger.error(f"No existe el directorio de pesos para el modo {mode}: {weights_mode_dir}")
+                logger.exception(f"No existe el directorio de pesos para el modo {mode}: {weights_mode_dir}")
                 return
 
             results = []  # Lista para guardar diccionarios: {'name': str, 'auc_graph': float, 'auc_gnn': float}
@@ -263,7 +263,7 @@ class MenuExplainerGNN(QMenu):
                             pred_tensor = model(data.x, data.edge_index, data.edge_attr, data.batch)
                             y_pred = pred_tensor.item()
                     except Exception as e:
-                        logger.error(f"Error en inferencia {mol_name}: {e}")
+                        logger.exception(f"Error en inferencia {mol_name}: {e}")
                         continue
 
                     # C) Calcular Error y Filtrar
@@ -324,7 +324,7 @@ class MenuExplainerGNN(QMenu):
                              logger.warning(f"Fallo cálculo para {mol_name}")
 
                     except Exception as e_inner:
-                        logger.error(f"Error procesando {mol_name}: {e_inner}")
+                        logger.exception(f"Error procesando {mol_name}: {e_inner}")
 
                 # --- Guardar resultados finales ---
                 if results:
@@ -336,4 +336,4 @@ class MenuExplainerGNN(QMenu):
                     logger.warning("No se generaron resultados para guardar.")
 
             except Exception as e:
-                logger.error(f"Error global en Batch Comparer: {str(e)}", exc_info=True)
+                logger.exception(f"Error global en Batch Comparer: {str(e)}", exc_info=True)
