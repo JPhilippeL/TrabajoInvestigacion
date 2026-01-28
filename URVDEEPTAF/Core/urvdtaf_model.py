@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 from tqdm import tqdm
 from typing import Dict, List, Tuple, Optional, Union, Any
-import URVDEEPTAF.urvdtaf_metrics as urvdtaf_metrics
+import URVDEEPTAF.Core.urvdtaf_metrics as urvdtaf_metrics
 from torch_geometric.nn import NNConv, global_add_pool
 from .urvdtaf_dataset import PT_FEATURE_SIZE, GNN_NODE_FEATURE_SIZE
 
@@ -653,7 +653,7 @@ def test(
 
     Returns:
         A tuple of:
-          - metrics: dict with keys 'loss', 'c_index', 'RMSE', 'MAE', 'SD', 'CORR', 'MSE', 'R2'
+          - metrics: dict with keys 'loss', 'RMSE', 'MAE', 'CORR', 'MSE', 'R2'
           - outputs: np.ndarray of shape (N,) with model predictions
           - targets: np.ndarray of shape (N,) with ground-truth values
     """
@@ -702,9 +702,13 @@ def test(
             # Accumulate loss
             total_loss += loss_function(y_hat.view(-1), y.view(-1)).item()
 
-            # Collect raw data for plotting
-            outputs_list.append(y_hat.cpu().numpy().reshape(-1))
-            targets_list.append(y.cpu().numpy().reshape(-1))
+            # 1. CAMBIO AQUÍ: Añadimos .detach() por seguridad absoluta
+            outputs_list.append(y_hat.detach().cpu().numpy().reshape(-1))
+            targets_list.append(y.detach().cpu().numpy().reshape(-1))
+
+    # 2. CAMBIO AQUÍ: Forzamos tipo float64 (el que le gusta a Numba)
+    outputs = np.concatenate(outputs_list, axis=0).astype(np.float64)
+    targets = np.concatenate(targets_list, axis=0).astype(np.float64)
 
     # Concatenate batches
     outputs = np.concatenate(outputs_list, axis=0)
@@ -716,10 +720,8 @@ def test(
     # Compute additional metrics
     metrics_dict = {
         'loss': avg_loss,
-        'c_index': urvdtaf_metrics.c_index(targets, outputs),
         'RMSE': urvdtaf_metrics.RMSE(targets, outputs),
         'MAE': urvdtaf_metrics.MAE(targets, outputs),
-        'SD': urvdtaf_metrics.SD(targets, outputs),
         'CORR': urvdtaf_metrics.CORR(targets, outputs),
         'MSE': urvdtaf_metrics.MSE(targets, outputs),
         'R2': urvdtaf_metrics.R2(targets, outputs),

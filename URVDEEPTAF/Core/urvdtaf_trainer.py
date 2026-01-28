@@ -63,8 +63,8 @@ def train(
     loss_function = nn.MSELoss(reduction='sum')
 
     # Historial para gráficos
-    train_history = {m: [] for m in ['loss', 'RMSE', 'MAE', 'c_index', 'CORR', 'R2', 'MSE', 'SD']}
-    val_history   = {m: [] for m in ['loss', 'RMSE', 'MAE', 'c_index', 'CORR', 'R2', 'MSE', 'SD']}
+    train_history = {m: [] for m in ['loss', 'RMSE', 'MAE', 'CORR', 'R2', 'MSE']}
+    val_history   = {m: [] for m in ['loss', 'RMSE', 'MAE', 'CORR', 'R2', 'MSE']}
     epochs_list, errors_warnings = [], []
     best_val_loss, best_epoch = float('inf'), -1
     start_time = datetime.now()
@@ -164,7 +164,7 @@ def initialize_csv_loggers(results_dir: Path):
     }
     
     headers = ["epoch", "model", "phase", "timestamp", "learning_rate", "loss", "batch_size", 
-               "MSE", "RMSE", "MAE", "c_index", "SD", "CORR", "R2", "elapsed_time"]
+               "MSE", "RMSE", "MAE", "CORR", "R2", "elapsed_time"]
                
     for path in csv_paths.values():
         with open(path, 'w', newline='') as f:
@@ -209,7 +209,7 @@ def process_batch_inputs(x, device):
 def generate_training_plots(epochs_list, train_history, val_history, plots_dir, model_name):
     """Genera y guarda gráficos de las métricas usando matplotlib/seaborn."""
     sns.set_theme(style="whitegrid")
-    all_metrics = ['loss', 'MSE', 'RMSE', 'MAE', 'c_index', 'CORR', 'R2', 'SD']
+    all_metrics = ['loss', 'MSE', 'RMSE', 'MAE', 'CORR', 'R2']
     
     for metric in all_metrics:
         if metric not in train_history: continue

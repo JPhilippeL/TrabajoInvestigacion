@@ -6,36 +6,6 @@ from sklearn.linear_model import LinearRegression
 from numba import njit
 from typing import Any, Union, Tuple
 
-@njit
-def c_index(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """
-    Calculate concordance index.
-    
-    Args:
-        y_true: True values
-        y_pred: Predicted values
-        
-    Returns:
-        Concordance index
-    """
-    summ = 0
-    pair = 0
-
-    for i in range(1, len(y_true)):
-        for j in range(0, i):
-            pair += 1
-            if y_true[i] > y_true[j]:
-                summ += 1 * (y_pred[i] > y_pred[j]) + 0.5 * (y_pred[i] == y_pred[j])
-            elif y_true[i] < y_true[j]:
-                summ += 1 * (y_pred[i] < y_pred[j]) + 0.5 * (y_pred[i] == y_pred[j])
-            else:
-                pair -= 1
-
-    if pair != 0:
-        return summ / pair
-    else:
-        return 0
-
 def RMSE(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
     Calculate Root Mean Square Error.
@@ -74,22 +44,6 @@ def CORR(y_true: np.ndarray, y_pred: np.ndarray) -> float:
         Correlation coefficient
     """
     return pearsonr(y_true, y_pred)[0]
-
-def SD(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """
-    Calculate Standard Deviation in linear regression.
-    
-    Args:
-        y_true: True values
-        y_pred: Predicted values
-        
-    Returns:
-        Standard deviation
-    """
-    y_pred = y_pred.reshape((-1, 1))
-    lr = LinearRegression().fit(y_pred, y_true)
-    y_ = lr.predict(y_pred)
-    return np.sqrt(np.square(y_true - y_).sum() / (len(y_pred) - 1))
 
 
 def MSE(y_true: np.ndarray, y_pred: np.ndarray) -> float:
