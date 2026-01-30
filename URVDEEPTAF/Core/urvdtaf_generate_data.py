@@ -9,6 +9,7 @@ import platform
 import datetime
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
+import ast  # Importante: para convertir el string del txt a lista de listas
 
 from URVDEEPTAF.utils.constants import PROCESSED_DATA_DIR, c1, c2, structure_types, amino_acids
 import logging
@@ -40,9 +41,15 @@ class URVDataGenerator:
 
     def generate(self, dssp_dir, ligand_dir, pocket_file, output_dir=None, 
                  train_ratio=0.70, val_ratio=0.15, test_ratio=0.15, 
-                 random_seed=42, cleanup_processed=True):
+                 random_seed=42, cleanup_processed=True,
+                 custom_split_ids=None): # <--- Nuevo parámetro: una tupla (train, val, test)
         
         self.start_time = time.time()
+        
+        # Si NO hay splits externos, validamos que los ratios sumen 1
+        if custom_split_ids is None:
+            if abs(train_ratio + val_ratio + test_ratio - 1.0) > 1e-6:
+                raise ValueError(f"Ratios must sum to 1.0, got: {train_ratio + val_ratio + test_ratio}")
         
         # Validate ratios
         if abs(train_ratio + val_ratio + test_ratio - 1.0) > 1e-6:
@@ -103,8 +110,31 @@ class URVDataGenerator:
         print("\nStep 3/5: Processing ligand files...")
         self._process_ligand_files(ligand_dir, ligand_output_csv)
         
+        # -------------------------
+        # Paso 4 modificado: Splitting
+        # -------------------------
         print("\nStep 4/5: Splitting data...")
-        train_ids, val_ids, test_ids = self._split_pdbids(ligand_output_csv, train_ratio, val_ratio, test_ratio, random_seed)
+        
+        if custom_split_ids is not None:
+            # Usamos las listas pasadas externamente
+            train_ids, val_ids, test_ids = custom_split_ids
+            # Limpiamos IDs por seguridad
+            train_ids = [clean_pdbid(i) for i in train_ids]
+            val_ids   = [clean_pdbid(i) for i in val_ids]
+            test_ids  = [clean_pdbid(i) for i in test_ids]
+            
+            self.processing_details["split_info"] = {
+                "method": "external_custom_lists",
+                "total_pdbids": len(train_ids) + len(val_ids) + len(test_ids),
+                "train_count": len(train_ids),
+                "val_count": len(val_ids),
+                "test_count": len(test_ids)
+            }
+        else:
+            # Comportamiento original por defecto
+            train_ids, val_ids, test_ids = self._split_pdbids(
+                ligand_output_csv, train_ratio, val_ratio, test_ratio, random_seed
+            )
         
         # Estructura de salida
         dirs = {
@@ -379,6 +409,29 @@ class URVDataGenerator:
             f.write(f"Total runtime: {time.time() - self.start_time:.2f} seconds\n")
             # ... (sección abreviada por legibilidad, copiarías tu lógica original aquí)
 
+    # Para hacer los splits ya dados
+    def load_external_splits(self, train_path, val_path, test_path, split_index=0):
+        """
+        Carga los IDs de 3 archivos TXT. 
+        split_index: entero de 0 a 4 para seleccionar cuál de las 5 listas usar.
+        """
+        def read_txt(path):
+            with open(path, 'r') as f:
+                # ast.literal_eval convierte el texto "[[...], [...]]" en lista de listas
+                data = ast.literal_eval(f.read().strip())
+                return data[split_index]
+
+        try:
+            train_ids = [str(pid).strip() for pid in read_txt(train_path)]
+            val_ids   = [str(pid).strip() for pid in read_txt(val_path)]
+            test_ids  = [str(pid).strip() for pid in read_txt(test_path)]
+            
+            return train_ids, val_ids, test_ids
+        except IndexError:
+            raise IndexError(f"El split_index {split_index} no existe. Los archivos deben tener 5 listas.")
+        except Exception as e:
+            raise Exception(f"Error leyendo los archivos de splits: {e}")
+
 
 # ==============================================================================
 # WRAPPER COMPATIBLE CON EL RESTO DE TU CÓDIGO (menu_URVDEEPTAF.py)
@@ -390,3 +443,53 @@ def DB_Generation(**kwargs):
     """
     generator = URVDataGenerator()
     return generator.generate(**kwargs)
+
+# ==============================================================================
+# EJECUCIÓN AUTOMÁTICA DE LOS 5 SPLITS
+# ==============================================================================
+if __name__ == "__main__":
+    # 1. Configura tus rutas aquí
+    CONFIG = {
+        "dssp_dir": "/home/philippe/Documents/Databases/URV_Database_2025_Octubre/Protein/Protein_DSSP",
+        "ligand_dir": "/home/philippe/Documents/Databases/URV_Database_2025_Octubre/Ligand/Ligand_SMI",
+        "pocket_file": "/home/philippe/Documents/Databases/URV_Database_2025_Octubre/Binding/Binding_CSV/Protein_Residuoes_5.csv",
+        "base_output": "",
+        "txt_train": "/home/philippe/Documents/Databases/URV_Database_2025_Octubre/train_index_folder.txt",
+        "txt_val": "/home/philippe/Documents/Databases/URV_Database_2025_Octubre/valid_index_folder.txt",
+        "txt_test": "/home/philippe/Documents/Databases/URV_Database_2025_Octubre/test_index_folder.txt"
+    }
+
+    generator = URVDataGenerator()
+
+    for i in range(5):
+        print(f"\n{'='*50}")
+        print(f"INICIANDO PROCESAMIENTO SPLIT {i}")
+        print(f"{'='*50}")
+        
+        try:
+            # Obtener IDs del split actual
+            ids = generator.load_external_splits(
+                CONFIG["txt_train"], 
+                CONFIG["txt_val"], 
+                CONFIG["txt_test"], 
+                split_index=i
+            )
+            
+            # Definir carpeta de salida única para este split
+            output_split = os.path.join(CONFIG["base_output"], f"split_{i}")
+            
+            # Ejecutar
+            generator.generate(
+                dssp_dir=CONFIG["dssp_dir"],
+                ligand_dir=CONFIG["ligand_dir"],
+                pocket_file=CONFIG["pocket_file"],
+                output_dir=output_split,
+                custom_split_ids=ids,
+                cleanup_processed=True
+            )
+            
+        except Exception as e:
+            print(f"Error procesando el split {i}: {e}")
+            continue
+
+    print("\nPROCESO COMPLETO: Los 5 datasets han sido generados.")
