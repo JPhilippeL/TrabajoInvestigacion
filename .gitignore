@@ -1,6 +1,8 @@
 Modelos/
 data/
 Resultados/
+Datos/
+dtafRuns/
 Resultados 2025/
 best_model_tmp.pt
 # Ignorar todas las carpetas __pycache__ y archivos .pyc en el proyecto

@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QForGNNsayout, QLineEdit, QComboBox, QSpinBox,
+    QDialog, QVBoxLayout, QFormLayout, QLineEdit, QComboBox, QSpinBox,
     QDoubleSpinBox, QDialogButtonBox, QPushButton, QFileDialog, QWidget, QHBoxLayout
 )
 from PySide6.QtCore import QSettings
@@ -16,7 +16,7 @@ class TrainConfigDialog(QDialog):
         self.settings = QSettings("Investigacion", "Analisis Molecular")
 
         layout = QVBoxLayout()
-        form_layout = QForGNNsayout()
+        form_layout = QFormLayout()
 
         # ---------- SDF directory ----------
         self.sdf_path_input = QLineEdit()

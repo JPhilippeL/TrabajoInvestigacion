@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QForGNNsayout, QLineEdit,
+    QDialog, QVBoxLayout, QFormLayout, QLineEdit,
     QPushButton, QFileDialog, QDialogButtonBox, QWidget, QHBoxLayout
 )
 from PySide6.QtCore import QSettings
@@ -33,7 +33,7 @@ class ExplanationDialog(QDialog):
         self.target_browse_btn.clicked.connect(self.browse_target)
 
         # ---------- Layout ----------
-        form_layout = QForGNNsayout()
+        form_layout = QFormLayout()
         form_layout.addRow("Modelo (.pt):", self._with_button(self.model_path_input, self.model_browse_btn))
         form_layout.addRow("Molécula (.sdf):", self._with_button(self.sdf_path_input, self.sdf_browse_btn))
         form_layout.addRow("Targets (.txt):", self._with_button(self.target_path_input, self.target_browse_btn))

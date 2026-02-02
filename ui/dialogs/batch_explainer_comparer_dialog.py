@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QForGNNsayout, QLineEdit,
+    QDialog, QVBoxLayout, QFormLayout, QLineEdit,
     QPushButton, QFileDialog, QDialogButtonBox, QWidget, QHBoxLayout,
     QComboBox, QLabel
 )
@@ -49,7 +49,7 @@ class BatchComparerDialog(QDialog):
         self.targets_btn.clicked.connect(self.browse_targets)
 
         # ---------- Layout ----------
-        form_layout = QForGNNsayout()
+        form_layout = QFormLayout()
         
         # Fila Modo
         form_layout.addRow("Modo de Análisis:", self.mode_combo)

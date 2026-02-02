@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QForGNNsayout, QLineEdit, QSpinBox, QDoubleSpinBox,
+    QDialog, QVBoxLayout, QFormLayout, QLineEdit, QSpinBox, QDoubleSpinBox,
     QDialogButtonBox, QPushButton, QFileDialog, QHBoxLayout, QComboBox
 )
 from PySide6.QtCore import QSettings
@@ -17,7 +17,7 @@ class TransferLearningMultipleDialog(QDialog):
         self.settings = QSettings("Investigacion", "Analisis Molecular")
 
         layout = QVBoxLayout()
-        form_layout = QForGNNsayout()
+        form_layout = QFormLayout()
 
         # ---------- Pretrained model directory ----------
         self.pretrained_dir_input = QLineEdit()

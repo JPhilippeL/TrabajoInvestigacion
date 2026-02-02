@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QForGNNsayout, QLineEdit, QSpinBox,
+    QDialog, QVBoxLayout, QFormLayout, QLineEdit, QSpinBox,
     QDoubleSpinBox, QDialogButtonBox, QPushButton, QFileDialog, QHBoxLayout
 )
 from PySide6.QtCore import QSettings
@@ -18,7 +18,7 @@ class TrainMultipleModelsDialog(QDialog):
         self.settings = QSettings("Investigacion", "Analisis Molecular")
 
         layout = QVBoxLayout()
-        form_layout = QForGNNsayout()
+        form_layout = QFormLayout()
 
         # ---------- SDF directory ----------
         self.sdf_path_input = QLineEdit()

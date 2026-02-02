@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QForGNNsayout, QLineEdit, QComboBox, QSpinBox,
+    QDialog, QVBoxLayout, QFormLayout, QLineEdit, QComboBox, QSpinBox,
     QDoubleSpinBox, QDialogButtonBox, QPushButton, QFileDialog, QWidget, QHBoxLayout
 )
 from PySide6.QtCore import QSettings
@@ -17,7 +17,7 @@ class TransferLearningDialog(QDialog):
         self.setWindowTitle("Configuración de Transfer Learning")
 
         layout = QVBoxLayout()
-        form_layout = QForGNNsayout()
+        form_layout = QFormLayout()
 
         # ---------- QSettings ----------
         self.settings = QSettings("Investigacion", "Analisis Molecular")
