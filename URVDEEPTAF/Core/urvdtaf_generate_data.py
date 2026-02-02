@@ -8,9 +8,14 @@ import time
 import platform
 import datetime
 from tqdm import tqdm
+import sys
 from sklearn.model_selection import train_test_split
 import ast  # Importante: para convertir el string del txt a lista de listas
 
+# Esto añade la carpeta 'TrabajoInvestigacion' al path de búsqueda de Python
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+# Ahora ya puedes importar
 from URVDEEPTAF.utils.constants import PROCESSED_DATA_DIR, c1, c2, structure_types, amino_acids
 import logging
 
@@ -18,8 +23,12 @@ logger = logging.getLogger(__name__)
 
 # Funciones de utilidad pura (sin estado, pueden ir fuera de la clase)
 def clean_pdbid(pid):
-    """Convert pid to string and remove any '+' from exponential notation."""
-    pid = str(pid)
+    """Limpia agresivamente el ID."""
+    pid = str(pid).strip() # Quita espacios delante y detras
+    # Quita comillas simples o dobles si se colaron en el string
+    pid = pid.replace("'", "").replace('"', "")
+    # Quita saltos de linea
+    pid = pid.replace("\n", "").replace("\r", "")
     return pid.replace("E+", "E").replace("e+", "E")
 
 def f1(aa, key):

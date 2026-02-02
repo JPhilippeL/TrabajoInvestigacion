@@ -304,16 +304,9 @@ class BaseDeepDTAF(nn.Module):
         if not (use_protein or use_pocket or use_ligand):
             raise ValueError("At least one of protein, pocket, or ligand features must be used")
         
-        # Define embeddings and encoders
+        # --- CORRECCIÓN EN LIGANDO ---
         if use_ligand:
             if use_gnn:
-                # # GNN encoder for ligand
-                # self.gnn_encoder = GNNEncoder(
-                #     input_dim=gnn_node_feat,
-                #     hidden_dim=gnn_hidden,
-                #     output_dim=smi_oc
-                # )
-                # eagerly build all GNN sub‑modules by specifying edge_feat_dim=6
                 self.gnn_encoder = GNNEncoder(
                     input_dim=gnn_node_feat,
                     hidden_dim=gnn_hidden,
@@ -321,22 +314,21 @@ class BaseDeepDTAF(nn.Module):
                     edge_feat_dim=6
                 )
             else:
-                # SMILES encoder for ligand
                 self.smi_embed = nn.Embedding(CHAR_SMI_SET_LEN, smi_embed_size)
-                
                 conv_smi = []
                 ic = smi_embed_size
                 for oc in [32, 64, smi_oc]:
                     conv_smi.append(DilatedParllelResidualBlockB(ic, oc))
                     ic = oc
                 conv_smi.append(nn.AdaptiveMaxPool1d(1))
-                conv_smi.append(Squeeze())
-                self.conv_smi = nn.Sequential(*conv_smi)  # (N,128)
-        
+                # --- BORRADO: conv_smi.append(Squeeze()) --- <--- ELIMINAR ESTA LÍNEA
+                self.conv_smi = nn.Sequential(*conv_smi)
+
         # Shared embedding for sequence and pocket
         if use_protein or use_pocket:
             self.seq_embed = nn.Linear(PT_FEATURE_SIZE, seq_embed_size)
         
+        # --- CORRECCIÓN EN SECUENCIA ---
         if use_protein:
             conv_seq = []
             ic = seq_embed_size
@@ -344,9 +336,10 @@ class BaseDeepDTAF(nn.Module):
                 conv_seq.append(DilatedParllelResidualBlockA(ic, oc))
                 ic = oc
             conv_seq.append(nn.AdaptiveMaxPool1d(1))
-            conv_seq.append(Squeeze())
+            # --- BORRADO: conv_seq.append(Squeeze()) --- <--- ELIMINAR ESTA LÍNEA
             self.conv_seq = nn.Sequential(*conv_seq)
         
+        # --- CORRECCIÓN EN BOLSILLO ---
         if use_pocket:
             conv_pkt = []
             ic = seq_embed_size
@@ -356,7 +349,7 @@ class BaseDeepDTAF(nn.Module):
                 conv_pkt.append(nn.PReLU())
                 ic = oc
             conv_pkt.append(nn.AdaptiveMaxPool1d(1))
-            conv_pkt.append(Squeeze())
+            # --- BORRADO: conv_pkt.append(Squeeze()) --- <--- ELIMINAR ESTA LÍNEA
             self.conv_pkt = nn.Sequential(*conv_pkt)
         
         # Calculate combined feature size
@@ -385,57 +378,74 @@ class BaseDeepDTAF(nn.Module):
                 pkt: Optional[torch.Tensor] = None, 
                 smi: Optional[Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], List]] = None) -> torch.Tensor:
         """
-        Forward pass through the model.
-        
-        Args:
-            seq: Sequence tensor (N, L, 40) or None if not using protein
-            pkt: Pocket tensor (N, L, 40) or None if not using pocket
-            smi: SMILES tensor (N, L) or tuple/list (x, edge_index, edge_attr, batch) if using GNN
-            
-        Returns:
-            Predicted affinity values (N, 1)
+        Forward pass through the model using explicit flattening.
         """
         features = []
         
-        # Process sequence if used
+        # -----------------------------------------------------------
+        # 1. PROCESAR SECUENCIA
+        # -----------------------------------------------------------
         if self.use_protein:
             if seq is None:
                 raise ValueError("Sequence tensor is required when use_protein=True")
-            seq_embed = self.seq_embed(seq)
-            seq_embed = torch.transpose(seq_embed, 1, 2)
-            seq_conv = self.conv_seq(seq_embed)
+            
+            seq_embed = self.seq_embed(seq)            # [Batch, Len, 128]
+            seq_embed = torch.transpose(seq_embed, 1, 2) # [Batch, 128, Len]
+            seq_conv = self.conv_seq(seq_embed)        # [Batch, 128, 1] (Tras AdaptivePool)
+            
+            # CAMBIO CRÍTICO: Aplanar explícitamente a [Batch, 128]
+            seq_conv = seq_conv.view(seq_conv.size(0), -1) 
+            
             features.append(seq_conv)
         
-        # Process pocket if used
+        # -----------------------------------------------------------
+        # 2. PROCESAR BOLSILLO
+        # -----------------------------------------------------------
         if self.use_pocket:
             if pkt is None:
                 raise ValueError("Pocket tensor is required when use_pocket=True")
+                
             pkt_embed = self.seq_embed(pkt)
             pkt_embed = torch.transpose(pkt_embed, 1, 2)
-            pkt_conv = self.conv_pkt(pkt_embed)
+            pkt_conv = self.conv_pkt(pkt_embed)        # [Batch, 128, 1]
+            
+            # CAMBIO CRÍTICO: Aplanar explícitamente a [Batch, 128]
+            pkt_conv = pkt_conv.view(pkt_conv.size(0), -1)
+            
             features.append(pkt_conv)
         
-        # Process ligand if used
+        # -----------------------------------------------------------
+        # 3. PROCESAR LIGANDO
+        # -----------------------------------------------------------
         if self.use_ligand:
             if smi is None:
                 raise ValueError("SMILES tensor or graph data is required when use_ligand=True")
                 
             if self.use_gnn:
-                # Process using GNN - handle both tuples and lists
+                # GNN suele devolver ya [Batch, 128], pero aseguramos
                 if isinstance(smi, (tuple, list)) and len(smi) == 4:
                     x, edge_index, edge_attr, batch = smi
                     gnn_out = self.gnn_encoder(x, edge_index, edge_attr, batch)
                     features.append(gnn_out)
                 else:
-                    raise ValueError(f"GNN requires tuple or list of (x, edge_index, edge_attr, batch), got {type(smi)} with length {len(smi) if hasattr(smi, '__len__') else 'unknown'}")
+                    raise ValueError(f"GNN requires tuple/list of 4 elements, got {type(smi)}")
             else:
-                # Process using SMILES
+                # SMILES Convencional
                 smi_embed = self.smi_embed(smi)
                 smi_embed = torch.transpose(smi_embed, 1, 2)
-                smi_conv = self.conv_smi(smi_embed)
+                smi_conv = self.conv_smi(smi_embed)    # [Batch, 128, 1]
+                
+                # CAMBIO CRÍTICO: Aplanar explícitamente a [Batch, 128]
+                smi_conv = smi_conv.view(smi_conv.size(0), -1)
+                
                 features.append(smi_conv)
         
-        # Concatenate features
+        # -----------------------------------------------------------
+        # 4. CONCATENACIÓN (Sin parches)
+        # -----------------------------------------------------------
+        # Ahora features tiene [Tensor(B, 128), Tensor(B, 128), Tensor(B, 128)]
+        # Al concatenar en dim=1, obtenemos [Batch, 384]
+        
         cat = torch.cat(features, dim=1)
         cat = self.cat_dropout(cat)
         

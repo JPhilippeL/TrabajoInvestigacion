@@ -334,71 +334,113 @@ class MyDataset(Dataset):
         
         print(f"Dataset {phase}: loaded {self.length} valid samples")
 
-    def __getitem__(self, idx: int) -> Union[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray], 
-                                           Tuple[np.ndarray, np.ndarray, Tuple[torch.Tensor, torch.Tensor, torch.Tensor], np.ndarray]]:
-        """Get item by index."""
-        pdbid = self.idx_to_pdbid[idx]
+    def __getitem__(self, idx: int):
+        """
+        Recupera una muestra por índice.
+        Incluye validación estricta de archivos para evitar errores de dimensiones.
+        """
+        # Limpiamos el ID (quitamos espacios y aseguramos string)
+        pdbid = str(self.idx_to_pdbid[idx]).strip()
         
-        # Load sequence tensor
+        # ==============================================================================
+        # 1. CARGA DE SECUENCIA (SEQ)
+        # ==============================================================================
         if hasattr(self, 'seq_data'):
-            # Process sequence string data (needs implementation based on your encoding)
-            # This is a placeholder - you'll need to replace with actual encoding logic
-            _seq_tensor = np.zeros((min(len(self.seq_data[pdbid]), self.max_seq_len), PT_FEATURE_SIZE))
-            # Implement sequence encoding here
+            # Si los datos están cargados en RAM (diccionario)
+            raw_seq = self.seq_data[pdbid]
+            # Asumimos que raw_seq ya es el array de features o procesalo aqui si es string
+            _seq_tensor = np.zeros((min(len(raw_seq), self.max_seq_len), PT_FEATURE_SIZE))
+            # (Aquí iría tu lógica si seq_data fuera raw string, pero asumimos features ya procesadas o similar)
+            # Si seq_data ya son features numéricas:
+            _seq_tensor = raw_seq[:self.max_seq_len]
         else:
-            # Find the matching sequence file
-            seq_file = next((p for p in self.seq_path if p.stem == pdbid), None)
+            # Búsqueda en disco (Case-Insensitive)
+            seq_file = next((p for p in self.seq_path if p.stem.upper() == pdbid.upper()), None)
+            
             if seq_file:
-                _seq_tensor = pd.read_csv(seq_file, index_col=0).drop(['idx'], axis=1).values[:self.max_seq_len]
+                # Leemos CSV, descartamos columna 'idx' si existe
+                df = pd.read_csv(seq_file, index_col=0)
+                if 'idx' in df.columns:
+                    df = df.drop(['idx'], axis=1)
+                _seq_tensor = df.values[:self.max_seq_len]
             else:
-                _seq_tensor = np.zeros((0, PT_FEATURE_SIZE))
-        
-        seq_tensor = np.zeros((self.max_seq_len, PT_FEATURE_SIZE))
-        seq_tensor[:len(_seq_tensor)] = _seq_tensor
+                # ERROR EXPLÍCITO para depuración
+                print(f"\n[ERROR CRÍTICO] Archivo SEQ no encontrado para ID: '{pdbid}'")
+                print(f"Ruta base buscada: {self.seq_path[0].parent if self.seq_path else 'Ruta desconocida'}")
+                raise FileNotFoundError(f"Falta archivo de secuencia para {pdbid}")
 
-        # Load pocket tensor
+        # Padding / Relleno de la secuencia
+        seq_tensor = np.zeros((self.max_seq_len, PT_FEATURE_SIZE))
+        if len(_seq_tensor) > 0:
+            seq_tensor[:len(_seq_tensor)] = _seq_tensor
+
+        # ==============================================================================
+        # 2. CARGA DE BOLSILLO (POCKET)
+        # ==============================================================================
         if hasattr(self, 'pkt_data'):
-            # Process pocket string data (needs implementation based on your encoding)
-            # This is a placeholder - you'll need to replace with actual encoding logic
-            _pkt_tensor = np.zeros((min(len(self.pkt_data[pdbid]), self.max_pkt_len), PT_FEATURE_SIZE))
-            # Implement pocket encoding here
+            raw_pkt = self.pkt_data[pdbid]
+            _pkt_tensor = raw_pkt[:self.max_pkt_len]
         else:
-            # Find the matching pocket file
-            pkt_file = next((p for p in self.pkt_path if p.stem == pdbid), None)
+            # Búsqueda en disco (Case-Insensitive)
+            pkt_file = next((p for p in self.pkt_path if p.stem.upper() == pdbid.upper()), None)
+            
             if pkt_file:
-                _pkt_tensor = pd.read_csv(pkt_file, index_col=0).drop(['idx'], axis=1).values[:self.max_pkt_len]
+                df = pd.read_csv(pkt_file, index_col=0)
+                if 'idx' in df.columns:
+                    df = df.drop(['idx'], axis=1)
+                _pkt_tensor = df.values[:self.max_pkt_len]
             else:
-                _pkt_tensor = np.zeros((0, PT_FEATURE_SIZE))
+                print(f"\n[ERROR CRÍTICO] Archivo POCKET no encontrado para ID: '{pdbid}'")
+                raise FileNotFoundError(f"Falta archivo de pocket para {pdbid}")
         
+        # Lógica de Stride / Ventana deslizante para el Pocket
         if self.pkt_window is not None and self.pkt_stride is not None:
-            pkt_len = (int(np.ceil((self.max_pkt_len - self.pkt_window) / self.pkt_stride))
-                       * self.pkt_stride
-                       + self.pkt_window)
-            pkt_tensor = np.zeros((pkt_len, PT_FEATURE_SIZE))
-            pkt_tensor[:len(_pkt_tensor)] = _pkt_tensor
+            # Calcular longitud necesaria con padding
+            num_windows = int(np.ceil((self.max_pkt_len - self.pkt_window) / self.pkt_stride))
+            pkt_len = num_windows * self.pkt_stride + self.pkt_window
+            
+            # Crear buffer temporal con ceros
+            pkt_tensor_strided = np.zeros((pkt_len, PT_FEATURE_SIZE))
+            # Rellenar con los datos reales
+            if len(_pkt_tensor) > 0:
+                pkt_tensor_strided[:len(_pkt_tensor)] = _pkt_tensor
+            
+            # Cortar en ventanas
             pkt_tensor = np.array(
-                [pkt_tensor[i * self.pkt_stride:i * self.pkt_stride + self.pkt_window]
-                 for i in range(int(np.ceil((self.max_pkt_len - self.pkt_window) / self.pkt_stride)))]
+                [pkt_tensor_strided[i * self.pkt_stride : i * self.pkt_stride + self.pkt_window]
+                 for i in range(num_windows)]
             )
         else:
+            # Sin stride: Padding simple
             pkt_tensor = np.zeros((self.max_pkt_len, PT_FEATURE_SIZE))
-            pkt_tensor[:len(_pkt_tensor)] = _pkt_tensor
-        
-        # Get ligand representation
+            if len(_pkt_tensor) > 0:
+                pkt_tensor[:len(_pkt_tensor)] = _pkt_tensor
+
+        # ==============================================================================
+        # 3. CARGA DE LIGANDO Y RETORNO
+        # ==============================================================================
+        # Aseguramos tipos float32 para PyTorch
+        affinity_label = np.array(self.affinity[pdbid], dtype=np.float32)
+
         if self.use_gnn:
-            # Return the graph directly - it will be batched by a custom collate function
+            # Retorno para Graph Neural Network
+            if pdbid not in self.graphs:
+                raise KeyError(f"El grafo para {pdbid} no está en self.graphs")
             graph_data = self.graphs[pdbid]
             
             return (seq_tensor.astype(np.float32),
                     pkt_tensor.astype(np.float32),
-                    graph_data,  # This will be a PyG Data object
-                    np.array(self.affinity[pdbid], dtype=np.float32))
+                    graph_data,
+                    affinity_label)
         else:
-            # Use SMILES string representation
+            # Retorno para secuencia SMILES
+            # Asegúrate de que 'label_smiles' esté importado o disponible
+            smi_encoded = label_smiles(self.smi[pdbid], self.max_smi_len)
+            
             return (seq_tensor.astype(np.float32),
                     pkt_tensor.astype(np.float32),
-                    label_smiles(self.smi[pdbid], self.max_smi_len),
-                    np.array(self.affinity[pdbid], dtype=np.float32))
+                    smi_encoded,
+                    affinity_label)
 
     def __len__(self) -> int:
         """Return dataset length."""

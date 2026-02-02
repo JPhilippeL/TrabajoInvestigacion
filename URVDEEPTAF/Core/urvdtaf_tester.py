@@ -6,6 +6,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import seaborn as sns
+import traceback
 
 from .urvdtaf_dataset import MyDataset, collate_gnn
 from .urvdtaf_model import (
@@ -20,38 +21,46 @@ def test_model(
     max_seq_len: int = 1000, max_pkt_len: int = 63, max_smi_len: int = 150
 ) -> dict:
     """Test a trained model and generate reports."""
-    
-    model_path, data_path = Path(model_path), Path(data_path)
-    device = torch.device(device if device else ("cuda:0" if torch.cuda.is_available() else "cpu"))
-    
-    # 1. Configuración e Identificación
-    model_name, use_gnn = get_model_info_from_path(model_path)
-    run_dir, test_files_dir, test_plots_dir = setup_test_directories(model_path, generate_plots)
-    
-    print(f"Testing {model_name} on {device}...")
-
-    # 2. Carga de Modelo y Datos
-    model, test_loader, test_dataset = load_test_environment(
-        model_name, model_path, data_path, max_seq_len, max_pkt_len, 
-        max_smi_len, batch_size, device, use_gnn
-    )
-
-    # 3. Ejecución del Test
-    start_time = datetime.now()
-    loss_function = nn.MSELoss(reduction='sum')
-    metrics, preds, labels = test(model, test_loader, loss_function, device, True)
-    duration = datetime.now() - start_time
-
-    # 4. Reportes y Exportaciones
-    save_test_report(run_dir, model_name, model_path, data_path, batch_size, device, duration, metrics)
-    
-    if predictions:
-        save_predictions_csv(test_files_dir, test_dataset, labels, preds)
+    try:
+        model_path, data_path = Path(model_path), Path(data_path)
+        device = torch.device(device if device else ("cuda:0" if torch.cuda.is_available() else "cpu"))
         
-    if generate_plots:
-        generate_test_plots(test_plots_dir, labels, preds, model_name)
+        # 1. Configuración e Identificación
+        model_name, use_gnn = get_model_info_from_path(model_path)
+        run_dir, test_files_dir, test_plots_dir = setup_test_directories(model_path, generate_plots)
+        
+        print(f"Testing {model_name} on {device}...")
 
-    return metrics
+        # 2. Carga de Modelo y Datos
+        model, test_loader, test_dataset = load_test_environment(
+            model_name, model_path, data_path, max_seq_len, max_pkt_len, 
+            max_smi_len, batch_size, device, use_gnn
+        )
+
+        # 3. Ejecución del Test
+        start_time = datetime.now()
+        loss_function = nn.MSELoss(reduction='sum')
+        metrics, preds, labels = test(model, test_loader, loss_function, device, True)
+        duration = datetime.now() - start_time
+
+        # 4. Reportes y Exportaciones
+        save_test_report(run_dir, model_name, model_path, data_path, batch_size, device, duration, metrics)
+        
+        if predictions:
+            save_predictions_csv(test_files_dir, test_dataset, labels, preds)
+            
+        if generate_plots:
+            generate_test_plots(test_plots_dir, labels, preds, model_name)
+
+        return metrics
+    except Exception as e:
+        # Esto imprimirá la línea exacta en tu consola/terminal
+        print("\n" + "="*30)
+        print("CRITICAL ERROR IN TEST_MODEL")
+        print("="*30)
+        traceback.print_exc() 
+        print("="*30 + "\n")
+        raise e  # Lanza el error de nuevo para que lo capture el hilo y la GUI
 
 def get_model_info_from_path(model_path: Path) -> tuple:
     """Extrae el nombre exacto del modelo a partir del nombre del directorio."""
