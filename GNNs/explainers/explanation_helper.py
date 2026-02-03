@@ -434,22 +434,22 @@ def get_feature_names_embedding():
         "Is Acceptor"
     ]
 
-def normalizar_max(arr):
+def normalizar_por_norma(arr):
     """
-    Normaliza dividiendo por el máximo absoluto.
-    - El máximo será 1.0
-    - El 0 real se queda en 0.
-    - Mantiene la proporción real entre features.
+    Normaliza el vector usando la Norma L2 (Euclidiana).
+    - La suma de los cuadrados de los elementos será 1.
+    - Captura mejor la distribución de energía del vector.
     """
-    if arr is None or len(arr) == 0: return arr
+    if arr is None or arr.size == 0: 
+        return arr
     
-    # Usamos max() del valor absoluto, que ya viene calculado en 'arr'
-    val_max = arr.max()
+    # Calcular la norma L2 (raíz de la suma de cuadrados)
+    norma = np.linalg.norm(arr)
     
-    if val_max == 0:
+    if norma == 0:
         return np.zeros_like(arr)
         
-    return arr / val_max
+    return arr / norma
 
 def tensor_to_abs_numpy(tensor):
     """Convierte tensor a numpy, toma valor absoluto."""
@@ -496,7 +496,7 @@ def procesar_features_ordenadas(importance_tensor, feature_names, input_data=Non
     sorted_imp = filtered_imp[sort_idx]
     sorted_names = filtered_names[sort_idx]
     
-    # 4. NORMALIZAR CON MAX
-    final_imp = normalizar_max(sorted_imp)
+    # 4. NORMALIZAR CON norma
+    final_imp = normalizar_por_norma(sorted_imp)
     
     return final_imp, sorted_names.tolist()
