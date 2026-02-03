@@ -13,7 +13,7 @@ from graph_managment.sdf_converter import parse_sdf
 from GNNs.explainers.explanation_helper import ( 
     obtener_info_real, guardar_dashboard_explicacion,
     guardar_pesos, tensor_to_abs_numpy, 
-    normalizar_max, get_feature_names_embedding, 
+    normalizar_por_norma, get_feature_names_embedding, 
     procesar_features_ordenadas )
 from GNNs.explainers.explanation_fidelity import calcular_curvas_fidelity_general, guardar_plot_fidelity
 
@@ -285,14 +285,14 @@ def obtener_graph_explainer(
 
     # --- BETA (Nodos) ---
     beta_np = tensor_to_abs_numpy(beta)
-    # CAMBIO: Usar normalizar_max para ser consistente con los heatmaps
-    beta_np = normalizar_max(beta_np)  
+    # CAMBIO: Usar normalizar_por_norma para ser consistente con los heatmaps
+    beta_np = normalizar_por_norma(beta_np)  
 
     # --- DELTA (Aristas) ---
     if delta is not None:
         delta_np = tensor_to_abs_numpy(delta)
-        # CAMBIO: Usar normalizar_max para evitar que una arista desaparezca si hay pocas
-        delta_normalized = normalizar_max(delta_np) 
+        # CAMBIO: Usar normalizar_por_norma para evitar que una arista desaparezca si hay pocas
+        delta_normalized = normalizar_por_norma(delta_np) 
     else:
         delta_normalized = np.array([])
 

@@ -14,8 +14,8 @@ from graph_managment.sdf_converter import parse_sdf
 from GNNs.explainers.explanation_helper import ( 
     obtener_info_real, guardar_dashboard_explicacion,
     guardar_pesos, tensor_to_abs_numpy, 
-    normalizar_max, get_feature_names_embedding, 
-    procesar_features_ordenadas )
+    normalizar_por_norma, get_features_names_onehot, 
+    procesar_features_onehot )
 from GNNs.explainers.explanation_fidelity import calcular_curvas_fidelity_general, guardar_plot_fidelity
 
 ALGO_NAME = "GraphExplainer"
@@ -213,7 +213,7 @@ def obtener_graph_explainer(
     
     # Generar muestras perturbadas
     perturbed_samples = generate_perturbed_samples(muestra, feature_mask, num_samples, noise_level)
-    perturbed_samples_embedding = []
+    # perturbed_samples_embedding = []
 
     # Obtener modelo
     model, device, target_name = cargar_modelo(checkpoint_path)
@@ -228,20 +228,20 @@ def obtener_graph_explainer(
         perturbed_for_model = onehot_to_indices(perturbed)  # <-- aquí el puente
         pred = predecir_molecula(model, perturbed_for_model, device)
         predicciones_perturbadas.append(pred)
-        perturbed_samples_embedding.append(perturbed_for_model)
+        # perturbed_samples_embedding.append(perturbed_for_model)
 
     # Convertir a tensor [num_samples,1]
     predicciones_perturbadas = torch.tensor(predicciones_perturbadas, dtype=torch.float, device=device).unsqueeze(1)
 
-    # Calcular distancias entre la muestra original y las perturbaciones
-    feature_distances = graph_feature_distance_list(muestra_for_model, perturbed_samples_embedding)
+    # Calcular distancias entre la muestra original y las perturbaciones ( one hot)
+    feature_distances = graph_feature_distance_list(muestra, perturbed_samples)
 
-    # Obtener E
-    E_list = [data_z.x.to(device) for data_z in perturbed_samples_embedding]
+    # Obtener E (onehot)
+    E_list = [data_z.x.to(device) for data_z in perturbed_samples]
 
-    # Lo mismo con los edges
+    # Lo mismo con los edges (onehot)
     A_list = []
-    for data_z in perturbed_samples_embedding:
+    for data_z in perturbed_samples:
     # for data_z in perturbed_samples:
         if data_z.edge_attr is not None:
             A_list.append(data_z.edge_attr.to(device))
@@ -267,18 +267,19 @@ def obtener_graph_explainer(
     # ==========================================================================
     
     # 1. ALFA (Node Features) -> Filtrar -> Ordenar -> Normalizar
-    node_feature_names = get_feature_names_embedding()
-    alfa_sorted, row_labels_alfa = procesar_features_ordenadas(
-        alfa, node_feature_names, muestra_for_model.x
+    node_feature_names = get_features_names_onehot()
+    alfa_sorted, row_labels_alfa = procesar_features_onehot(
+        alfa, node_feature_names, muestra.x
     )
 
     # 2. GAMMA (Edge Features) -> Filtrar -> Ordenar -> Normalizar
     # Reemplaza a Beta en el segundo heatmap
     if muestra.edge_attr is not None:
-        edge_feature_names = ["Bond Type", "Distance"]
+        # edge_feature_names = ["Bond Type", "Distance"]
+        edge_feature_names = ["Single", "Double", "Triple", "Aromatic", "Distance"]
         
-        gamma_sorted, row_labels_gamma = procesar_features_ordenadas(
-            gamma, edge_feature_names, muestra_for_model.edge_attr
+        gamma_sorted, row_labels_gamma = procesar_features_onehot(
+            gamma, edge_feature_names, muestra.edge_attr
         )
     else:
         gamma_sorted = np.array([])
@@ -286,14 +287,14 @@ def obtener_graph_explainer(
 
     # --- BETA (Nodos) ---
     beta_np = tensor_to_abs_numpy(beta)
-    # CAMBIO: Usar normalizar_max para ser consistente con los heatmaps
-    beta_np = normalizar_max(beta_np)  
+    # CAMBIO: Usar normalizar_por_norma para ser consistente con los heatmaps
+    beta_np = normalizar_por_norma(beta_np)  
 
     # --- DELTA (Aristas) ---
     if delta is not None:
         delta_np = tensor_to_abs_numpy(delta)
-        # CAMBIO: Usar normalizar_max para evitar que una arista desaparezca si hay pocas
-        delta_normalized = normalizar_max(delta_np) 
+        # CAMBIO: Usar normalizar_por_norma para evitar que una arista desaparezca si hay pocas
+        delta_normalized = normalizar_por_norma(delta_np) 
     else:
         delta_normalized = np.array([])
 

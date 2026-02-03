@@ -14,7 +14,7 @@ from GNNs.data_processing import mol_to_graph_data
 from GNNs.explainers.explanation_helper import ( 
     obtener_info_real, guardar_dashboard_explicacion,
     guardar_pesos,
-    tensor_to_abs_numpy, normalizar_max, 
+    tensor_to_abs_numpy, normalizar_por_norma, 
     get_feature_names_embedding, procesar_features_ordenadas 
 )
 from GNNs.explainers.explanation_fidelity import calcular_curvas_fidelity_general, guardar_plot_fidelity
@@ -148,8 +148,8 @@ def ejecutar_pipeline_visualizacion(
     graph_obj = parse_sdf(sdf_path)
     
     # Convertimos a numpy normalizado (MAX) para pintar y para el threshold de fidelity
-    beta_np = normalizar_max(tensor_to_abs_numpy(beta_raw))
-    delta_normalized = normalizar_max(tensor_to_abs_numpy(delta_raw)) if delta_raw is not None else np.array([])
+    beta_np = normalizar_por_norma(tensor_to_abs_numpy(beta_raw))
+    delta_normalized = normalizar_por_norma(tensor_to_abs_numpy(delta_raw)) if delta_raw is not None else np.array([])
 
     # ---------------------------------------------------------
     # B. CÁLCULO DE FIDELITY (Sobre datos alineados con grafos)

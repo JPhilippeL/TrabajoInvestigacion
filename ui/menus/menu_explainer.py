@@ -12,7 +12,7 @@ from ui.dialogs.explainer_comparer_dialog import ExplainerComparerDialog
 from ui.dialogs.batch_explainer_comparer_dialog import BatchComparerDialog
 
 from GNNs.model_tester import cargar_modelo
-from GNNs.explainers.model_Graph_explainer import obtener_graph_explainer
+from GNNs.explainers.graph_explainer_onehot import obtener_graph_explainer
 from GNNs.explainers.model_GNNExplainer import obtener_GNN_Explainer
 from GNNs.explainers.explanation_fidelity import generar_comparativa_fidelity, save_auc_results_csv, calcular_aucs_fidelity_batch
 from GNNs.data_processing import read_targets, mol_to_graph_data
@@ -59,7 +59,7 @@ class MenuExplainerGNN(QMenu):
         self.addAction(batch_explanation_comparer_action)
 
     def get_explanation_GraphExplainer(self):
-        dialog = ExplanationDialog(self.parent)
+        dialog = ExplanationDialog(self.main_window)
         if dialog.exec():
             model_path, sdf_path, target_path = dialog.get_paths()
             try:
@@ -68,17 +68,17 @@ class MenuExplainerGNN(QMenu):
                 plot_path = obtener_graph_explainer(model_path, sdf_path, target_path, num_samples=1000, noise_level=0.01, device='cpu')
 
                 # mostrar el sdf por pantalla
-                self.parent.load_graph_from_file(sdf_path)
+                self.main_window.load_graph_from_file(sdf_path)
 
                 # Mostrar la imagen en un diálogo
-                self.image_dialog = ImageDialog(plot_path, self.parent)
+                self.image_dialog = ImageDialog(plot_path, self.main_window)
                 self.image_dialog.show()
 
             except Exception as e:
                 logger.error(f"Error en explicación GraphExplanation: {str(e)}", exc_info=True)
     
     def get_explanation_GNNExplainer(self):
-        dialog = ExplanationDialog(self.parent)
+        dialog = ExplanationDialog(self.main_window)
         if dialog.exec():
             model_path, sdf_path, target_path = dialog.get_paths()
             try:
@@ -86,10 +86,10 @@ class MenuExplainerGNN(QMenu):
                 plot_path = obtener_GNN_Explainer(model_path, sdf_path, target_path)
 
                 # mostrar el sdf por pantalla
-                self.parent.load_graph_from_file(sdf_path)
+                self.main_window.load_graph_from_file(sdf_path)
 
                 # Mostrar la imagen en un diálogo
-                self.image_dialog = ImageDialog(plot_path, self.parent)
+                self.image_dialog = ImageDialog(plot_path, self.main_window)
                 self.image_dialog.show()
 
             except Exception as e:
@@ -100,7 +100,7 @@ class MenuExplainerGNN(QMenu):
         Procesa un directorio completo de archivos SDF usando GraphExplainer.
         Reutiliza BatchModelTestDialog para seleccionar Modelo, Directorio y Targets.
         """
-        dialog = BatchModelTestDialog(self.parent)
+        dialog = BatchModelTestDialog(self.main_window)
         if dialog.exec():
             model_path, directory_path, target_path = dialog.get_paths()
             try:
@@ -139,7 +139,7 @@ class MenuExplainerGNN(QMenu):
         Procesa un directorio completo de archivos SDF usando GNNExplainer.
         Reutiliza BatchModelTestDialog para seleccionar Modelo, Directorio y Targets.
         """
-        dialog = BatchModelTestDialog(self.parent)
+        dialog = BatchModelTestDialog(self.main_window)
         if dialog.exec():
             model_path, directory_path, target_path = dialog.get_paths()
             try:
@@ -167,7 +167,7 @@ class MenuExplainerGNN(QMenu):
                 logger.error(f"Error en batch GNNExplainer: {str(e)}", exc_info=True)
 
     def get_explanation_comparer(self):
-        dialog = ExplainerComparerDialog(self.parent)
+        dialog = ExplainerComparerDialog(self.main_window)
         if dialog.exec():
             # 1. Recuperar los 5 valores
             model_path, sdf_path, graphexplanation_path, gnn_path_raw, mode = dialog.get_inputs()
@@ -191,7 +191,7 @@ class MenuExplainerGNN(QMenu):
 
                 # 4. Mostrar resultado si se generó
                 if plot_path:
-                    self.image_dialog = ImageDialog(plot_path, self.parent)
+                    self.image_dialog = ImageDialog(plot_path, self.main_window)
                     self.image_dialog.show()
 
             except Exception as e:
@@ -207,7 +207,7 @@ class MenuExplainerGNN(QMenu):
         # sdfs_dir: Ruta al directorio con los .sdf
         # weights_root_dir: Ruta raíz de los pesos (dentro debe haber carpetas alpha, beta, etc.)
         # mode: String 'alpha', 'beta', 'gamma' o 'delta'
-        dialog = BatchComparerDialog(self.parent)
+        dialog = BatchComparerDialog(self.main_window)
 
         UMBRAL_ERROR = 0.6767
         
