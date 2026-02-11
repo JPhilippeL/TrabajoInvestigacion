@@ -17,7 +17,6 @@ from GNNs.explainers.explanation_helper import (
     tensor_to_abs_numpy, normalizar_por_norma, 
     get_feature_names_embedding, procesar_features_ordenadas 
 )
-from GNNs.explainers.explanation_fidelity import calcular_curvas_fidelity_general, guardar_plot_fidelity
 
 logger = logging.getLogger(__name__)
 
@@ -154,18 +153,18 @@ def ejecutar_pipeline_visualizacion(
     # ---------------------------------------------------------
     # B. CÁLCULO DE FIDELITY (Sobre datos alineados con grafos)
     # ---------------------------------------------------------
-    if model is not None and data is not None:
-        try:
-            logger.info("Calculando curvas de fidelity...")
-            k_vals, fiab_minus = calcular_curvas_fidelity_general(
-                model, data, beta_np, device
-            )
-            guardar_plot_fidelity(
-                k_values=k_vals, fiab_minus=fiab_minus, 
-                model_name=model_name, mol_name=mol_name, algo_name=algo_name
-            )
-        except Exception as e:
-            logger.error(f"Error calculando fidelity: {e}")
+    # if model is not None and data is not None:
+    #     try:
+    #         logger.info("Calculando curvas de fidelity...")
+    #         k_vals, fiab_minus = calcular_curvas_fidelity_general(
+    #             model, data, beta_np, device
+    #         )
+    #         guardar_plot_fidelity(
+    #             k_values=k_vals, fiab_minus=fiab_minus, 
+    #             model_name=model_name, mol_name=mol_name, algo_name=algo_name
+    #         )
+    #     except Exception as e:
+    #         logger.error(f"Error calculando fidelity: {e}")
 
     # ---------------------------------------------------------
     # C. PROCESAMIENTO PARA HEATMAPS (Aquí sí alteramos el orden)

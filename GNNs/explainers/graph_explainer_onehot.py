@@ -17,7 +17,6 @@ from GNNs.explainers.explanation_helper import (
     guardar_pesos, tensor_to_abs_numpy, 
     normalizar_por_norma, get_features_names_onehot, 
     procesar_features_onehot )
-from GNNs.explainers.explanation_fidelity import calcular_curvas_fidelity_general, guardar_plot_fidelity
 
 ALGO_NAME = "GraphExplainer"
 # Un 15% - 20% es razonable para mantener la estructura general.
@@ -355,23 +354,23 @@ def obtener_graph_explainer(
     )
 
     # 1. Calcular Curvas de FIABILIDAD
-    k_vals, fiab_minus = calcular_curvas_fidelity_general(
-        model, 
-        muestra_for_model, 
-        beta.abs(), 
-        device
-    )
+    # k_vals, fiab_minus = calcular_curvas_fidelity_general(
+    #     model, 
+    #     muestra_for_model, 
+    #     beta.abs(), 
+    #     device
+    # )
 
     # 3. Guardar (Solo pasamos datos puros)
-    fiab_path = guardar_plot_fidelity(
-        k_values=k_vals,
-        fiab_minus=fiab_minus, 
-        model_name=model_folder_name,
-        mol_name=mol_name,
-        algo_name=ALGO_NAME
-    )
+    # fiab_path = guardar_plot_fidelity(
+    #     k_values=k_vals,
+    #     fiab_minus=fiab_minus, 
+    #     model_name=model_folder_name,
+    #     mol_name=mol_name,
+    #     algo_name=ALGO_NAME
+    # )
     
-    logger.info(f"Gráfico fidelity guardado en: {fiab_path}")
+    # logger.info(f"Gráfico fidelity guardado en: {fiab_path}")
 
     return plotfilename
 

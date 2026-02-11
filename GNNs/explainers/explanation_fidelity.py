@@ -26,7 +26,8 @@ def generar_comparativa_fidelity(
     sdf_path, 
     graphexp_weights_path, 
     gnnexp_weights_path, # Puede ser None
-    mode = "delta" 
+    mode = "delta",
+    reg_fidelity_mas = True
 ):
     """
     Función orquestadora completa.
@@ -74,7 +75,15 @@ def generar_comparativa_fidelity(
 
     # --- 5. Calcular Curva GraphExplainer ---
     print(f"Calculando curva {mode} para GraphExplainer...")
-    k_vals_graph, fiab_graphexp = calcular_curvas_fidelity_graphE(model, mol, tensor_graphexp, device, mode)
+    k_vals_graph, fiab_graphexp = calcular_curvas_fidelity(
+        model=model, 
+        importance=tensor_graphexp, 
+        device=device,
+        mol=mol, 
+        is_onehot_explainer=True,  # <--- Activa lógica One-Hot + Filtrado Total
+        mode=mode,
+        reg_fidelity_mas=reg_fidelity_mas
+    )
 
     # --- 6. Calcular Curva GNNExplainer---
     fiab_gnn = None
@@ -82,7 +91,15 @@ def generar_comparativa_fidelity(
     if tensor_gnn is not None:
         print(f"Calculando curva {mode} para GNNExplainer...")
         try:
-            k_vals_gnn, fiab_gnn = calcular_curvas_fidelity_general(model, data, tensor_gnn, device, mode)
+            k_vals_gnn, fiab_gnn = calcular_curvas_fidelity(
+                model=model, 
+                importance=tensor_gnn, 
+                device=device, 
+                data=data,  # O mol
+                is_onehot_explainer=False, # <--- Activa lógica Índices + Filtrado Selectivo
+                mode=mode,
+                reg_fidelity_mas=reg_fidelity_mas
+            )
         except ValueError as e:
             print(f"Saltando GNNExplainer : {e}")
             fiab_gnn = None
@@ -96,7 +113,8 @@ def generar_comparativa_fidelity(
         fiab_gnn_explainer=fiab_gnn,
         model_name=model_folder_name,
         mol_name=mol_name,
-        mode=mode
+        mode=mode,
+        reg_fidelity_mas=reg_fidelity_mas
     )
     
     return plot_path, auc_graph_explainer, auc_gnn_explainer
@@ -108,7 +126,8 @@ def guardar_plot_fidelity_comparativo(
         fiab_gnn_explainer, 
         model_name, 
         mol_name,
-        mode
+        mode,
+        reg_fidelity_mas = True
     ):
     """
     Genera un gráfico comparativo. Si fiab_gnn_explainer es None,
@@ -122,7 +141,11 @@ def guardar_plot_fidelity_comparativo(
     safe_mol_name = "".join([c for c in mol_name if c.isalnum() or c in (' ', '_', '-')]).strip()
     
     # 2. Configurar Rutas
-    filename = f"COMPARATIVA_FIDELITY_{safe_mol_name}_{mode}.png"
+    if reg_fidelity_mas:
+        filename = f"COMPARATIVA_FIDELITY_MAS_{safe_mol_name}_{mode}.png"
+    else:
+        filename = f"COMPARATIVA_FIDELITY_MENOS_{safe_mol_name}_{mode}.png"
+
     base_model_dir = os.path.join(RESULTADOS_DIR, model_name) # Asegúrate que RESULTADOS_DIR es accesible
     fidelity_dir = os.path.join(base_model_dir, "Fidelity_Comparison")
     os.makedirs(fidelity_dir, exist_ok=True)
@@ -169,19 +192,17 @@ def guardar_plot_fidelity_comparativo(
         plt.plot(k_values_gnn, fiab_gnn_explainer, 
                  marker='x', color='#ff7f0e', linestyle='--', linewidth=2, alpha=0.9,
                  label=f'GNNExplainer (AUC: {auc_gnn:.2f})')
-        
-        # Opcional: Relleno visual
-        # Para hacer fill_between con ejes distintos, necesitamos interpolar o simplemente no ponerlo.
-        # Es mejor quitarlo si los ejes son muy distintos para no ensuciar.
-        # plt.fill_between(...) <--- Quitamos esto para evitar errores de dimensión
 
     # Decoración
     subscript_map = {'alfa': 'n_a', 'beta': 'n', 'gamma': 'e_a', 'delta': 'e'}
     sub = subscript_map.get(mode, 'u')
-    ylabel_text = rf"$\mathrm{{RegFidelity}}_{{({sub})}}^{{k}}$"
+    if reg_fidelity_mas:
+        ylabel_text = rf"$\mathrm{{RegFidelity}}_{{({sub})}}^{{+k}}$"
+    else:
+        ylabel_text = rf"$\mathrm{{RegFidelity}}_{{({sub})}}^{{-k}}$"
 
     plt.ylabel(ylabel_text)
-    plt.xlabel("K (Steps of deletion)")
+    plt.xlabel("K")
     
     plt.ylim(-0.05, 1.05) 
     plt.axhline(1, color='gray', linestyle=':', alpha=0.5)
@@ -211,20 +232,59 @@ def cargar_pesos_tensor(path, device='cpu'):
             
     return weights
 
-def calcular_curvas_fidelity_general(model, data, importance, device, mode="beta", max_steps=None):
+def calcular_curvas_fidelity(
+    model, 
+    importance, 
+    device, 
+    mol=None,        
+    data=None,       
+    mode="beta", 
+    max_steps=None,
+    is_onehot_explainer=False, 
+    reg_fidelity_mas=True # True: Fidelidad (Ascendente), False: Infidelidad/Daño (Descendente)
+):
     model.eval()
-    data = data.to(device)
-    
-    # === 1. Determinar el límite y validar dimensiones ===
+
+    # === 1. PREPARACIÓN DE DATOS ROBUSTA ===
+    # El objetivo es tener dos copias INDEPENDIENTES:
+    # - data_gpu: Para inferencia en el modelo (GPU)
+    # - data_cpu: Para analizar ceros y filtrar features (CPU)
+
+    if is_onehot_explainer:
+        if mol is None:
+            raise ValueError("Modo One-Hot requiere pasar el objeto 'mol' de RDKit.")
+        
+        # Generamos instancias frescas para evitar problemas de referencia
+        data_gpu = mol_to_graph_data(mol).to(device)
+        data_cpu = mol_to_graph_data(mol, 'one_hot') # Se queda en CPU
+    else:
+        if data is None:
+            if mol is not None:
+                # Generamos desde cero si tenemos mol
+                data_gpu = mol_to_graph_data(mol).to(device)
+                data_cpu = mol_to_graph_data(mol) # CPU por defecto
+            else:
+                raise ValueError("Modo Indices requiere 'data' o 'mol'.")
+        else:
+            # Si viene 'data', CLONAMOS para romper referencias antes de mover
+            data_gpu = data.clone().to(device)
+            data_cpu = data.clone().cpu()
+
+    # Manejo explícito del batch si es None (para evitar errores en modelos sensibles)
+    if data_gpu.batch is None:
+        data_gpu.batch = torch.zeros(data_gpu.x.shape[0], dtype=torch.long, device=device)
+
+    # === 2. DETERMINAR TOTAL ELEMENTOS ===
+    # Usamos data_cpu para ver dimensiones y contenido
     if mode == 'alfa':
-        total_elements = data.x.shape[1] 
+        total_elements = data_cpu.x.shape[1] 
     elif mode == 'beta':
-        total_elements = data.x.shape[0] 
+        total_elements = data_gpu.x.shape[0] 
     elif mode == 'gamma':
-        if data.edge_attr is None: return [], []
-        total_elements = data.edge_attr.shape[1] 
+        if data_gpu.edge_attr is None: return [], []
+        total_elements = data_cpu.edge_attr.shape[1] 
     elif mode == 'delta':
-        total_elements = data.edge_index.shape[1] 
+        total_elements = data_gpu.edge_index.shape[1] 
     else:
         raise ValueError(f"Modo {mode} no reconocido.")
 
@@ -234,218 +294,142 @@ def calcular_curvas_fidelity_general(model, data, importance, device, mode="beta
     else:
         imp = np.array(importance).flatten()
 
-    # limit = total_elements # Ya no lo usamos fijo aquí, depende del filtro
-    
     imp = np.abs(imp)
-    sorted_indices = np.argsort(imp).copy()
+    
+    # === LÓGICA DE ORDENAMIENTO (Ascendente vs Descendente) ===
+    if reg_fidelity_mas:
+        # Fidelity+: Borramos lo MENOS importante primero.
+        # Esperamos que la curva se mantenga alta (1.0) y caiga al final.
+        sorted_indices = np.argsort(imp).copy()
+    else:
+        # Fidelity-: Borramos lo MÁS importante primero.
+        # Esperamos que la curva (de impacto) suba rápido a 1.0.
+        sorted_indices = np.argsort(imp)[::-1].copy()
 
     # =========================================================================
-    # PASO CRÍTICO: FILTRADO INTELIGENTE (Indices vs Continuas)
+    # 3. LÓGICA DE FILTRADO (DIVERGENCIA)
     # =========================================================================
     
-    indices_activos_reales = sorted_indices # Por defecto (beta/delta) son todos
+    indices_activos_reales = sorted_indices 
 
-    if mode == 'alfa':
-        # Definimos cuáles son las columnas CATEGÓRICAS (Indices intocables)
-        # Estas no se filtran aunque sean todo ceros (porque 0 = Carbono)
-        cat_cols = [
-            EMBEDDING_INDICES["ATOM_SYMBOL"], 
-            EMBEDDING_INDICES["HYBRIDIZATION"]
-        ]
-        
-        filtered_indices = []
-        x_cpu = data.x.cpu() # Para chequear valores sin gastar GPU
-        
-        for idx in sorted_indices:
-            # 1. Si es categórica -> SE QUEDA SIEMPRE
-            if idx in cat_cols:
-                filtered_indices.append(idx)
-            # 2. Si es continua -> CHEQUEAR SI TIENE INFORMACIÓN
-            else:
-                # Si hay algún valor distinto de 0 (o la varianza es > 0)
-                # Usamos .any() para detectar si no es todo ceros
-                col_data = x_cpu[:, idx]
-                if (col_data != 0).any(): 
-                    filtered_indices.append(idx)
-        
-        indices_activos_reales = np.array(filtered_indices)
-
-    elif mode == 'gamma':
-        if data.edge_attr is not None:
-            # Categóricas de aristas (Tipo de Enlace)
-            cat_cols = [EDGE_EMBEDDING_INDICES["BOND_TYPE"]]
+    # --- RAMA A: LOGICA ONE-HOT (GraphExplainer) ---
+    if is_onehot_explainer:
+        if mode == 'alfa':
+            # Filtrar columnas todas a cero
+            col_is_active = (data_cpu.x != 0).any(dim=0).cpu().numpy()
+            indices_activos_reales = [idx for idx in sorted_indices if col_is_active[idx]]
             
-            filtered_indices = []
-            e_cpu = data.edge_attr.cpu()
+        elif mode == 'gamma':
+            if data_cpu.edge_attr is not None:
+                col_is_active = (data_cpu.edge_attr != 0).any(dim=0).cpu().numpy()
+                indices_activos_reales = [idx for idx in sorted_indices if col_is_active[idx]]
+    
+    # --- RAMA B: LOGICA INDICES (GNNExplainer) ---
+    else:
+        if mode == 'alfa':
+            cat_cols = [EMBEDDING_INDICES["ATOM_SYMBOL"], EMBEDDING_INDICES["HYBRIDIZATION"]]
+            filtered = []
+            x_vals = data_cpu.x # Ya está en CPU
             
             for idx in sorted_indices:
                 if idx in cat_cols:
-                    filtered_indices.append(idx) # Tipo de enlace siempre se queda
-                else:
-                    col_data = e_cpu[:, idx]
-                    if (col_data != 0).any(): # Distancia solo si no es 0
-                        filtered_indices.append(idx)
-            
-            indices_activos_reales = np.array(filtered_indices)
-        else:
-            return [], []
+                    filtered.append(idx) 
+                elif (x_vals[:, idx] != 0).any(): 
+                    filtered.append(idx)
+            indices_activos_reales = filtered
 
-    # Actualizamos sorted_indices con el filtrado
-    sorted_indices = indices_activos_reales
-    limit = len(sorted_indices)
-    
-    if max_steps is not None:
-        limit = min(limit, max_steps)
-
-    # =========================================================================
-
-    # Predicción Original
-    with torch.no_grad():
-        pred_original = model(data.x, data.edge_index, data.edge_attr, data.batch)
-        val_orig = pred_original.item()
-
-    fiab_list = []
-    k_values = []
-
-    # === Bucle Principal ===
-    for k in range(limit + 1):
-        k_values.append(k)
-        
-        current_indices = sorted_indices[:k]
-
-        if k == 0:
-            data_minus = data
-        else:
-            if mode == 'alfa':    
-                data_minus = ocultar_features_nodos_indices(data, current_indices)
-            elif mode == 'beta':  
-                data_minus = eliminar_nodos_y_conexiones(data, current_indices)
-            elif mode == 'gamma': 
-                data_minus = ocultar_features_aristas_indices(data, current_indices)
-            elif mode == 'delta': 
-                data_minus = eliminar_aristas_selectivas(data, current_indices)
-
-        # Inferencia
-        with torch.no_grad():
-            if data_minus.x.shape[0] == 0: 
-                val_minus = 0.0
-            elif data_minus.edge_index.shape[1] == 0 and mode == 'delta': 
-                pred_minus = model(data_minus.x, data_minus.edge_index, data_minus.edge_attr, data_minus.batch)
-                val_minus = pred_minus.item()
-            else:
-                pred_minus = model(data_minus.x, data_minus.edge_index, data_minus.edge_attr, data_minus.batch)
-                val_minus = pred_minus.item()
-
-        diff_minus = abs(val_orig - val_minus)
-        fiab_minus = np.exp(-diff_minus)
-        fiab_list.append(fiab_minus)
-
-    return k_values, fiab_list
-
-def calcular_curvas_fidelity_graphE(model, mol, importance, device, mode="beta", max_steps=None):
-    model.eval()
-
-    # Generamos la data
-    data = mol_to_graph_data(mol)
-    data_onehot = mol_to_graph_data(mol, 'one_hot')
-    data = data.to(device)
-    
-    # Procesar Importancia (Asegurar array numpy plano)
-    if torch.is_tensor(importance):
-        imp = importance.detach().cpu().numpy().flatten()
-    else:
-        imp = np.array(importance).flatten()
-
-    imp = np.abs(imp)
-    # Orden ascendente: primero eliminamos lo menos importante
-    # Esto contiene TODOS los índices (del 0 al 40 y pico)
-    sorted_indices = np.argsort(imp).copy()
-
-    # =========================================================================
-    # PASO CRÍTICO: FILTRADO DE FEATURES INACTIVAS (Solo para One-Hot)
-    # =========================================================================
-    
-    indices_activos_reales = sorted_indices # Por defecto (beta/delta) son todos
-
-    if mode == 'alfa':
-        # Verificamos qué columnas de X tienen al menos un valor distinto de 0
-        # shape: [Num_Features] -> True/False
-        col_is_active = (data_onehot.x != 0).any(dim=0).cpu().numpy()
-        
-        # Filtramos: Solo nos quedamos con los índices donde col_is_active es True
-        indices_activos_reales = [idx for idx in sorted_indices if col_is_active[idx]]
-        
-    elif mode == 'gamma':
-        if data_onehot.edge_attr is not None:
-            # Verificamos qué columnas de Edge_Attr tienen valores
-            col_is_active = (data_onehot.edge_attr != 0).any(dim=0).cpu().numpy()
-            
-            # Filtramos
-            indices_activos_reales = [idx for idx in sorted_indices if col_is_active[idx]]
-        else:
-            return [], []
-
-    # Convertimos de nuevo a array numpy para slicing cómodo
-    sorted_indices = np.array(indices_activos_reales)
-
-    # =========================================================================
-
-    # Recalculamos el límite basado en los índices REALES que vamos a tocar
-    limit = len(sorted_indices)
-    if max_steps is not None:
-        limit = min(limit, max_steps)
-
-    # Predicción Original
-    with torch.no_grad():
-        pred_original = model(data.x, data.edge_index, data.edge_attr, data.batch)
-        val_orig = pred_original.item()
-
-    fiab_list = []
-    k_values = []
-
-    # === Bucle Principal ===
-    # Ahora 'limit' es mucho más pequeño (solo las features que existen)
-    for k in range(limit + 1):
-        k_values.append(k)
-        
-        # Índices acumulados a perturbar (usando la lista filtrada)
-        current_indices = sorted_indices[:k]
-
-        if k == 0:
-            data_minus = data
-        else:
-            # === DESPACHADOR DE MODOS ===
-            if mode == 'alfa':
-                data_aux = ocultar_features_nodos_onehot(data_onehot, current_indices)
-                data_minus = onehot_to_indices(data_aux)
-            
-            elif mode == 'beta':
-                data_minus = eliminar_nodos_y_conexiones(data, current_indices)
-            
-            elif mode == 'gamma':
-                data_aux = ocultar_features_aristas_onehot(data_onehot, current_indices)
-                data_minus = onehot_to_indices(data_aux)
+        elif mode == 'gamma':
+            if data_gpu.edge_attr is not None:
+                cat_cols = [EDGE_EMBEDDING_INDICES["BOND_TYPE"]]
+                filtered = []
+                e_vals = data_cpu.edge_attr
                 
-            elif mode == 'delta':
-                data_minus = eliminar_aristas_selectivas(data, current_indices)
+                for idx in sorted_indices:
+                    if idx in cat_cols:
+                        filtered.append(idx)
+                    elif (e_vals[:, idx] != 0).any():
+                        filtered.append(idx)
+                indices_activos_reales = filtered
 
-        # Mover al dispositivo antes de inferir
+    # Aplicar filtro
+    sorted_indices = np.array(indices_activos_reales)
+    limit = len(sorted_indices)
+    if max_steps is not None:
+        limit = min(limit, max_steps)
+
+    # =========================================================================
+
+    # 4. PREDICCIÓN ORIGINAL
+    with torch.no_grad():
+        # Usamos data_gpu explícitamente
+        pred_original = model(data_gpu.x, data_gpu.edge_index, data_gpu.edge_attr, data_gpu.batch)
+        val_orig = pred_original.item()
+
+    fiab_list = []
+    k_values = []
+
+    # === 5. BUCLE PRINCIPAL ===
+    for k in range(limit + 1):
+        k_values.append(k)
+        current_indices = sorted_indices[:k]
+
+        if k == 0:
+            data_minus = data_gpu
+        else:
+            # === DESPACHADOR DE PERTURBACIÓN ===
+            
+            # --- MODOS ESTRUCTURALES ---
+            if mode == 'beta':
+                data_minus = eliminar_nodos_y_conexiones(data_gpu, current_indices)
+            elif mode == 'delta':
+                data_minus = eliminar_aristas_selectivas(data_gpu, current_indices)
+            
+            # --- MODOS FEATURES ---
+            elif is_onehot_explainer:
+                if mode == 'alfa':
+                    # data_cpu se usa para enmascarar en CPU, luego conversion
+                    data_aux = ocultar_features_nodos_onehot(data_cpu, current_indices)
+                    data_minus = onehot_to_indices(data_aux)
+                elif mode == 'gamma':
+                    data_aux = ocultar_features_aristas_onehot(data_cpu, current_indices)
+                    data_minus = onehot_to_indices(data_aux)
+            
+            else: 
+                if mode == 'alfa':
+                    # Aquí data_gpu se modifica en GPU directamente (si la funcion soporta tensores)
+                    # Ocultar features indices usa tensores, mantiene device.
+                    data_minus = ocultar_features_nodos_indices(data_gpu, current_indices)
+                elif mode == 'gamma':
+                    data_minus = ocultar_features_aristas_indices(data_gpu, current_indices)
+
+        # SEGURO FINAL: Asegurar que todo esté en GPU antes de entrar al modelo
         data_minus = data_minus.to(device)
+        
+        # Parche de seguridad para batch si se perdió en la perturbación
+        if data_minus.batch is None:
+             data_minus.batch = torch.zeros(data_minus.x.shape[0], dtype=torch.long, device=device)
 
         # Inferencia
         with torch.no_grad():
-            if data_minus.x.shape[0] == 0: # Sin nodos
+            if data_minus.x.shape[0] == 0:
                 val_minus = 0.0
-            elif data_minus.edge_index.shape[1] == 0 and mode == 'delta': 
-                pred_minus = model(data_minus.x, data_minus.edge_index, data_minus.edge_attr, data_minus.batch)
-                val_minus = pred_minus.item()
+            elif mode == 'delta' and data_minus.edge_index.shape[1] == 0:
+                 pred_minus = model(data_minus.x, data_minus.edge_index, data_minus.edge_attr, data_minus.batch)
+                 val_minus = pred_minus.item()
             else:
                 pred_minus = model(data_minus.x, data_minus.edge_index, data_minus.edge_attr, data_minus.batch)
                 val_minus = pred_minus.item()
 
-        diff_minus = abs(val_orig - val_minus)
-        fiab_minus = np.exp(-diff_minus)
-        fiab_list.append(fiab_minus)
+        # === CÁLCULO DE LA MÉTRICA ===
+        if reg_fidelity_mas:
+            # FIDELIDAD (Similitud): Empieza en 1.0, baja si el modelo sufre.
+            fiab_list.append(np.exp(-abs(val_orig - val_minus)))
+        else:
+            # INFIDELIDAD (Daño): Empieza en 0.0, sube si el modelo sufre.
+            diff_minus = abs(val_orig - val_minus)
+            fidelity_score = np.exp(-diff_minus) 
+            metric_to_plot = 1.0 - fidelity_score
+            fiab_list.append(metric_to_plot)
 
     return k_values, fiab_list
 
@@ -754,81 +738,3 @@ def save_auc_results_csv(results, mode, model_name):
 
     except Exception as e:
         logging.getLogger(__name__).error(f"Error al guardar CSV: {str(e)}", exc_info=True)
-
-def calcular_aucs_fidelity_batch(
-    model, device, 
-    sdf_path, 
-    graphexp_weights_path, 
-    gnnexp_weights_path, # Puede ser None
-    mode="delta" 
-):
-    """
-    Versión optimizada para BATCH processing.
-    NO genera imágenes, NO guarda archivos.
-    Calcula curvas y retorna directamente las AUCs normalizadas.
-    """
-    
-    # --- 2. Carga de Molécula ---
-    if not os.path.exists(sdf_path):
-        return None, None
-
-    mol = Chem.SDMolSupplier(sdf_path, removeHs=False)[0]
-    if mol is None:
-        return None, None
-        
-    data = mol_to_graph_data(mol)
-
-    # --- 3. Carga de Tensores ---
-    try:
-        tensor_graphexp = cargar_pesos_tensor(graphexp_weights_path, device)
-        
-        tensor_gnn = None
-        if gnnexp_weights_path is not None and mode != "gamma":
-            tensor_gnn = cargar_pesos_tensor(gnnexp_weights_path, device)
-            
-    except Exception as e:
-        logger.warning(f"Error cargando tensores para {os.path.basename(sdf_path)}: {e}")
-        return None, None
-
-    # --- 4. Cálculo GraphExplainer ---
-    # Obtenemos la curva (lista de fiabilidad) y los pasos k
-    k_vals, fiab_graphexp = calcular_curvas_fidelity_general(model, data, tensor_graphexp, device, mode)
-    
-    # Cálculo de AUC GraphExplainer
-    max_k = k_vals[-1] if len(k_vals) > 0 else 0
-    
-    if max_k > 0:
-        try:
-            raw_auc_graph = np.trapezoid(fiab_graphexp, k_vals) # NumPy 2.0+
-        except AttributeError:
-            raw_auc_graph = np.trapz(fiab_graphexp, k_vals)     # NumPy < 2.0
-        
-        auc_graph = raw_auc_graph / max_k # Normalización (0 a 1)
-    else:
-        auc_graph = 0.0
-
-    # --- 5. Cálculo GNNExplainer (Opcional) ---
-    auc_gnn = None
-    
-    if tensor_gnn is not None:
-        try:
-            # Usamos los mismos k_vals si es posible, o recalculamos si la estructura lo requiere
-            # Generalmente recalculamos para asegurar consistencia si dimensions difieren ligeramente
-            _, fiab_gnn = calcular_curvas_fidelity_general(model, data, tensor_gnn, device, mode)
-            
-            if max_k > 0 and len(fiab_gnn) > 0:
-                try:
-                    raw_auc_gnn = np.trapezoid(fiab_gnn, k_vals)
-                except AttributeError:
-                    raw_auc_gnn = np.trapz(fiab_gnn, k_vals)
-                    
-                auc_gnn = raw_auc_gnn / max_k
-            else:
-                auc_gnn = 0.0
-                
-        except ValueError:
-            # Si fallan las dimensiones de GNNExplainer, devolvemos None pero mantenemos el resultado de GraphExplainer
-            auc_gnn = None
-
-    # Retornamos valores puros
-    return auc_graph, auc_gnn
