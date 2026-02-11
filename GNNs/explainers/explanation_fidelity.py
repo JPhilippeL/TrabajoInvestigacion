@@ -9,11 +9,12 @@ from rdkit import Chem
 from ui.utils.constants import (
     RESULTADOS_DIR,
     EMBEDDING_INDICES, 
-    CATEGORICAL_INDICES, 
     UNKNOWN_ATOM_IDX, 
     UNKNOWN_HYBRID_IDX,
     EDGE_EMBEDDING_INDICES,
-    UNKNOWN_BOND_IDX
+    UNKNOWN_BOND_IDX,
+    periodic_elements,
+    hybridization_types
 )
 from ui.utils.plot_style import apply_paper_style, save_paper_figure
 from GNNs.data_processing import mol_to_graph_data, onehot_to_indices
@@ -27,7 +28,7 @@ def generar_comparativa_fidelity(
     graphexp_weights_path, 
     gnnexp_weights_path, # Puede ser None
     mode = "delta",
-    reg_fidelity_mas = True
+    reg_fidelity_mas = False
 ):
     """
     Función orquestadora completa.
@@ -558,19 +559,48 @@ def ocultar_features_nodos_indices(data, indices_features_a_ocultar):
 # --- ALFA ONEHOT ---
 def ocultar_features_nodos_onehot(data, indices_cols_a_ocultar):
     """
-    Simplemente apaga la señal. No se preocupa de 'quién es el Unknown'.
+    MODO ALFA (ONE-HOT MIXTO):
+    - Features One-Hot (Átomos/Hibridación): Se ponen a 0 (Zero Masking -> Unknown).
+    - Features Continuas (Carga/Grado): Se reemplazan por la MEDIA de la columna.
     """
     x_mod = data.x.clone()
     
+    # 1. Definir los límites de las secciones
+    # Estructura asumen: [ ÁTOMOS (OneHot) | CONTINUAS | HIBRIDACIÓN (OneHot) ]
+    
+    n_atoms = len(periodic_elements)
+    n_total = x_mod.shape[1]
+    n_hybrid = len(hybridization_types)
+    
+    # Índices donde empieza la hibridación
+    start_hybrid = n_total - n_hybrid 
+    
+    # 2. Pre-calcular las medias (solo se usarán para las continuas)
+    feature_means = x_mod.mean(dim=0)
+    
     if len(indices_cols_a_ocultar) > 0:
-        if not torch.is_tensor(indices_cols_a_ocultar):
-            idx_tensor = torch.tensor(indices_cols_a_ocultar, device=data.x.device)
-        else:
-            idx_tensor = indices_cols_a_ocultar.to(data.x.device)
-            
-        # Poner a 0 (Zero Masking)
-        x_mod[:, idx_tensor] = 0.0
         
+        # Normalizar a lista para iterar y comprobar rangos
+        if torch.is_tensor(indices_cols_a_ocultar):
+            indices = indices_cols_a_ocultar.cpu().numpy().tolist()
+        else:
+            indices = indices_cols_a_ocultar
+            
+        for idx in indices:
+            idx = int(idx)
+            
+            # --- CASO A: ES ÁTOMO (One-Hot) ---
+            if idx < n_atoms:
+                x_mod[:, idx] = 0.0
+                
+            # --- CASO B: ES HIBRIDACIÓN (One-Hot) ---
+            elif idx >= start_hybrid:
+                x_mod[:, idx] = 0.0
+                
+            # --- CASO C: ES CONTINUA (El sándwich del medio) ---
+            else:
+                x_mod[:, idx] = feature_means[idx]
+                
     new_data = data.clone()
     new_data.x = x_mod
     return new_data
@@ -652,28 +682,47 @@ def ocultar_features_aristas_indices(data, indices_features_a_ocultar):
 
 def ocultar_features_aristas_onehot(data, indices_cols_a_ocultar):
     """
-    MODO GAMMA (ONE-HOT): Pone a 0 las columnas indicadas.
-    - Si borras columnas de tipo de enlace -> onehot_to_indices lo detectará como Unknown.
-    - Si borras columna de distancia -> Se queda en 0.
+    MODO GAMMA (ONE-HOT MIXTO):
+    - Features One-Hot (Tipo Enlace): Se ponen a 0 (Zero Masking -> Unknown).
+    - Features Continuas (Distancia): Se reemplazan por la MEDIA de la columna.
     """
     if data.edge_attr is None:
         return data
 
     edge_attr_mod = data.edge_attr.clone()
     
+    # Identificamos el índice de la distancia
+    # En tu código es siempre la última columna (-1)
+    num_features = edge_attr_mod.shape[1]
+    dist_idx = num_features - 1 
+    
+    # Pre-calcular medias
+    feature_means = edge_attr_mod.mean(dim=0)
+    
     if len(indices_cols_a_ocultar) > 0:
-        if not torch.is_tensor(indices_cols_a_ocultar):
-            idx_tensor = torch.tensor(indices_cols_a_ocultar, device=data.x.device)
+        
+        # Convertir a lista simple para iterar (más seguro para lógica condicional)
+        if torch.is_tensor(indices_cols_a_ocultar):
+            indices = indices_cols_a_ocultar.cpu().numpy().tolist()
         else:
-            idx_tensor = indices_cols_a_ocultar.to(data.x.device)
+            indices = indices_cols_a_ocultar
             
-        # Validación de rango básica
-        if idx_tensor.max() >= edge_attr_mod.shape[1]:
-             # Ojo: Logging o print de warning aquí es útil
-             pass 
+        for idx in indices:
+            idx = int(idx)
+            
+            # Validación de seguridad
+            if idx >= num_features:
+                continue
 
-        # Zero Masking
-        edge_attr_mod[:, idx_tensor] = 0.0
+            # --- LÓGICA DE PERTURBACIÓN ---
+            
+            # CASO A: Es la Distancia (Continua)
+            if idx == dist_idx:
+                edge_attr_mod[:, idx] = feature_means[idx]
+                
+            # CASO B: Es Tipo de Enlace (One-Hot)
+            else:
+                edge_attr_mod[:, idx] = 0.0
         
     return Data(x=data.x, edge_index=data.edge_index, 
                 edge_attr=edge_attr_mod, batch=data.batch)
