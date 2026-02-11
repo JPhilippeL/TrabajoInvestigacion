@@ -147,7 +147,7 @@ def ejecutar_pipeline_visualizacion(
     # A. PREPARACIÓN DE DATOS BASE
     graph_obj = parse_sdf(sdf_path)
     
-    # Convertimos a numpy normalizado (MAX) para pintar y para el threshold de fidelity
+    # Convertimos a numpy normalizado (Norma) para pintar y para el threshold de fidelity
     beta_np = normalizar_por_norma(tensor_to_abs_numpy(beta_raw))
     delta_normalized = normalizar_por_norma(tensor_to_abs_numpy(delta_raw)) if delta_raw is not None else np.array([])
 
