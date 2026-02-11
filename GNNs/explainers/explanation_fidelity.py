@@ -6,15 +6,18 @@ import os
 from torch_geometric.utils import subgraph
 from torch_geometric.data import Data
 from rdkit import Chem
-from ui.utils.constants import RESULTADOS_DIR
+from ui.utils.constants import (
+    RESULTADOS_DIR,
+    EMBEDDING_INDICES, 
+    CATEGORICAL_INDICES, 
+    UNKNOWN_ATOM_IDX, 
+    UNKNOWN_HYBRID_IDX
+)
 from ui.utils.plot_style import apply_paper_style, save_paper_figure
-from GNNs.data_processing import mol_to_graph_data
+from GNNs.data_processing import mol_to_graph_data, onehot_to_indices
 from GNNs.model_tester import cargar_modelo
 import logging
 logger = logging.getLogger(__name__)
-
-# Constante N: Número máximo de nodos a evaluar en la curva
-MAX_NODES_FIDELITY = 15
 
 def generar_comparativa_fidelity(
     model_path, 
@@ -69,14 +72,14 @@ def generar_comparativa_fidelity(
 
     # --- 5. Calcular Curva GraphExplainer ---
     print(f"Calculando curva {mode} para GraphExplainer...")
-    k_vals, fiab_graphexp = calcular_curvas_fidelity_general(model, data, tensor_graphexp, device, mode)
+    k_vals, fiab_graphexp = calcular_curvas_fidelity_graphE(model, mol, tensor_graphexp, device, mode)
 
     # --- 6. Calcular Curva GNNExplainer---
     fiab_gnn = None
     if tensor_gnn is not None:
         print(f"Calculando curva {mode} para GNNExplainer...")
         try:
-            _, fiab_gnn = calcular_curvas_fidelity_general(model, data, tensor_gnn, device, mode)
+            k_vals2, fiab_gnn = calcular_curvas_fidelity_general(model, data, tensor_gnn, device, mode)
         except ValueError as e:
             print(f"Saltando GNNExplainer por incompatibilidad de dimensiones: {e}")
             fiab_gnn = None
@@ -273,7 +276,7 @@ def calcular_curvas_fidelity_general(model, data, importance, device, mode= "bet
         else:
             # === DESPACHADOR DE MODOS ===
             if mode == 'alfa':     # Features Nodos (Enmascarar con media)
-                data_minus = ocultar_features_nodos(data, current_indices)
+                data_minus = ocultar_features_nodos_indices(data, current_indices)
             
             elif mode == 'beta':   # Nodos (Eliminar nodo y conexiones)
                 data_minus = eliminar_nodos_y_conexiones(data, current_indices)
@@ -283,6 +286,105 @@ def calcular_curvas_fidelity_general(model, data, importance, device, mode= "bet
                 
             elif mode == 'delta':  # Aristas (Eliminar conexión)
                 data_minus = eliminar_aristas_selectivas(data, current_indices)
+
+        # Inferencia
+        with torch.no_grad():
+            # Check si el grafo quedó vacío o inválido
+            if data_minus.x.shape[0] == 0: # Sin nodos
+                val_minus = 0.0
+            elif data_minus.edge_index.shape[1] == 0 and mode == 'delta': 
+                # Si borramos todas las aristas, el GNN actúa solo sobre features de nodos aislados
+                pred_minus = model(data_minus.x, data_minus.edge_index, data_minus.edge_attr, data_minus.batch)
+                val_minus = pred_minus.item()
+            else:
+                pred_minus = model(data_minus.x, data_minus.edge_index, data_minus.edge_attr, data_minus.batch)
+                val_minus = pred_minus.item()
+
+        diff_minus = abs(val_orig - val_minus)
+        fiab_minus = np.exp(-diff_minus)
+        fiab_list.append(fiab_minus)
+
+    return k_values, fiab_list
+
+def calcular_curvas_fidelity_graphE(model, mol, importance, device, mode= "beta", max_steps=None):
+    model.eval()
+
+    data = mol_to_graph_data(mol)
+    data_onehot = mol_to_graph_data(mol, 'one_hot')
+
+    data = data.to(device)
+    
+    # === 1. Determinar el límite y validar dimensiones ===
+    if mode == 'alfa':
+        total_elements = data_onehot.x.shape[1] # Num Features Nodos
+    elif mode == 'beta':
+        total_elements = data.x.shape[0] # Num Nodos
+    elif mode == 'gamma':
+        # Si no hay atributos de arista, no se puede calcular gamma
+        if data.edge_attr is None:
+            print("Aviso: Modo gamma solicitado pero data.edge_attr es None. Retornando vacío.")
+            return [], []
+        total_elements = data_onehot.edge_attr.shape[1] # Num Features Aristas
+    elif mode == 'delta':
+        total_elements = data.edge_index.shape[1] # Num Aristas
+    else:
+        raise ValueError(f"Modo {mode} no reconocido.")
+
+    # Procesar Importancia
+    if torch.is_tensor(importance):
+        imp = importance.detach().cpu().numpy().flatten()
+    else:
+        imp = np.array(importance).flatten()
+
+    # === CHECK DE SEGURIDAD ===
+    # if len(imp) != total_elements:
+    #     raise ValueError(f"ERROR DE DIMENSIÓN: Modo '{mode}' espera {total_elements} elementos, "
+    #                      f"pero el vector de importancia tiene longitud {len(imp)}. "
+    #                      "Verifica que estás pasando el tensor correcto (alfa vs beta vs delta).")
+
+    # limit = total_elements
+    limit = len(imp)
+    if max_steps is not None:
+        limit = min(total_elements, max_steps)
+
+    imp = np.abs(imp)
+    # Orden ascendente: primero eliminamos lo menos importante
+    sorted_indices = np.argsort(imp).copy()
+
+    # Predicción Original
+    with torch.no_grad():
+        pred_original = model(data.x, data.edge_index, data.edge_attr, data.batch)
+        val_orig = pred_original.item()
+
+    fiab_list = []
+    k_values = []
+
+    # === Bucle Principal ===
+    for k in range(limit + 1):
+        k_values.append(k)
+        
+        # Índices acumulados a perturbar
+        current_indices = sorted_indices[:k]
+
+        if k == 0:
+            data_minus = data
+        else:
+            # === DESPACHADOR DE MODOS ===
+            if mode == 'alfa':     # Features Nodos (Enmascarar con media)
+                data_aux = ocultar_features_nodos_onehot(data_onehot, current_indices)
+                data_minus = onehot_to_indices(data_aux)
+            
+            elif mode == 'beta':   # Nodos (Eliminar nodo y conexiones)
+                data_minus = eliminar_nodos_y_conexiones(data, current_indices)
+            
+            elif mode == 'gamma':  # Features Aristas (Enmascarar con media)
+                data_aux = ocultar_features_aristas(data_onehot, current_indices)
+                data_minus = onehot_to_indices(data_aux)
+                
+            elif mode == 'delta':  # Aristas (Eliminar conexión)
+                data_minus = eliminar_aristas_selectivas(data, current_indices)
+
+        data_minus = data_minus.to(device)
 
         # Inferencia
         with torch.no_grad():
@@ -376,34 +478,73 @@ def guardar_plot_fidelity(k_values, fiab_minus, model_name, mol_name, algo_name=
     print(f"Gráfico guardado en: {full_save_path}")
     return full_save_path
 
-# ------- ALFA ---------
-def ocultar_features_nodos(data, indices_features_a_ocultar):
+# --- ALFA INDICES ---
+def ocultar_features_nodos_indices(data, indices_features_a_ocultar):
     """
-    MODO ALFA: Perturba las features indicadas reemplazándolas por 
-    la media de dicha feature a través de todos los nodos.
+    MODO ALFA (INDICES): Perturba las features indicadas.
+    - Categóricas (Átomo/Hibridación): Se fuerzan al índice 'Unknown'.
+    - Continuas (Carga/Grado, etc): Se reemplazan por la media (o 0).
     """
     # 1. Clonamos x para no modificar el original
     x_mod = data.x.clone()
     
-    # 2. Calculamos la media por columna (feature)
-    # x_mod tiene shape [Num_Nodos, Num_Features]
-    feature_means = x_mod.mean(dim=0) # Shape: [Num_Features]
+    # 2. Pre-calculamos la media por columna (solo para las continuas)
+    feature_means = x_mod.mean(dim=0) 
     
-    # 3. Reemplazamos las columnas seleccionadas por su media
-    # Para cada feature 'f' en la lista, asignamos feature_means[f] a todos los nodos
+    # 3. Iteramos sobre los índices que queremos ocultar
+    # Es necesario iterar porque la lógica cambia según la columna
     if len(indices_features_a_ocultar) > 0:
-        # Convertimos a tensor si es lista numpy
-        idx_tensor = torch.tensor(indices_features_a_ocultar, device=data.x.device)
-        x_mod[:, idx_tensor] = feature_means[idx_tensor]
         
-    # 4. Retornamos nuevo objeto Data (mismo grafo, features perturbadas)
-    new_data = Data(
-        x=x_mod, 
-        edge_index=data.edge_index, 
-        edge_attr=data.edge_attr, 
-        batch=data.batch
-    )
+        # Aseguramos que sea iterable simple (lista o array)
+        if torch.is_tensor(indices_features_a_ocultar):
+            lista_indices = indices_features_a_ocultar.cpu().numpy().tolist()
+        else:
+            lista_indices = indices_features_a_ocultar
+
+        for feat_idx in lista_indices:
+            feat_idx = int(feat_idx) # Seguridad
+            
+            # --- CASO A: TIPO DE ÁTOMO ---
+            if feat_idx == EMBEDDING_INDICES["ATOM_SYMBOL"]:
+                # Asignar el índice de Desconocido a todos los nodos
+                x_mod[:, feat_idx] = UNKNOWN_ATOM_IDX
+                
+            # --- CASO B: HIBRIDACIÓN ---
+            elif feat_idx == EMBEDDING_INDICES["HYBRIDIZATION"]:
+                x_mod[:, feat_idx] = UNKNOWN_HYBRID_IDX
+                
+            # --- CASO C: CONTINUAS (El resto) ---
+            else:
+                # Opción 1: Usar la Media (Suavizado) -> Mantiene distribución
+                x_mod[:, feat_idx] = feature_means[feat_idx]
+                
+                # Opción 2: Usar Cero -> Elimina la señal (Descomentar si prefieres)
+                # x_mod[:, feat_idx] = 0.0
+
+    # 4. Retornamos nuevo objeto Data
+    new_data = data.clone()
+    new_data.x = x_mod
     
+    return new_data
+
+# --- ALFA ONEHOT ---
+def ocultar_features_nodos_onehot(data, indices_cols_a_ocultar):
+    """
+    Simplemente apaga la señal. No se preocupa de 'quién es el Unknown'.
+    """
+    x_mod = data.x.clone()
+    
+    if len(indices_cols_a_ocultar) > 0:
+        if not torch.is_tensor(indices_cols_a_ocultar):
+            idx_tensor = torch.tensor(indices_cols_a_ocultar, device=data.x.device)
+        else:
+            idx_tensor = indices_cols_a_ocultar.to(data.x.device)
+            
+        # Poner a 0 (Zero Masking)
+        x_mod[:, idx_tensor] = 0.0
+        
+    new_data = data.clone()
+    new_data.x = x_mod
     return new_data
 
 # ------- BETA ---------

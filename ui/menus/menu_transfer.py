@@ -48,32 +48,32 @@ class MenuTransferGNN(QMenu):
 
         # ---------- Validaciones básicas ----------
         if not config["sdf_dir"] or not os.path.isdir(config["sdf_dir"]):
-            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
+            QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
             return
 
         if not config["target_file"] or not os.path.isfile(config["target_file"]):
-            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
+            QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
             return
 
         if not config["pretrained_model_path"] or not os.path.isfile(config["pretrained_model_path"]):
-            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un modelo preentrenado válido (.pt).")
+            QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un modelo preentrenado válido (.pt).")
             return
 
         if not config["save_name"]:
-            QMessageBox.warning(self.parent, "Nombre inválido", "El nombre del archivo no puede estar vacío.")
+            QMessageBox.warning(self.main_window, "Nombre inválido", "El nombre del archivo no puede estar vacío.")
             return
 
         # Validar early stopping y validación
         if config["early_stopping_patience"] > 0 and config["valid_split"] <= 0:
             QMessageBox.warning(
-                self.parent,
+                self.main_window,
                 "Configuración inválida",
                 "Para usar Early Stopping, el porcentaje de validación debe ser mayor que 0."
             )
             return
 
         # ---------- Ejecutar Transfer Learning ----------
-        self.parent.training_controller.transfer_learning(
+        self.main_window.training_controller.transfer_learning(
             sdf_dir=config["sdf_dir"],
             target_file=config["target_file"],
             pretrained_model_path=config["pretrained_model_path"],
@@ -98,28 +98,28 @@ class MenuTransferGNN(QMenu):
 
         # ---------- Validaciones básicas ----------
         if not config["sdf_dir"] or not os.path.isdir(config["sdf_dir"]):
-            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
+            QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
             return
 
         if not config["target_file"] or not os.path.isfile(config["target_file"]):
-            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
+            QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
             return
 
         if not config["pretrained_model_directory_path"] or not os.path.isdir(config["pretrained_model_directory_path"]):
-            QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio de modelos preentrenados válido.")
+            QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un directorio de modelos preentrenados válido.")
             return
 
         # Validar early stopping y validación
         if config["patience"] > 0 and config["valid_split"] <= 0:
             QMessageBox.warning(
-                self.parent,
+                self.main_window,
                 "Configuración inválida",
                 "Para usar Early Stopping, el porcentaje de validación debe ser mayor que 0."
             )
             return
 
         # ---------- Ejecutar Transfer Learning múltiple ----------
-        self.parent.training_controller.transfer_train_multiple_models(
+        self.main_window.training_controller.transfer_train_multiple_models(
             pretrained_model_directory_path=config["pretrained_model_directory_path"],
             sdf_dir=config["sdf_dir"],
             target_file=config["target_file"],
@@ -142,28 +142,28 @@ class MenuTransferGNN(QMenu):
 
     #     # ---------- Validaciones básicas ----------
     #     if not config["sdf_dir"] or not os.path.isdir(config["sdf_dir"]):
-    #         QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
+    #         QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
     #         return
 
     #     if not config["target_file"] or not os.path.isfile(config["target_file"]):
-    #         QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
+    #         QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
     #         return
 
     #     if not config["pretrained_model_directory_path"] or not os.path.isdir(config["pretrained_model_directory_path"]):
-    #         QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio de modelos preentrenados válido.")
+    #         QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un directorio de modelos preentrenados válido.")
     #         return
 
     #     # Validar early stopping y validación
     #     if config["patience"] > 0 and config["valid_split"] <= 0:
     #         QMessageBox.warning(
-    #             self.parent,
+    #             self.main_window,
     #             "Configuración inválida",
     #             "Para usar Early Stopping, el porcentaje de validación debe ser mayor que 0."
     #         )
     #         return
 
     #     # ---------- Ejecutar Transfer Learning múltiple ----------
-    #     self.parent.training_controller.feature_extraction_multiple_models(
+    #     self.main_window.training_controller.feature_extraction_multiple_models(
     #         pretrained_model_directory_path=config["pretrained_model_directory_path"],
     #         sdf_dir=config["sdf_dir"],
     #         target_file=config["target_file"],
@@ -183,28 +183,28 @@ class MenuTransferGNN(QMenu):
 
     #     # ---------- Validaciones básicas ----------
     #     if not config["sdf_dir"] or not os.path.isdir(config["sdf_dir"]):
-    #         QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
+    #         QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
     #         return
 
     #     if not config["target_file"] or not os.path.isfile(config["target_file"]):
-    #         QMessageBox.warning(self.parent, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
+    #         QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
     #         return
 
     #     if not config["pretrained_model_directory_path"] or not os.path.isdir(config["pretrained_model_directory_path"]):
-    #         QMessageBox.warning(self.parent, "Error", "Debes seleccionar un directorio de modelos preentrenados válido.")
+    #         QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un directorio de modelos preentrenados válido.")
     #         return
 
     #     # Validar early stopping y validación
     #     if config["patience"] > 0 and config["valid_split"] <= 0:
     #         QMessageBox.warning(
-    #             self.parent,
+    #             self.main_window,
     #             "Configuración inválida",
     #             "Para usar Early Stopping, el porcentaje de validación debe ser mayor que 0."
     #         )
     #         return
 
     #     # ---------- Ejecutar Transfer Learning múltiple ----------
-    #     self.parent.training_controller.fine_tuning_multiple_models(
+    #     self.main_window.training_controller.fine_tuning_multiple_models(
     #         pretrained_model_directory_path=config["pretrained_model_directory_path"],
     #         sdf_dir=config["sdf_dir"],
     #         target_file=config["target_file"],

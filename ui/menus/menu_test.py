@@ -43,7 +43,7 @@ class MenuTestGNN(QMenu):
         self.addAction(consultar_params_action)
 
     def testear_modelo(self):
-        dialog = ModelTestDialog(self.parent)
+        dialog = ModelTestDialog(self.main_window)
         if dialog.exec():
             model_path, sdf_path = dialog.get_paths()
             try:
@@ -59,7 +59,7 @@ class MenuTestGNN(QMenu):
 
     def testear_modelo_en_batch(self):
         
-        dialog = BatchModelTestDialog(self.parent)
+        dialog = BatchModelTestDialog(self.main_window)
         if dialog.exec():
             model_path, sdf_dir, targets_file = dialog.get_paths()
 
@@ -68,26 +68,26 @@ class MenuTestGNN(QMenu):
                 plot_path = test_model_on_directory(model_path, sdf_dir, targets_file)
 
                 # Mostrar scatter plot
-                self.image_dialog = ImageDialog(plot_path, self.parent)
+                self.image_dialog = ImageDialog(plot_path, self.main_window)
                 self.image_dialog.show()
 
             except Exception as e:
                 logger.error("Error en testeo por lotes: " + str(e), exc_info=True)
 
     def testear_directorio_modelos(self):
-        dialog = BatchAllModelsTestDialog(self.parent)
+        dialog = BatchAllModelsTestDialog(self.main_window)
         if dialog.exec():
             models_dir, sdf_dir, targets_file = dialog.get_paths()
 
             try:
                 # Ejecutamos testing con el proceso
-                self.parent.testing_controller.testear_modelos(models_dir, sdf_dir, targets_file)
+                self.main_window.testing_controller.testear_modelos(models_dir, sdf_dir, targets_file)
             except Exception as e:
                 logger.error("Error en testeo de todos los modelos: " + str(e), exc_info=True)
 
     def consultar_parametros_modelo(self):
         file_path, _ = QFileDialog.getOpenFileName(
-            self.parent,
+            self.main_window,
             "Seleccionar archivo de modelo (.pt)",
             "",
             "Modelos (*.pt)"
