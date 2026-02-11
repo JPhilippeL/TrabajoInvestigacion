@@ -4,7 +4,7 @@ from GNNs.model_tester import cargar_modelo, predecir_molecula
 import torch
 import torch.nn as nn
 import numpy as np
-from ui.utils.constants import periodic_elements, hybridization_types
+from ui.utils.constants import periodic_elements, hybridization_types, EDGE_FEATURE_NAMES
 import os
 import sys
 import logging
@@ -311,7 +311,7 @@ def obtener_graph_explainer(
     # Reemplaza a Beta en el segundo heatmap
     if muestra.edge_attr is not None:
         # edge_feature_names = ["Bond Type", "Distance"]
-        edge_feature_names = ["Single", "Double", "Triple", "Aromatic", "Distance"]
+        edge_feature_names = EDGE_FEATURE_NAMES
         
         gamma_sorted, row_labels_gamma = procesar_features_onehot(
             gamma, edge_feature_names, muestra.edge_attr

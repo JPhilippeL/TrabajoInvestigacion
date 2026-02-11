@@ -11,7 +11,9 @@ from ui.utils.constants import (
     EMBEDDING_INDICES, 
     CATEGORICAL_INDICES, 
     UNKNOWN_ATOM_IDX, 
-    UNKNOWN_HYBRID_IDX
+    UNKNOWN_HYBRID_IDX,
+    EDGE_EMBEDDING_INDICES,
+    UNKNOWN_BOND_IDX
 )
 from ui.utils.plot_style import apply_paper_style, save_paper_figure
 from GNNs.data_processing import mol_to_graph_data, onehot_to_indices
@@ -282,7 +284,7 @@ def calcular_curvas_fidelity_general(model, data, importance, device, mode= "bet
                 data_minus = eliminar_nodos_y_conexiones(data, current_indices)
             
             elif mode == 'gamma':  # Features Aristas (Enmascarar con media)
-                data_minus = ocultar_features_aristas(data, current_indices)
+                data_minus = ocultar_features_aristas_indices(data, current_indices)
                 
             elif mode == 'delta':  # Aristas (Eliminar conexión)
                 data_minus = eliminar_aristas_selectivas(data, current_indices)
@@ -378,7 +380,7 @@ def calcular_curvas_fidelity_graphE(model, mol, importance, device, mode= "beta"
                 data_minus = eliminar_nodos_y_conexiones(data, current_indices)
             
             elif mode == 'gamma':  # Features Aristas (Enmascarar con media)
-                data_aux = ocultar_features_aristas(data_onehot, current_indices)
+                data_aux = ocultar_features_aristas_onehot(data_onehot, current_indices)
                 data_minus = onehot_to_indices(data_aux)
                 
             elif mode == 'delta':  # Aristas (Eliminar conexión)
@@ -582,29 +584,70 @@ def eliminar_nodos_y_conexiones(data, indices_a_eliminar):
     return new_data
 
 # ------- GAMMA ---------
-def ocultar_features_aristas(data, indices_features_a_ocultar):
+def ocultar_features_aristas_indices(data, indices_features_a_ocultar):
     """
-    MODO GAMMA: Perturba las features de las aristas (edge_attr) reemplazándolas 
-    por la media global de esa feature.
+    MODO GAMMA (INDICES): Perturba las features de las aristas.
+    - Categóricas (Tipo Enlace): Se fuerzan al índice 'Unknown/Other'.
+    - Continuas (Distancia): Se reemplazan por la media.
     """
     if data.edge_attr is None:
         return data
 
-    # 1. Clonar edge_attr
     edge_attr_mod = data.edge_attr.clone()
     
-    # 2. Calcular media por columna (feature de arista)
-    # edge_attr shape: [Num_Edges, Num_Edge_Features]
-    feature_means = edge_attr_mod.mean(dim=0) 
+    # Pre-calculamos la media para las features continuas (Distancia)
+    feature_means = edge_attr_mod.mean(dim=0)
     
-    # 3. Reemplazar columnas
     if len(indices_features_a_ocultar) > 0:
-        idx_tensor = torch.tensor(indices_features_a_ocultar, device=data.x.device)
-        # Protección de índices para evitar crash CUDA
+        
+        # Convertimos a lista simple para iterar
+        if torch.is_tensor(indices_features_a_ocultar):
+            lista_indices = indices_features_a_ocultar.cpu().numpy().tolist()
+        else:
+            lista_indices = indices_features_a_ocultar
+
+        for feat_idx in lista_indices:
+            feat_idx = int(feat_idx)
+            
+            # --- CASO A: TIPO DE ENLACE ---
+            if feat_idx == EDGE_EMBEDDING_INDICES["BOND_TYPE"]:
+                # Asignamos la categoría 'OTHER' / 'UNKNOWN'
+                # Esto le dice al modelo: "Aquí hay una arista, pero no sé qué tipo es"
+                edge_attr_mod[:, feat_idx] = UNKNOWN_BOND_IDX
+                
+            # --- CASO B: DISTANCIA (O cualquier otra continua) ---
+            else:
+                # Usamos la media para suavizar la distancia
+                edge_attr_mod[:, feat_idx] = feature_means[feat_idx]
+                
+    return Data(x=data.x, edge_index=data.edge_index, 
+                edge_attr=edge_attr_mod, batch=data.batch)
+
+
+def ocultar_features_aristas_onehot(data, indices_cols_a_ocultar):
+    """
+    MODO GAMMA (ONE-HOT): Pone a 0 las columnas indicadas.
+    - Si borras columnas de tipo de enlace -> onehot_to_indices lo detectará como Unknown.
+    - Si borras columna de distancia -> Se queda en 0.
+    """
+    if data.edge_attr is None:
+        return data
+
+    edge_attr_mod = data.edge_attr.clone()
+    
+    if len(indices_cols_a_ocultar) > 0:
+        if not torch.is_tensor(indices_cols_a_ocultar):
+            idx_tensor = torch.tensor(indices_cols_a_ocultar, device=data.x.device)
+        else:
+            idx_tensor = indices_cols_a_ocultar.to(data.x.device)
+            
+        # Validación de rango básica
         if idx_tensor.max() >= edge_attr_mod.shape[1]:
-             raise ValueError(f"Índice {idx_tensor.max()} fuera de rango para {edge_attr_mod.shape[1]} features de arista.")
-             
-        edge_attr_mod[:, idx_tensor] = feature_means[idx_tensor]
+             # Ojo: Logging o print de warning aquí es útil
+             pass 
+
+        # Zero Masking
+        edge_attr_mod[:, idx_tensor] = 0.0
         
     return Data(x=data.x, edge_index=data.edge_index, 
                 edge_attr=edge_attr_mod, batch=data.batch)

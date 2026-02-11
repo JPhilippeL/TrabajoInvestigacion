@@ -26,6 +26,11 @@ EMBEDDING_INDICES = {
     "IS_ACCEPTOR": 8
 }
 
+EDGE_EMBEDDING_INDICES = {
+    "BOND_TYPE": 0,
+    "DISTANCE": 1
+}
+
 # Definimos los valores de "Unknown" para las categorías
 # Asumimos que 'Unknown' es el último elemento de tus listas
 UNKNOWN_ATOM_IDX = len(periodic_elements) - 1
@@ -42,6 +47,8 @@ BOND_TYPE_TO_INT = {
     Chem.rdchem.BondType.AROMATIC: 3,
     Chem.rdchem.BondType.OTHER: 4  # <--- NUEVA CLASE PARA UNKNOWN/OTROS
 }
+
+EDGE_FEATURE_NAMES = ["Single", "Double", "Triple", "Other", "Aromatic", "Distance"]
 
 # Variable auxiliar para el índice de "Unknown Bond"
 UNKNOWN_BOND_IDX = BOND_TYPE_TO_INT[Chem.rdchem.BondType.OTHER]
