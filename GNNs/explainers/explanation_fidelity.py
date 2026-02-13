@@ -17,7 +17,7 @@ from ui.utils.constants import (
     hybridization_types
 )
 from ui.utils.plot_style import apply_paper_style, save_paper_figure
-from GNNs.data_processing import mol_to_graph_data, onehot_to_indices
+from GNNs.data_processing import mol_to_graph_data, onehot_to_indices, read_targets
 from GNNs.model_tester import cargar_modelo
 import logging
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ def generar_comparativa_fidelity(
     graphexp_weights_path, 
     gnnexp_weights_path, # Puede ser None
     mode = "delta",
-    reg_fidelity_mas = False
+    reg_fidelity_mas = True,
 ):
     """
     Función orquestadora completa.
@@ -58,80 +58,128 @@ def generar_comparativa_fidelity(
         return None
 
     mol_name = mol.GetProp("_Name") if mol.HasProp("_Name") else mol_id
-    data = mol_to_graph_data(mol)
 
     print(f"--- Comparativa ({mode}) para {mol_name} ---")
 
-    # --- 4. Carga de Tensores de Importancia ---
-    
-    # A) Carga GraphExplainer
-    tensor_graphexp = cargar_pesos_tensor(graphexp_weights_path, device)
+    # --- 4. Obtener metricas ---
 
-    # B) Carga GNNExplainer (Opcional)
-    tensor_gnn = None
-    if gnnexp_weights_path is not None or mode == "gamma":
-        tensor_gnn = cargar_pesos_tensor(gnnexp_weights_path, device)
-    else:
-        print("Info: Se omite resultados GNNExplainer.")
-
-    # --- 5. Calcular Curva GraphExplainer ---
-    print(f"Calculando curva {mode} para GraphExplainer...")
-    k_vals_graph, fiab_graphexp = calcular_curvas_fidelity(
-        model=model, 
-        importance=tensor_graphexp, 
-        device=device,
-        mol=mol, 
-        is_onehot_explainer=True,  # <--- Activa lógica One-Hot + Filtrado Total
-        mode=mode,
-        reg_fidelity_mas=reg_fidelity_mas
+    k_vals_graph, fiab_graphexp, k_vals_gnn, fiab_gnn, auc_graph, auc_gnn = calcular_metricas_comparativas(
+        model, device, mol, 
+        graphexp_weights_path, gnnexp_weights_path, 
+        mode, reg_fidelity_mas
     )
 
-    # --- 6. Calcular Curva GNNExplainer---
-    fiab_gnn = None
-    k_vals_gnn = []
-    if tensor_gnn is not None:
-        print(f"Calculando curva {mode} para GNNExplainer...")
-        try:
-            k_vals_gnn, fiab_gnn = calcular_curvas_fidelity(
-                model=model, 
-                importance=tensor_gnn, 
-                device=device, 
-                data=data,  # O mol
-                is_onehot_explainer=False, # <--- Activa lógica Índices + Filtrado Selectivo
-                mode=mode,
-                reg_fidelity_mas=reg_fidelity_mas
-            )
-        except ValueError as e:
-            print(f"Saltando GNNExplainer : {e}")
-            fiab_gnn = None
-            k_vals_gnn = []
-
     # --- 7. Generar Gráfico ---
-    plot_path, auc_graph_explainer, auc_gnn_explainer = guardar_plot_fidelity_comparativo(
+    plot_path = guardar_plot_fidelity_comparativo(
         k_values_graph=k_vals_graph,      # <--- K de GraphExplainer
-        fiab_my_explainer=fiab_graphexp,
+        fiab_graph=fiab_graphexp,
         k_values_gnn=k_vals_gnn,          # <--- K de GNNExplainer
-        fiab_gnn_explainer=fiab_gnn,
+        fiab_gnn=fiab_gnn,
+        auc_graph=auc_graph,
+        auc_gnn=auc_gnn,
         model_name=model_folder_name,
         mol_name=mol_name,
         mode=mode,
         reg_fidelity_mas=reg_fidelity_mas
     )
     
-    return plot_path, auc_graph_explainer, auc_gnn_explainer
+    return plot_path
+
+def calcular_metricas_comparativas(
+    model, 
+    device, 
+    mol, 
+    graphexp_weights_path, 
+    gnnexp_weights_path, 
+    mode, 
+    reg_fidelity_mas
+):
+    """
+    Función NÚCLEO. Carga pesos y calcula las curvas y AUCs para ambos explainers.
+    Retorna datos puros, sin generar gráficos.
+    """
+    
+    # --- 1. Carga de Tensores ---
+    try:
+        tensor_graphexp = cargar_pesos_tensor(graphexp_weights_path, device)
+    except Exception:
+        # Si falla GraphExplainer, no podemos comparar nada. Retornamos vacío.
+        return None, None, None, None, 0.0, None
+
+    tensor_gnn = None
+    if gnnexp_weights_path is not None:
+        try:
+            tensor_gnn = cargar_pesos_tensor(gnnexp_weights_path, device)
+        except Exception:
+            tensor_gnn = None
+
+    # --- 2. GraphExplainer (One-Hot) ---
+    k_vals_graph, fiab_graph = calcular_curvas_fidelity(
+        model=model, 
+        importance=tensor_graphexp, 
+        device=device, 
+        mol=mol, 
+        is_onehot_explainer=True, 
+        mode=mode, 
+        reg_fidelity_mas=reg_fidelity_mas
+    )
+    
+    auc_graph = _calcular_auc_simple(k_vals_graph, fiab_graph)
+
+    # --- 3. GNNExplainer (Indices) ---
+    k_vals_gnn = []
+    fiab_gnn = None
+    auc_gnn = None
+
+    if tensor_gnn is not None:
+        try:
+            k_vals_gnn, fiab_gnn = calcular_curvas_fidelity(
+                model=model, 
+                importance=tensor_gnn, 
+                device=device, 
+                mol=mol, # Pasamos mol, la función genera data internamente
+                is_onehot_explainer=False, 
+                mode=mode, 
+                reg_fidelity_mas=reg_fidelity_mas
+            )
+            auc_gnn = _calcular_auc_simple(k_vals_gnn, fiab_gnn)
+        except ValueError:
+            k_vals_gnn = []
+            fiab_gnn = None
+            auc_gnn = None
+
+    return k_vals_graph, fiab_graph, k_vals_gnn, fiab_gnn, auc_graph, auc_gnn
+
+def _calcular_auc_simple(k_vals, fiab_list):
+    """Helper interno para cálculo matemático de AUC normalizado."""
+    if not k_vals or not fiab_list:
+        return 0.0
+    max_k = k_vals[-1]
+    if max_k == 0: return 0.0
+    
+    try:
+        # Numpy >= 2.0
+        area = np.trapezoid(fiab_list, k_vals)
+    except AttributeError:
+        # Numpy < 2.0
+        area = np.trapz(fiab_list, k_vals)
+        
+    return area / max_k
 
 def guardar_plot_fidelity_comparativo(
         k_values_graph,      # K values específicos para tu explainer
-        fiab_my_explainer, 
+        fiab_graph, 
         k_values_gnn,        # K values específicos para GNNExplainer
-        fiab_gnn_explainer, 
+        fiab_gnn,
+        auc_graph,           # <--- NUEVO ARGUMENTO: Ya viene calculado
+        auc_gnn,             # <--- NUEVO ARGUMENTO: Ya viene calculado 
         model_name, 
         mol_name,
         mode,
         reg_fidelity_mas = True
     ):
     """
-    Genera un gráfico comparativo. Si fiab_gnn_explainer es None,
+    Genera un gráfico comparativo. Si fiab_gnn es None,
     solo grafica GraphExplainer Explainer.
     
     El AUC se normaliza (dividiendo por max_k) para estar entre 0 y 1.
@@ -154,43 +202,21 @@ def guardar_plot_fidelity_comparativo(
 
     # === CÁLCULO DE AUC NORMALIZADO ===
     
-    # 1. AUC GraphExplainer
-    max_k_graph = k_values_graph[-1] if len(k_values_graph) > 0 else 1
-    
-    try:
-        raw_auc_graph = np.trapezoid(fiab_my_explainer, k_values_graph)
-    except AttributeError:
-        raw_auc_graph = np.trapz(fiab_my_explainer, k_values_graph)
-    
-    # Normalizamos dividiendo por SU propio máximo
-    auc_graph_explainer = raw_auc_graph / max_k_graph if max_k_graph > 0 else 0.0
-
-    # 2. AUC GNNExplainer
-    auc_gnn = 0.0
-    has_gnn = (fiab_gnn_explainer is not None) and (len(fiab_gnn_explainer) > 0)
-    
-    if has_gnn:
-        max_k_gnn = k_values_gnn[-1] if len(k_values_gnn) > 0 else 1
-        
-        try:
-            raw_auc_gnn = np.trapezoid(fiab_gnn_explainer, k_values_gnn)
-        except AttributeError:
-            raw_auc_gnn = np.trapz(fiab_gnn_explainer, k_values_gnn)
-            
-        # Normalizamos dividiendo por SU propio máximo
-        auc_gnn = raw_auc_gnn / max_k_gnn if max_k_gnn > 0 else 0.0
-    
     # === PLOTTING ===
     plt.figure()
     
     # Plot GraphExplainer (Eje X largo)
-    plt.plot(k_values_graph, fiab_my_explainer, 
+    plt.plot(k_values_graph, fiab_graph, 
              marker='o', color='#1f77b4', linestyle='-', linewidth=2.5,
-             label=f'GraphExplainer (AUC: {auc_graph_explainer:.2f})')
+             label=f'GraphExplainer (AUC: {auc_graph:.2f})')
     
+    if fiab_gnn is not None and len(fiab_gnn) > 0:
+        has_gnn = True
+    else:
+        has_gnn = False
     # Plot GNNExplainer (Eje X corto)
     if has_gnn:
-        plt.plot(k_values_gnn, fiab_gnn_explainer, 
+        plt.plot(k_values_gnn, fiab_gnn, 
                  marker='x', color='#ff7f0e', linestyle='--', linewidth=2, alpha=0.9,
                  label=f'GNNExplainer (AUC: {auc_gnn:.2f})')
 
@@ -220,7 +246,7 @@ def guardar_plot_fidelity_comparativo(
     save_paper_figure(full_save_path)
     print(f"Gráfico comparativo guardado en: {full_save_path}")
     
-    return full_save_path, auc_graph_explainer, auc_gnn
+    return full_save_path
 
 def cargar_pesos_tensor(path, device='cpu'):
     """
@@ -759,31 +785,201 @@ def eliminar_aristas_selectivas(data, indices_aristas_a_eliminar):
     return Data(x=data.x, edge_index=new_edge_index, 
                 edge_attr=new_edge_attr, batch=data.batch)
 
-def save_auc_results_csv(results, mode, model_name):
+def obtener_aucs_directorio(
+        model_path,
+        sdfs_dir,
+        weights_root_dir,
+        targets_path,
+        mode,
+        reg_fidelity_mas,
+):
+    UMBRAL_ERROR = 1000
+
+    # Construir la ruta específica del modo (ej: .../pesos/alpha)
+    weights_mode_dir = os.path.join(weights_root_dir, mode)
+    
+    if not os.path.exists(weights_mode_dir):
+        logger.error(f"No existe el directorio de pesos para el modo {mode}: {weights_mode_dir}")
+        return
+
+    results = []  # Lista para guardar diccionarios: {'name': str, 'auc_graph': float, 'auc_gnn': float}
+    
+    try:
+        # Filtrar solo archivos .sdf
+        sdf_files = [f for f in os.listdir(sdfs_dir) if f.endswith('.sdf')]
+        
+        if not sdf_files:
+            logger.warning(f"No hay archivos .sdf en {sdfs_dir}")
+            return
+
+        logger.info(f"Iniciando comparativa Batch ({mode}). Total archivos: {len(sdf_files)}")
+
+        # Listar todos los archivos de pesos una sola vez para no leer disco en cada iteración
+        # Esto mejora el rendimiento si hay muchos archivos.
+        all_weight_files = os.listdir(weights_mode_dir)
+
+        # Cargar modelo
+        model, device, targetname = cargar_modelo(model_path)
+        targets_dict = read_targets(targets_path)
+
+        for sdf_file in sdf_files:
+            mol_name = os.path.splitext(sdf_file)[0] # Nombre sin extensión (el "componente")
+            full_sdf_path = os.path.join(sdfs_dir, sdf_file)
+
+            # --- FILTRO DE ERROR ---
+            
+            # A) Obtener Valor Real
+            if mol_name not in targets_dict:
+                logger.warning(f"Saltando {mol_name}: No tiene valor target asociado.")
+                continue
+            y_real = targets_dict[mol_name]
+
+            # B) Obtener Valor Predicho (Inferencia rápida)
+            try:
+                mol = Chem.SDMolSupplier(full_sdf_path, removeHs=False)[0] # Ojo con removeHs
+                if mol is None: continue
+                data = mol_to_graph_data(mol).to(device)
+                
+                with torch.no_grad():
+                    pred_tensor = model(data.x, data.edge_index, data.edge_attr, data.batch)
+                    y_pred = pred_tensor.item()
+            except Exception as e:
+                logger.error(f"Error en inferencia {mol_name}: {e}")
+                continue
+
+            # C) Calcular Error y Filtrar
+            error_abs = abs(y_real - y_pred)
+            
+            if error_abs >= UMBRAL_ERROR:
+                # Si el error es grande, saltamos esta molécula
+                # logger.info(f"Saltando {mol_name}: Error {error_abs:.4f} > {UMBRAL_ERROR}")
+                continue
+
+            matches = []
+            for w in all_weight_files:
+                if w.endswith(f"_{mol_name}.pt"):
+                    matches.append(w)
+            
+            if not matches:
+                logger.warning(f"Saltando {mol_name}: No se encontraron pesos en {mode}.")
+                continue
+
+            # Identificar cuál es cual
+            path_graph_explainer = None
+            path_gnn_explainer = None
+
+            for w_file in matches:
+                full_w_path = os.path.join(weights_mode_dir, w_file)
+                if "GraphExplainer" in w_file:
+                    path_graph_explainer = full_w_path
+                elif "GNNExplainer" in w_file: 
+                    # Asumimos que si no es GraphExplainer y hizo match, es el GNNExplainer
+                    # O buscamos explícitamente el string si tus archivos lo tienen.
+                    path_gnn_explainer = full_w_path
+            
+            # Verificar requisitos mínimos
+            if not path_graph_explainer and not path_gnn_explainer:
+                    logger.warning(f"Saltando {mol_name}: Archivos encontrados pero no se identificó el tipo de explainer.")
+                    continue
+
+            # --- Llamada a la función generadora ---
+            try:
+                # Si ya tienes 'mol' validado del paso de inferencia, úsalo:
+                k_vals_g, fiab_g, k_vals_n, fiab_n, auc_graph, auc_gnn = calcular_metricas_comparativas(
+                    model, device, mol, 
+                    path_graph_explainer, path_gnn_explainer, 
+                    mode, reg_fidelity_mas
+                )
+                
+                if auc_graph is not None: # Si hubo resultado válido
+                    results.append({
+                        "name": mol_name,
+                        "auc_graph": auc_graph,
+                        "auc_gnn": auc_gnn if auc_gnn is not None else "N/A"
+                    })
+                    logger.info(f"Procesado {mol_name} | G: {auc_graph:.4f}")
+                else:
+                        logger.warning(f"Fallo cálculo para {mol_name}")
+
+            except Exception as e_inner:
+                logger.error(f"Error procesando {mol_name}: {e_inner}")
+
+        # --- Guardar resultados finales ---
+        if results:
+            model_name_clean = os.path.splitext(os.path.basename(model_path))[0]
+
+            # Llamada a la función externa actualizada
+            save_auc_results_csv(results, mode, model_name_clean, reg_fidelity_mas)
+        else:
+            logger.warning("No se generaron resultados para guardar.")
+
+    except Exception as e:
+        logger.error(f"Error global en Batch Comparer: {str(e)}", exc_info=True)
+
+
+def save_auc_results_csv(results, mode, model_name, reg_fidelity_mas):
     """
-    Guarda la lista de resultados en: RESULTADOS_DIR / model_name / auc_results / auc_results_{mode}.csv
+    Guarda la lista de resultados en: RESULTADOS_DIR / model_name / auc_results / {metrica}_{mode}.csv
+    Calcula el PROMEDIO de las columnas numéricas y lo añade al final.
     """
     try:
-        # 1. Definir la ruta de la carpeta: Resultados/NombreModelo/auc_results
+        # 1. Definir rutas
+        # Asegúrate de tener RESULTADOS_DIR importado o definido globalmente
         output_folder = os.path.join(RESULTADOS_DIR, model_name, "auc_results")
-        
-        # 2. Crear directorios si no existen
         os.makedirs(output_folder, exist_ok=True)
 
-        # 3. Definir nombre del archivo
-        csv_filename = f"auc_results_{mode}.csv"
+        if reg_fidelity_mas:
+            metrica = "RegFidelityMas"
+        else:
+            metrica = "RegFidelityMenos"
+
+        csv_filename = f"{metrica}_{mode}.csv"
         csv_path = os.path.join(output_folder, csv_filename)
         
-        # 4. Escribir CSV
+        # 2. CALCULAR PROMEDIOS
+        sum_graph, count_graph = 0.0, 0
+        sum_gnn, count_gnn = 0.0, 0
+
+        for row in results:
+            # --- GraphExplainer ---
+            val_g = row.get("auc_graph")
+            # Verificamos si es número (float o int) y no None/"N/A"
+            if isinstance(val_g, (int, float)):
+                sum_graph += val_g
+                count_graph += 1
+            
+            # --- GNNExplainer ---
+            val_n = row.get("auc_gnn")
+            if isinstance(val_n, (int, float)):
+                sum_gnn += val_n
+                count_gnn += 1
+
+        # Evitar división por cero
+        avg_graph = sum_graph / count_graph if count_graph > 0 else 0.0
+        avg_gnn = sum_gnn / count_gnn if count_gnn > 0 else 0.0
+
+        # 3. ESCRIBIR CSV
         fieldnames = ["name", "auc_graph", "auc_gnn"]
         
         with open(csv_path, mode='w', newline='', encoding='utf-8') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
+            
+            # A) Escribir todas las filas de datos
             for data in results:
                 writer.writerow(data)
+            
+            # B) Escribir fila de separación (opcional, visualmente útil) o ir directo al promedio
+            # writer.writerow({}) 
+            
+            # C) Escribir la fila AVERAGE
+            writer.writerow({
+                "name": "AVERAGE",
+                "auc_graph": avg_graph,
+                "auc_gnn": avg_gnn
+            })
                 
-        logging.getLogger(__name__).info(f"Resultados AUC guardados exitosamente en: {csv_path}")
+        logging.getLogger(__name__).info(f"Resultados AUC guardados con promedio en: {csv_path}")
 
     except Exception as e:
         logging.getLogger(__name__).error(f"Error al guardar CSV: {str(e)}", exc_info=True)

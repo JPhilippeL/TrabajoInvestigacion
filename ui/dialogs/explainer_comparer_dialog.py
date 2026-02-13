@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLineEdit,
+    QDialog, QVBoxLayout, QFormLayout, QLineEdit, QCheckBox,
     QPushButton, QFileDialog, QDialogButtonBox, QWidget, QHBoxLayout,
     QComboBox  # <--- Importante: añadir QComboBox
 )
@@ -22,6 +22,16 @@ class ExplainerComparerDialog(QDialog):
         self.mode_combo.setCurrentText(last_mode)
         # Conectar señal para cambiar sugerencias visuales
         self.mode_combo.currentTextChanged.connect(self.on_mode_changed)
+
+        # 0.5 ---------- Fidelity Mode (Checkbox) ---------- ### NUEVO ###
+        self.fidelity_check = QCheckBox("Usar RegFidelity+ (Ascendente)")
+        self.fidelity_check.setToolTip(
+            "Marcado: Elimina lo MENOS importante primero (Curva de estabilidad).\n"
+            "Desmarcado: Elimina lo MÁS importante primero (Curva de daño)."
+        )
+        # Por defecto True (Más/Ascendente) si no existe la setting
+        last_fidelity = self.settings.value("batchComparer/reg_fidelity_mas", True, type=bool)
+        self.fidelity_check.setChecked(last_fidelity)
 
         # 1. ---------- Model path ----------
         self.model_path_input = QLineEdit()
@@ -52,6 +62,7 @@ class ExplainerComparerDialog(QDialog):
         # ---------- Layout ----------
         form_layout = QFormLayout()
         form_layout.addRow("Modo de Análisis:", self.mode_combo) # <--- Nuevo campo
+        form_layout.addRow("Tipo de Métrica:", self.fidelity_check) # <--- ### NUEVO ###
         form_layout.addRow("Modelo Base (.pt):", self._with_button(self.model_path_input, self.model_browse_btn))
         form_layout.addRow("Molécula (.sdf):", self._with_button(self.sdf_path_input, self.sdf_browse_btn))
         form_layout.addRow("GraphExplainer (.pt):", self._with_button(self.graph_exp_input, self.graph_exp_btn))
@@ -107,6 +118,8 @@ class ExplainerComparerDialog(QDialog):
     def accept(self):
         # Guardar settings
         self.settings.setValue("explainerComparer/last_mode", self.mode_combo.currentText())
+         # Guardar estado del checkbox ### NUEVO ###
+        self.settings.setValue("explainerComparer/reg_fidelity_mas", self.fidelity_check.isChecked()) 
         self.settings.setValue("explainerComparer/last_model_path", self.model_path_input.text())
         self.settings.setValue("explainerComparer/last_graph_exp_path", self.graph_exp_input.text())
         self.settings.setValue("explainerComparer/last_gnn_exp_path", self.gnn_exp_input.text())
@@ -124,5 +137,6 @@ class ExplainerComparerDialog(QDialog):
             self.sdf_path_input.text(),
             self.graph_exp_input.text(),
             self.gnn_exp_input.text(),
-            self.mode_combo.currentText() # <--- Nuevo retorno
+            self.mode_combo.currentText(), # <--- Nuevo retorno
+            self.fidelity_check.isChecked() # <--- ### NUEVO: Devuelve True o False
         )
