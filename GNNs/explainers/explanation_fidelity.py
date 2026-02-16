@@ -5,6 +5,7 @@ import numpy as np
 import os
 from torch_geometric.utils import subgraph
 from torch_geometric.data import Data
+import statistics  # <--- IMPORTANTE: Importar esto
 from rdkit import Chem
 from ui.utils.constants import (
     RESULTADOS_DIR,
@@ -793,7 +794,7 @@ def obtener_aucs_directorio(
         mode,
         reg_fidelity_mas,
 ):
-    UMBRAL_ERROR = 1000
+    UMBRAL_ERROR = 100
 
     # Construir la ruta específica del modo (ej: .../pesos/alpha)
     weights_mode_dir = os.path.join(weights_root_dir, mode)
@@ -940,23 +941,27 @@ def save_auc_results_csv(results, mode, model_name, reg_fidelity_mas):
         sum_graph, count_graph = 0.0, 0
         sum_gnn, count_gnn = 0.0, 0
 
-        for row in results:
-            # --- GraphExplainer ---
-            val_g = row.get("auc_graph")
-            # Verificamos si es número (float o int) y no None/"N/A"
-            if isinstance(val_g, (int, float)):
-                sum_graph += val_g
-                count_graph += 1
-            
-            # --- GNNExplainer ---
-            val_n = row.get("auc_gnn")
-            if isinstance(val_n, (int, float)):
-                sum_gnn += val_n
-                count_gnn += 1
+        # 2. RECOPILAR VALORES (Para estadísticas)
+        # Extraemos solo los números, ignorando "N/A" o None
+        vals_graph = [
+            r["auc_graph"] for r in results 
+            if isinstance(r.get("auc_graph"), (int, float))
+        ]
+        
+        vals_gnn = [
+            r["auc_gnn"] for r in results 
+            if isinstance(r.get("auc_gnn"), (int, float))
+        ]
 
-        # Evitar división por cero
-        avg_graph = sum_graph / count_graph if count_graph > 0 else 0.0
-        avg_gnn = sum_gnn / count_gnn if count_gnn > 0 else 0.0
+        # 3. CALCULAR ESTADÍSTICAS
+        # -- Promedio --
+        avg_graph = statistics.mean(vals_graph) if vals_graph else 0.0
+        avg_gnn = statistics.mean(vals_gnn) if vals_gnn else 0.0
+
+        # -- Desviación Estándar (Sample Stdev) --
+        # Requiere al menos 2 datos para calcularse
+        std_graph = statistics.stdev(vals_graph) if len(vals_graph) > 1 else 0.0
+        std_gnn = statistics.stdev(vals_gnn) if len(vals_gnn) > 1 else 0.0
 
         # 3. ESCRIBIR CSV
         fieldnames = ["name", "auc_graph", "auc_gnn"]
@@ -977,6 +982,13 @@ def save_auc_results_csv(results, mode, model_name, reg_fidelity_mas):
                 "name": "AVERAGE",
                 "auc_graph": avg_graph,
                 "auc_gnn": avg_gnn
+            })
+
+            # D) Fila DESVIACIÓN ESTÁNDAR
+            writer.writerow({
+                "name": "STD_DEV",
+                "auc_graph": std_graph,
+                "auc_gnn": std_gnn
             })
                 
         logging.getLogger(__name__).info(f"Resultados AUC guardados con promedio en: {csv_path}")
