@@ -11,7 +11,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
-from ui.utils.constants import RESULTADOS_DIR  # Asegúrate de que esto se pueda importar aquí
+from ui.utils.constants import RESULTADOS_DIR, hybridization_types, periodic_elements
 
 # --- FUNCIÓN MAESTRA ---
 def guardar_dashboard_explicacion(
@@ -224,7 +224,7 @@ def plot_graph_with_importance(graph, node_importance, edge_importance=None, edg
 
     pos = {n: graph.nodes[n]["pos"] for n in graph.nodes}
     
-    # Normalización Nodos (Ahora con normalizar_max como acordamos)
+    # Normalización Nodos (Ahora con normalizar_por_norma como acordamos)
     # Si prefieres min_max en el grafo, cambia esta línea
     vmin_n, vmax_n = beta.min(), beta.max()
     norm_n = mcolors.Normalize(vmin=vmin_n, vmax=vmax_n) if vmax_n > 0 else mcolors.Normalize(vmin=0, vmax=1)
@@ -434,22 +434,43 @@ def get_feature_names_embedding():
         "Is Acceptor"
     ]
 
-def normalizar_max(arr):
+
+def get_features_names_onehot():
+    feature_names = []
+
+    # Tipo de atomo one hot
+    feature_names+= [f"Atom_{atom}" for atom in periodic_elements]
+
+    # Features escalares
+    feature_names.append("Degree")
+    feature_names.append("Total Hs")
+    feature_names.append("Is Aromatic")
+    feature_names.append("Formal Charge")
+    feature_names.append("Gasteiger Charge")
+    feature_names.append("Is Donor")
+    feature_names.append("Is Acceptor")
+
+    # Hybridizacion
+    feature_names+= [f"Hybrid_{h}" for h in hybridization_types]
+
+    return feature_names
+
+def normalizar_por_norma(arr):
     """
-    Normaliza dividiendo por el máximo absoluto.
-    - El máximo será 1.0
-    - El 0 real se queda en 0.
-    - Mantiene la proporción real entre features.
+    Normaliza el vector usando la Norma L2 (Euclidiana).
+    - La suma de los cuadrados de los elementos será 1.
+    - Captura mejor la distribución de energía del vector.
     """
-    if arr is None or len(arr) == 0: return arr
+    if arr is None or arr.size == 0: 
+        return arr
     
-    # Usamos max() del valor absoluto, que ya viene calculado en 'arr'
-    val_max = arr.max()
+    # Calcular la norma L2 (raíz de la suma de cuadrados)
+    norma = np.linalg.norm(arr)
     
-    if val_max == 0:
+    if norma == 0:
         return np.zeros_like(arr)
         
-    return arr / val_max
+    return arr / norma
 
 def tensor_to_abs_numpy(tensor):
     """Convierte tensor a numpy, toma valor absoluto."""
@@ -496,7 +517,70 @@ def procesar_features_ordenadas(importance_tensor, feature_names, input_data=Non
     sorted_imp = filtered_imp[sort_idx]
     sorted_names = filtered_names[sort_idx]
     
-    # 4. NORMALIZAR CON MAX
-    final_imp = normalizar_max(sorted_imp)
+    # 4. NORMALIZAR CON norma
+    final_imp = normalizar_por_norma(sorted_imp)
     
     return final_imp, sorted_names.tolist()
+
+def procesar_features_onehot(importance_tensor, feature_names, input_data):
+    """
+    Procesa features para One-Hot Encoding:
+    1. FILTRA: Elimina features que no existen en la muestra (columna == 0).
+    2. ORDENA: Por importancia absoluta.
+    3. NORMALIZA: Usando Norma L2.
+    
+    Args:
+        importance_tensor (Tensor): Pesos aprendidos (alfa o gamma).
+        feature_names (list): Lista de nombres de las features.
+        input_data (Tensor): Matriz de datos real de la muestra [N, Features].
+                             Necesario para saber qué columnas son 0.
+    """
+    if importance_tensor is None or input_data is None:
+        return np.array([]), []
+    
+    # 1. Obtener magnitudes crudas (Valor Absoluto) y convertir a Numpy
+    # flatten() es importante para asegurar que sea un vector 1D
+    raw_imp = tensor_to_abs_numpy(importance_tensor).flatten()
+    
+    # Convertir feature_names a numpy array para poder indexar con máscara booleana
+    names_np = np.array(feature_names)
+    
+    # --- VALIDACIÓN DE DIMENSIONES ---
+    num_features_data = input_data.shape[1]
+    num_features_names = len(names_np)
+    num_features_imp = len(raw_imp)
+    
+    # Ajustar al mínimo común denominador para evitar crashes
+    min_len = min(num_features_data, num_features_names, num_features_imp)
+    
+    if num_features_data != num_features_names or num_features_data != num_features_imp:
+        logger.warning(f"Mismatch dimensiones OneHot: Data={num_features_data}, Names={num_features_names}, Imp={num_features_imp}. Recortando a {min_len}.")
+        
+    # Recortamos todos al tamaño seguro
+    input_data = input_data[:, :min_len]
+    names_np = names_np[:min_len]
+    raw_imp = raw_imp[:min_len]
+
+    # 2. FILTRADO: Detectar columnas activas en la data
+    # (input_data != 0).any(dim=0) devuelve True si hay al menos un 1 en esa columna
+    active_mask = (input_data != 0).any(dim=0).cpu().numpy()
+    
+    # Aplicar máscara
+    filtered_imp = raw_imp[active_mask]
+    filtered_names = names_np[active_mask]
+    
+    if len(filtered_imp) == 0:
+        return np.empty((0, 1)), []
+
+    # 3. ORDENAR (Mayor a menor)
+    sort_idx = np.argsort(filtered_imp)[::-1]
+    
+    sorted_imp = filtered_imp[sort_idx]
+    sorted_names = filtered_names[sort_idx]
+    
+    # 4. NORMALIZAR CON NORMA L2 (Sobre las features que quedaron)
+    final_imp = normalizar_por_norma(sorted_imp)
+    
+    # === CORRECCIÓN AQUÍ ===
+    # Convertimos el array 1D (9,) de vuelta a una matriz columna 2D (9, 1)
+    return final_imp.reshape(-1, 1), sorted_names.tolist()

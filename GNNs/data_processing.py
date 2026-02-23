@@ -5,7 +5,11 @@ from rdkit.Chem import AllChem
 import torch
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from ui.utils.constants import periodic_elements, hybridization_types
+from ui.utils.constants import (
+    BOND_TYPE_TO_INT, UNKNOWN_BOND_IDX, 
+    periodic_elements, hybridization_types,
+    ATOM_TYPE_TO_IDX, HYBRID_TO_IDX
+)
 from sklearn.model_selection import train_test_split
 import math
 import logging
@@ -15,22 +19,6 @@ import torch
 import torch.nn.functional as F
 from torch_geometric.data import Data
 from rdkit import Chem
-
-# --- Configuraciones Globales ---
-# Asegúrate de tener definidas 'periodic_elements' y 'hybridization_types' fuera o aquí mismo
-# periodic_elements = [...] 
-# hybridization_types = [...]
-
-BOND_TYPE_TO_INT = {
-    Chem.rdchem.BondType.SINGLE: 0,
-    Chem.rdchem.BondType.DOUBLE: 1,
-    Chem.rdchem.BondType.TRIPLE: 2,
-    Chem.rdchem.BondType.AROMATIC: 3
-}
-
-# Pre-calculamos mapas para búsqueda rápida (usado en modo embedding)
-ATOM_TYPE_TO_IDX = {el: i for i, el in enumerate(periodic_elements)}
-HYBRID_TO_IDX = {h: i for i, h in enumerate(hybridization_types)}
 
 # --- Definiciones de Patrones SMARTS para H-Bonds ---
 # Donador: Generalmente N u O con al menos un H unido
@@ -165,52 +153,64 @@ def mol_to_graph_data(mol, mode='embedding'):
 
 def onehot_to_indices(data):
     """
-    Convierte features one-hot a formato indices + continuos.
-    Asegura que la salida coincida con mol_to_graph(mode='embedding').
+    Convierte features one-hot a indices.
+    Soporta la detección de 'Zero Masking' asignando clases Unknown/Other.
     """
     if data.x is None: return data
 
     x = data.x.clone()
     
-    # IMPORTANTE: Estas listas deben ser IDÉNTICAS a las usadas al crear el grafo
+    # Usamos las longitudes dinámicas de las constantes
     num_atoms = len(periodic_elements)
     num_hybrids = len(hybridization_types)
     
-    # 1. Extraer y convertir ÁTOMOS
-    # x[:, :num_atoms] son las columnas del one-hot de átomos
+    # Indices de fallback
+    idx_unknown_atom = num_atoms - 1 
+    idx_unknown_hybrid = num_hybrids - 1
+
+    # === 1. ÁTOMOS ===
     atom_onehot = x[:, :num_atoms]
-    # .float() es vital para poder concatenar después con las features continuas
-    atom_idx = atom_onehot.argmax(dim=1, keepdim=True).float()
+    atom_idx = atom_onehot.argmax(dim=1, keepdim=True)
+    
+    # Detección de Ceros (Masking) -> Unknown
+    is_empty_atom = (atom_onehot.sum(dim=1, keepdim=True) == 0)
+    atom_idx[is_empty_atom] = idx_unknown_atom
+    atom_idx = atom_idx.float()
 
-    # 2. Extraer y convertir HIBRIDACIÓN (asumiendo que está al final)
+    # === 2. HIBRIDACIÓN ===
     hybrid_onehot = x[:, -num_hybrids:]
-    hybrid_idx = hybrid_onehot.argmax(dim=1, keepdim=True).float()
+    hybrid_idx = hybrid_onehot.argmax(dim=1, keepdim=True)
+    
+    # Detección de Ceros -> Other
+    is_empty_hybrid = (hybrid_onehot.sum(dim=1, keepdim=True) == 0)
+    hybrid_idx[is_empty_hybrid] = idx_unknown_hybrid
+    hybrid_idx = hybrid_idx.float()
 
-    # 3. Extraer el sándwich del medio (Features continuas: carga, H-bond, etc.)
-    # Si añadiste carga o H-bonds, están aquí en medio.
+    # === 3. Concatenar ===
     cont_features = x[:, num_atoms:-num_hybrids]
-
-    # 4. Concatenar en el orden EXACTO que espera el EmbeddingEncoder
-    # Orden: [Indice Atomo, Indice Hibridacion, ...continuas...]
     x_new = torch.cat([atom_idx, hybrid_idx, cont_features], dim=1)
     
-    # Crear nuevo objeto data para no modificar el original por referencia
     data_new = data.clone()
     data_new.x = x_new
 
-    # --- CONVERSIÓN DE ARISTAS ---
+    # === 4. ENLACES (Actualizado) ===
     if data_new.edge_attr is not None and data_new.edge_attr.shape[1] > 2:
         edge_attr = data_new.edge_attr
         
-        # Asumiendo estructura [OneHot (N cols) | Distancia (1 col)]
-        # Distancia es la última columna
         dist = edge_attr[:, -1].unsqueeze(1)
+        bond_onehot = edge_attr[:, :-1] # Todo menos distancia
         
-        # One-hot es todo menos la última
-        bond_onehot = edge_attr[:, :-1]
-        bond_idx = bond_onehot.argmax(dim=1, keepdim=True).float()
+        bond_idx = bond_onehot.argmax(dim=1, keepdim=True)
         
-        # Estructura final: [Indice Tipo Enlace, Distancia]
+        # --- CORRECCIÓN PARA ENLACES ---
+        # Si borramos el enlace (todo ceros), asignamos UNKNOWN_BOND_IDX
+        # Esto es vital para que GraphExplainer funcione bien con enlaces.
+        idx_unknown_bond = UNKNOWN_BOND_IDX 
+        
+        is_empty_bond = (bond_onehot.sum(dim=1, keepdim=True) == 0)
+        bond_idx[is_empty_bond] = idx_unknown_bond
+        bond_idx = bond_idx.float()
+        
         data_new.edge_attr = torch.cat([bond_idx, dist], dim=1)
 
     return data_new

@@ -1,35 +1,39 @@
-# model_explainer.py
+# Graph explainer pero utilizando las features como one hot en vez de las del embedding
+
 from GNNs.model_tester import cargar_modelo, predecir_molecula
 import torch
 import torch.nn as nn
 import numpy as np
-from ui.utils.constants import periodic_elements, hybridization_types
+from ui.utils.constants import periodic_elements, hybridization_types, EDGE_FEATURE_NAMES
 import os
 import sys
 import logging
 from GNNs.data_processing import mol_to_graph_data, onehot_to_indices
 from rdkit import Chem
+import random
 from graph_managment.sdf_converter import parse_sdf
 from GNNs.explainers.explanation_helper import ( 
     obtener_info_real, guardar_dashboard_explicacion,
     guardar_pesos, tensor_to_abs_numpy, 
-    normalizar_por_norma, get_feature_names_embedding, 
-    procesar_features_ordenadas )
-from GNNs.explainers.explanation_fidelity import calcular_curvas_fidelity_general, guardar_plot_fidelity
+    normalizar_por_norma, get_features_names_onehot, 
+    procesar_features_onehot )
 
 ALGO_NAME = "GraphExplainer"
-# Probabilidad de que un nodo/arista específico sea modificado.
-PERTURB_PROB = 0.15
 # Un 15% - 20% es razonable para mantener la estructura general.
 MININICIAL = sys.float_info.max
 logger = logging.getLogger(__name__)
 
 # Función para dada una muestra (x), genere una muestra perturbada (Z)
 # Dado un vector binario de las características a perturbar
-def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1], noise_level=0.05):
+def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1], noise_level=0.05, perturb_prob = 0.5):
     data_new = data.clone()
     x = data_new.x
     num_nodes = x.shape[0]
+    
+    # === 0. ANÁLISIS DE SPARSITY (Columnas activas) ===
+    # Detectamos qué columnas tienen al menos un valor distinto de 0 en toda la molécula.
+    # Si una columna es todo 0s, active_x_cols[idx] será False.
+    active_x_cols = (x != 0).any(dim=0)
     
     # === DEFINICIÓN DE INDICES ===
     len_atom = len(periodic_elements)
@@ -48,43 +52,60 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1], noise_level=0
     # ==========================================
     for i in range(num_nodes):
         
-        # A. TIPO DE ÁTOMO (One-Hot) - SOLO si toca la lotería (rand < PERTURB_PROB)
-        if feature_mask[0] and torch.rand(1).item() < PERTURB_PROB:
+        # A. TIPO DE ÁTOMO (One-Hot) - Masking
+        # Solo perturbamos si este nodo es elegido (perturb_prob)
+        # Si es elegido y es 1, lo pasamos a 0
+        if feature_mask[0] and torch.rand(1).item() < perturb_prob:
+            # Obtenemos el slice del átomo
             onehot = x[i, start_atom:end_atom]
-            onehot[:] = 0
-            new_idx = torch.randint(0, len_atom, (1,))
-            onehot[new_idx] = 1
+            
+            # Lógica: Si hay un 1, tiramos moneda para ver si lo apagamos.
+            # No encendemos nada nuevo (evitamos crear átomos de la nada).
+            # onehot.nonzero() devuelve los índices donde hay un 1.
+            indices_activos = onehot.nonzero(as_tuple=False)
+            
+            if indices_activos.numel() > 0:
+                # Si existe un átomo definido (debería), lo apagamos
+                onehot[:] = 0 # El nodo se queda "mudo" (sin identidad atómica)
 
         # B. FEATURES CONTINUAS (Ruido)
-        # El ruido continuo SÍ se puede aplicar a todos (es suave), 
-        # o también puedes hacerlo probabilístico. Aquí lo dejo a todos pero suave.
-        # B. FEATURES CONTINUAS (Ruido)
-        if feature_mask[1]:
-            indices_continuous = [0, 1, 3, 4] # Índices relativos al slice
+        # SUGERENCIA: Añadido chequeo de probabilidad para consistencia
+        if feature_mask[1] and torch.rand(1).item() < perturb_prob:
+            indices_continuous = [0, 1, 3, 4] 
             vals = x[i, end_atom:start_hybrid]
-            # Generar ruido para todos los índices de una vez
-            noise = noise_level * torch.randn(len(indices_continuous))
-            # Sumar ruido (vectorizado)
-            vals[indices_continuous] += noise
-            # Clamping (vectorizado) - Esto reemplaza tu bucle if/elif
-            vals[indices_continuous] = torch.clamp(vals[indices_continuous], min=0.0, max=1.0)
+            indices_absolutos = [idx + end_atom for idx in indices_continuous]
+            
+            indices_validos_rel = []
+            for k, idx_abs in enumerate(indices_absolutos):
+                if active_x_cols[idx_abs]:
+                    indices_validos_rel.append(indices_continuous[k])
+            
+            if len(indices_validos_rel) > 0:
+                noise = noise_level * torch.randn(len(indices_validos_rel))
+                vals[indices_validos_rel] += noise
+                vals[indices_validos_rel] = torch.clamp(vals[indices_validos_rel], min=0.0, max=1.0)
 
-        # C. FEATURES BINARIAS (Flip) - CRÍTICO: Hacerlo Probabilístico
+        # C. FEATURES BINARIAS (Flip 1 -> 0 only)
         if feature_mask[2]:
             indices_binary = [2, 5, 6] # Aromatic, Donor, Acceptor
             vals = x[i, end_atom:start_hybrid]
             
             for idx_rel in indices_binary:
-                # Solo invertimos el bit con probabilidad PERTURB_PROB
-                if torch.rand(1).item() < PERTURB_PROB:
-                    vals[idx_rel] = 1.0 - vals[idx_rel]
+                # 1. Chequeamos PERTURB_PROB (si toca perturbar este nodo)
+                # 2. Chequeamos si vale 1 (solo perturbamos lo que existe)
+                if torch.rand(1).item() < perturb_prob and vals[idx_rel] > 0.5:
+                    vals[idx_rel] = 0.0
+                
+                # NOTA: Al chequear `vals[idx_rel] > 0.5`, implícitamente cumplimos
+                # la regla de "si la columna es todo 0 no se perturba", 
+                # porque nunca entraremos en el if.
 
-        # D. HIBRIDACIÓN (One-Hot) - Probabilístico
-        if feature_mask[3] and torch.rand(1).item() < PERTURB_PROB:
+        # D. HIBRIDACIÓN (One-Hot) - Masking
+        if feature_mask[3] and torch.rand(1).item() < perturb_prob:
             onehot = x[i, start_hybrid:end_hybrid]
-            onehot[:] = 0
-            new_idx = torch.randint(0, len_hybrid, (1,))
-            onehot[new_idx] = 1
+            # Si tiene hibridación definida, probamos apagarla
+            if (onehot == 1).any():
+                onehot[:] = 0
 
     data_new.x = x
 
@@ -96,9 +117,13 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1], noise_level=0
         edge_index = data_new.edge_index
         num_edges = edge_attr.shape[0]
         
+        # Mapa para mantener simetría en grafos no dirigidos
         edge_map = {(edge_index[0, k].item(), edge_index[1, k].item()): k for k in range(num_edges)}
         dist_idx = -1 
         num_bond_cols = edge_attr.shape[1] - 1 
+        
+        # Chequeo de columnas activas en aristas (para distancia)
+        active_e_cols = (edge_attr != 0).any(dim=0)
 
         for i in range(num_edges):
             u, v = edge_index[0, i].item(), edge_index[1, i].item()
@@ -106,21 +131,28 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1], noise_level=0
 
             modified = False
             
-            # Perturbar Tipo Enlace (Probabilístico)
-            if feature_mask[4] and torch.rand(1).item() < PERTURB_PROB:
+            # Perturbar Tipo Enlace (One-Hot Masking)
+            if feature_mask[4] and torch.rand(1).item() < perturb_prob:
                 onehot_bond = edge_attr[i, :num_bond_cols]
-                onehot_bond[:] = 0
-                new_bond_idx = torch.randint(0, num_bond_cols, (1,))
-                onehot_bond[new_bond_idx] = 1
-                modified = True
+                # Si hay enlace definido (debería), probamos borrarlo (hacerlo 0)
+                # Esto equivale a eliminar la arista para la GNN
+                if (onehot_bond == 1).any():
+                    onehot_bond[:] = 0
+                    modified = True
             
-            # Perturbar Distancia (Siempre un poco de ruido está bien, o hazlo probabilístico)
-            if feature_mask[5]: 
-                noise = noise_level * torch.randn(1).item()
-                edge_attr[i, dist_idx] += noise
-                edge_attr[i, dist_idx] = torch.clamp(edge_attr[i, dist_idx], min=0.0)
-                modified = True
+            # Perturbar Distancia (Solo si la feature existe globalmente)
+            # dist_idx suele ser el último índice (-1)
+            # SUGERENCIA: Añadido chequeo de probabilidad
+            dist_idx_abs = edge_attr.shape[1] - 1
+            if feature_mask[5] and active_e_cols[dist_idx_abs]:
+                # Solo añadimos ruido si toca perturbar
+                if torch.rand(1).item() < perturb_prob: 
+                    noise = noise_level * torch.randn(1).item()
+                    edge_attr[i, dist_idx] += noise
+                    edge_attr[i, dist_idx] = torch.clamp(edge_attr[i, dist_idx], min=0.0)
+                    modified = True
 
+            # Mantener simetría (u,v) == (v,u)
             if modified and (v, u) in edge_map:
                 sym_idx = edge_map[(v, u)]
                 edge_attr[sym_idx] = edge_attr[i].clone()
@@ -133,7 +165,10 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1], noise_level=0
 def generate_perturbed_samples(data, feature_mask, num_samples=50, noise_level=0.05):
     perturbed_samples = []
     for i in range(num_samples):
-        perturbed_sample = perturb_features_sample(data, feature_mask, noise_level)
+        sample_specific_prob = random.uniform(0.05, 0.95)
+        # sample_specific_prob = random.uniform(0.01, 0.99)
+
+        perturbed_sample = perturb_features_sample(data, feature_mask, noise_level, sample_specific_prob)
         perturbed_samples.append(perturbed_sample)
     return perturbed_samples
 
@@ -212,7 +247,7 @@ def obtener_graph_explainer(
     
     # Generar muestras perturbadas
     perturbed_samples = generate_perturbed_samples(muestra, feature_mask, num_samples, noise_level)
-    perturbed_samples_embedding = []
+    # perturbed_samples_embedding = []
 
     # Obtener modelo
     model, device, target_name = cargar_modelo(checkpoint_path)
@@ -227,20 +262,20 @@ def obtener_graph_explainer(
         perturbed_for_model = onehot_to_indices(perturbed)  # <-- aquí el puente
         pred = predecir_molecula(model, perturbed_for_model, device)
         predicciones_perturbadas.append(pred)
-        perturbed_samples_embedding.append(perturbed_for_model)
+        # perturbed_samples_embedding.append(perturbed_for_model)
 
     # Convertir a tensor [num_samples,1]
     predicciones_perturbadas = torch.tensor(predicciones_perturbadas, dtype=torch.float, device=device).unsqueeze(1)
 
-    # Calcular distancias entre la muestra original y las perturbaciones
-    feature_distances = graph_feature_distance_list(muestra_for_model, perturbed_samples_embedding)
+    # Calcular distancias entre la muestra original y las perturbaciones ( one hot)
+    feature_distances = graph_feature_distance_list(muestra, perturbed_samples)
 
-    # Obtener E
-    E_list = [data_z.x.to(device) for data_z in perturbed_samples_embedding]
+    # Obtener E (onehot)
+    E_list = [data_z.x.to(device) for data_z in perturbed_samples]
 
-    # Lo mismo con los edges
+    # Lo mismo con los edges (onehot)
     A_list = []
-    for data_z in perturbed_samples_embedding:
+    for data_z in perturbed_samples:
     # for data_z in perturbed_samples:
         if data_z.edge_attr is not None:
             A_list.append(data_z.edge_attr.to(device))
@@ -266,18 +301,19 @@ def obtener_graph_explainer(
     # ==========================================================================
     
     # 1. ALFA (Node Features) -> Filtrar -> Ordenar -> Normalizar
-    node_feature_names = get_feature_names_embedding()
-    alfa_sorted, row_labels_alfa = procesar_features_ordenadas(
-        alfa, node_feature_names, muestra_for_model.x
+    node_feature_names = get_features_names_onehot()
+    alfa_sorted, row_labels_alfa = procesar_features_onehot(
+        alfa, node_feature_names, muestra.x
     )
 
     # 2. GAMMA (Edge Features) -> Filtrar -> Ordenar -> Normalizar
     # Reemplaza a Beta en el segundo heatmap
     if muestra.edge_attr is not None:
-        edge_feature_names = ["Bond Type", "Distance"]
+        # edge_feature_names = ["Bond Type", "Distance"]
+        edge_feature_names = EDGE_FEATURE_NAMES
         
-        gamma_sorted, row_labels_gamma = procesar_features_ordenadas(
-            gamma, edge_feature_names, muestra_for_model.edge_attr
+        gamma_sorted, row_labels_gamma = procesar_features_onehot(
+            gamma, edge_feature_names, muestra.edge_attr
         )
     else:
         gamma_sorted = np.array([])
@@ -318,23 +354,23 @@ def obtener_graph_explainer(
     )
 
     # 1. Calcular Curvas de FIABILIDAD
-    k_vals, fiab_minus = calcular_curvas_fidelity_general(
-        model, 
-        muestra_for_model, 
-        beta.abs(), 
-        device
-    )
+    # k_vals, fiab_minus = calcular_curvas_fidelity_general(
+    #     model, 
+    #     muestra_for_model, 
+    #     beta.abs(), 
+    #     device
+    # )
 
     # 3. Guardar (Solo pasamos datos puros)
-    fiab_path = guardar_plot_fidelity(
-        k_values=k_vals,
-        fiab_minus=fiab_minus, 
-        model_name=model_folder_name,
-        mol_name=mol_name,
-        algo_name=ALGO_NAME
-    )
+    # fiab_path = guardar_plot_fidelity(
+    #     k_values=k_vals,
+    #     fiab_minus=fiab_minus, 
+    #     model_name=model_folder_name,
+    #     mol_name=mol_name,
+    #     algo_name=ALGO_NAME
+    # )
     
-    logger.info(f"Gráfico fidelity guardado en: {fiab_path}")
+    # logger.info(f"Gráfico fidelity guardado en: {fiab_path}")
 
     return plotfilename
 

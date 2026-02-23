@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLineEdit,
+    QDialog, QVBoxLayout, QFormLayout, QLineEdit, QCheckBox,
     QPushButton, QFileDialog, QDialogButtonBox, QWidget, QHBoxLayout,
     QComboBox, QLabel
 )
@@ -20,6 +20,16 @@ class BatchComparerDialog(QDialog):
         # Recuperar último modo usado
         last_mode = self.settings.value("batchComparer/last_mode", "beta")
         self.mode_combo.setCurrentText(last_mode)
+
+        # 0.5 ---------- Fidelity Mode (Checkbox) ---------- ### NUEVO ###
+        self.fidelity_check = QCheckBox("Usar RegFidelity+ (Ascendente)")
+        self.fidelity_check.setToolTip(
+            "Marcado: Elimina lo MENOS importante primero (Curva de estabilidad).\n"
+            "Desmarcado: Elimina lo MÁS importante primero (Curva de daño)."
+        )
+        # Por defecto True (Más/Ascendente) si no existe la setting
+        last_fidelity = self.settings.value("batchComparer/reg_fidelity_mas", True, type=bool)
+        self.fidelity_check.setChecked(last_fidelity)
 
         # 1. ---------- Model path (Archivo .pt) ----------
         self.model_path_input = QLineEdit()
@@ -53,6 +63,8 @@ class BatchComparerDialog(QDialog):
         
         # Fila Modo
         form_layout.addRow("Modo de Análisis:", self.mode_combo)
+
+        form_layout.addRow("Tipo de Métrica:", self.fidelity_check) # <--- ### NUEVO ###
         
         # Fila Modelo
         form_layout.addRow("Modelo Base (.pt):", self._with_button(self.model_path_input, self.model_browse_btn))
@@ -111,8 +123,10 @@ class BatchComparerDialog(QDialog):
 
     # ---------- Accept ----------
     def accept(self):
-        # Guardar settings para recordar la próxima vez
         self.settings.setValue("batchComparer/last_mode", self.mode_combo.currentText())
+        # Guardar estado del checkbox ### NUEVO ###
+        self.settings.setValue("batchComparer/reg_fidelity_mas", self.fidelity_check.isChecked()) 
+        
         self.settings.setValue("batchComparer/last_model_path", self.model_path_input.text())
         self.settings.setValue("batchComparer/last_sdf_dir", self.sdf_dir_input.text())
         self.settings.setValue("batchComparer/last_weights_dir", self.weights_dir_input.text())
@@ -126,12 +140,15 @@ class BatchComparerDialog(QDialog):
         1. Ruta del modelo (.pt)
         2. Ruta del directorio de SDFs
         3. Ruta del directorio raíz de pesos
-        4. Modo seleccionado (str)
+        4. Ruta targets
+        5. Modo seleccionado (str)
+        6. RegFidelityMas (bool) <-- NUEVO
         """
         return (
             self.model_path_input.text(),
             self.sdf_dir_input.text(),
             self.weights_dir_input.text(),
-            self.targets_input.text(),  # <--- NUEVO
-            self.mode_combo.currentText()
+            self.targets_input.text(),
+            self.mode_combo.currentText(),
+            self.fidelity_check.isChecked() # <--- ### NUEVO: Devuelve True o False
         )

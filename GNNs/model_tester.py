@@ -1,5 +1,5 @@
 #model_tester.py
-
+import pandas as pd
 import torch
 from rdkit import Chem
 from torch_geometric.data import Data
@@ -134,18 +134,20 @@ def test_model_on_directory(checkpoint_path, sdf_dir, targets_file):
             y_true.append(data.y.item())
             filenames.append(data.name if hasattr(data, 'name') else 'unknown')
 
-        # Nombre base de archivos
+        # Nombre base de archivos (carpeta de origen)
         folder_name = os.path.basename(sdf_dir.rstrip(os.sep))
 
-        # Archivo de predicciones
-        output_predictions_path = os.path.join(
+        # --- CAMBIO AQUÍ: Definir ruta CSV y llamar a la función auxiliar ---
+        output_csv_path = os.path.join(
             model_results_dir,
-            f"predicciones_{model_name_no_ext}_{folder_name}.txt"
+            f"predicciones_{model_name_no_ext}_{folder_name}.csv"
         )
-
-        with open(output_predictions_path, 'w') as f:
-            for fname, pred in zip(filenames, y_pred):
-                f.write(f"{fname} {pred:.4f}\n")
+        
+        # Llamamos a la función auxiliar que definimos arriba
+        guardar_predicciones_csv(output_csv_path, filenames, y_true, y_pred)
+        
+        logger.info(f"Predicciones guardadas en CSV: {output_csv_path}")
+        # -------------------------------------------------------------------
 
         # RMSE
         rmse = sqrt(mean_squared_error(y_true, y_pred))
@@ -156,7 +158,7 @@ def test_model_on_directory(checkpoint_path, sdf_dir, targets_file):
         logger.info(f"R2 score: {r2:.4f}")
 
         # Pearson coefficient
-        if len(y_true) > 1:  # necesario para scipy
+        if len(y_true) > 1:
             pearson_r, _ = pearsonr(y_true, y_pred)
             logger.info(f"Pearson coefficient: {pearson_r:.4f}")
         else:
@@ -170,7 +172,6 @@ def test_model_on_directory(checkpoint_path, sdf_dir, targets_file):
         plt.xlabel("Real Solubility", fontsize = 20)
         plt.ylabel("Predicted Solubility", fontsize = 20)
         plt.tick_params(axis='both', which='major', labelsize=16)
-        # plt.title(f"Scatter Plot - {model_name_no_ext} - {folder_name}")
         plt.grid(True)
         plt.tight_layout()
 
@@ -183,13 +184,28 @@ def test_model_on_directory(checkpoint_path, sdf_dir, targets_file):
         plt.close()
 
         logger.info(f"Scatter plot guardado en: {plot_filename}")
-        logger.info(f"Predicciones guardadas en: {output_predictions_path}")
 
-        # Hacemos return del path del plot
         return plot_filename
 
     except Exception as e:
         raise ValueError(e)
+    
+def guardar_predicciones_csv(ruta_salida, nombres, y_real, y_pred):
+    """
+    Guarda los resultados de la inferencia en un archivo CSV incluyendo el error absoluto.
+    """
+    # Crear un DataFrame con los datos básicos
+    df = pd.DataFrame({
+        'Molecula': nombres,
+        'Solubilidad_Real': y_real,
+        'Solubilidad_Predicha': y_pred
+    })
+    
+    # Calcular el error absoluto: |Real - Predicho|
+    df['Error_Absoluto'] = (df['Solubilidad_Real'] - df['Solubilidad_Predicha']).abs()
+    
+    # Guardar a CSV sin incluir el índice numérico de pandas
+    df.to_csv(ruta_salida, index=False, float_format='%.4f')
 
 
 def obtener_info_checkpoint(model_path):

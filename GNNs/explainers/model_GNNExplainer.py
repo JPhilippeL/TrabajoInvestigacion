@@ -14,10 +14,9 @@ from GNNs.data_processing import mol_to_graph_data
 from GNNs.explainers.explanation_helper import ( 
     obtener_info_real, guardar_dashboard_explicacion,
     guardar_pesos,
-    tensor_to_abs_numpy, normalizar_max, 
+    tensor_to_abs_numpy, normalizar_por_norma, 
     get_feature_names_embedding, procesar_features_ordenadas 
 )
-from GNNs.explainers.explanation_fidelity import calcular_curvas_fidelity_general, guardar_plot_fidelity
 
 logger = logging.getLogger(__name__)
 
@@ -147,25 +146,25 @@ def ejecutar_pipeline_visualizacion(
     # A. PREPARACIÓN DE DATOS BASE
     graph_obj = parse_sdf(sdf_path)
     
-    # Convertimos a numpy normalizado (MAX) para pintar y para el threshold de fidelity
-    beta_np = normalizar_max(tensor_to_abs_numpy(beta_raw))
-    delta_normalized = normalizar_max(tensor_to_abs_numpy(delta_raw)) if delta_raw is not None else np.array([])
+    # Convertimos a numpy normalizado (Norma) para pintar y para el threshold de fidelity
+    beta_np = normalizar_por_norma(tensor_to_abs_numpy(beta_raw))
+    delta_normalized = normalizar_por_norma(tensor_to_abs_numpy(delta_raw)) if delta_raw is not None else np.array([])
 
     # ---------------------------------------------------------
     # B. CÁLCULO DE FIDELITY (Sobre datos alineados con grafos)
     # ---------------------------------------------------------
-    if model is not None and data is not None:
-        try:
-            logger.info("Calculando curvas de fidelity...")
-            k_vals, fiab_minus = calcular_curvas_fidelity_general(
-                model, data, beta_np, device
-            )
-            guardar_plot_fidelity(
-                k_values=k_vals, fiab_minus=fiab_minus, 
-                model_name=model_name, mol_name=mol_name, algo_name=algo_name
-            )
-        except Exception as e:
-            logger.exception(f"Error calculando fidelity: {e}")
+    # if model is not None and data is not None:
+    #     try:
+    #         logger.info("Calculando curvas de fidelity...")
+    #         k_vals, fiab_minus = calcular_curvas_fidelity_general(
+    #             model, data, beta_np, device
+    #         )
+    #         guardar_plot_fidelity(
+    #             k_values=k_vals, fiab_minus=fiab_minus, 
+    #             model_name=model_name, mol_name=mol_name, algo_name=algo_name
+    #         )
+    #     except Exception as e:
+    #         logger.error(f"Error calculando fidelity: {e}")
 
     # ---------------------------------------------------------
     # C. PROCESAMIENTO PARA HEATMAPS (Aquí sí alteramos el orden)
