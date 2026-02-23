@@ -111,7 +111,7 @@ def calcular_metricas_comparativas(
         return None, None, None, None, 0.0, None
 
     tensor_gnn = None
-    if gnnexp_weights_path is not None:
+    if gnnexp_weights_path is not None and mode != 'gamma':
         try:
             tensor_gnn = cargar_pesos_tensor(gnnexp_weights_path, device)
         except Exception:
