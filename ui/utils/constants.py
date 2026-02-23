@@ -48,7 +48,7 @@ BOND_TYPE_TO_INT = {
     Chem.rdchem.BondType.OTHER: 4  # <--- NUEVA CLASE PARA UNKNOWN/OTROS
 }
 
-EDGE_FEATURE_NAMES = ["Single", "Double", "Triple", "Other", "Aromatic", "Distance"]
+EDGE_FEATURE_NAMES = ["Single", "Double", "Triple", "Aromatic", "Other", "Distance"]
 
 # Variable auxiliar para el índice de "Unknown Bond"
 UNKNOWN_BOND_IDX = BOND_TYPE_TO_INT[Chem.rdchem.BondType.OTHER]
