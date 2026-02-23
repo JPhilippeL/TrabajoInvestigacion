@@ -20,6 +20,8 @@ from GNNs.explainers.k_elimination_functions import (
 import logging
 logger = logging.getLogger(__name__)
 
+PORCENTAJE_K = 0.25
+
 # FORMULA QUE HACE TODO PARA UN SOLO COMPONENTE
 # CARGA, CALCULA, GENERA IMAGEN
 def generar_comparativa_fidelity(
@@ -93,7 +95,8 @@ def calcular_metricas_comparativas(
     graphexp_weights_path, 
     gnnexp_weights_path, 
     mode, 
-    reg_fidelity_mas
+    reg_fidelity_mas,
+    usar_porcentaje = False
 ):
     """
     Función NÚCLEO. Carga pesos y calcula las curvas y AUCs para ambos explainers.
@@ -121,7 +124,8 @@ def calcular_metricas_comparativas(
         device=device, 
         mol=mol, 
         is_onehot_explainer=True, 
-        mode=mode, 
+        mode=mode,
+        usar_porcentaje=usar_porcentaje,
         reg_fidelity_mas=reg_fidelity_mas
     )
     
@@ -140,7 +144,8 @@ def calcular_metricas_comparativas(
                 device=device, 
                 mol=mol, # Pasamos mol, la función genera data internamente
                 is_onehot_explainer=False, 
-                mode=mode, 
+                mode=mode,
+                usar_porcentaje=usar_porcentaje,
                 reg_fidelity_mas=reg_fidelity_mas
             )
             auc_gnn = _calcular_auc_simple(k_vals_gnn, fiab_gnn)
@@ -159,7 +164,7 @@ def calcular_curvas_fidelity(
     mol=None,        
     data=None,       
     mode="beta", 
-    max_steps=None,
+    usar_porcentaje = False,
     is_onehot_explainer=False, 
     reg_fidelity_mas=True # True: Fidelidad (Ascendente), False: Infidelidad/Daño (Descendente)
 ):
@@ -215,6 +220,13 @@ def calcular_curvas_fidelity(
         imp = np.array(importance).flatten()
 
     imp = np.abs(imp)
+
+    # === En calcular_curvas_fidelity, después de imp = np.abs(imp) ===
+    if mode in ['beta', 'delta'] and len(imp) != total_elements:
+        raise ValueError(
+            f"MISMATCH DE DIMENSIONES: La molécula tiene {total_elements} elementos ({mode}), "
+            f"pero el tensor de pesos tiene {len(imp)}."
+        )
     
     # === LÓGICA DE ORDENAMIENTO (Ascendente vs Descendente) ===
     if reg_fidelity_mas:
@@ -274,8 +286,11 @@ def calcular_curvas_fidelity(
     # Aplicar filtro
     sorted_indices = np.array(indices_activos_reales)
     limit = len(sorted_indices)
-    if max_steps is not None:
-        limit = min(limit, max_steps)
+    
+    if usar_porcentaje:
+        limit = max(1, round(limit * PORCENTAJE_K))
+    elif mode == 'beta':
+        limit = limit - 1 
 
     # =========================================================================
 
@@ -566,7 +581,7 @@ def obtener_aucs_directorio(
                 k_vals_g, fiab_g, k_vals_n, fiab_n, auc_graph, auc_gnn = calcular_metricas_comparativas(
                     model, device, mol, 
                     path_graph_explainer, path_gnn_explainer, 
-                    mode, reg_fidelity_mas
+                    mode, reg_fidelity_mas, usar_porcentaje=True
                 )
                 
                 if auc_graph is not None: # Si hubo resultado válido
@@ -611,7 +626,7 @@ def save_auc_results_csv(results, mode, model_name, reg_fidelity_mas):
         else:
             metrica = "RegFidelityMenos"
 
-        csv_filename = f"{metrica}_{mode}.csv"
+        csv_filename = f"{metrica}_{mode}_{PORCENTAJE_K}.csv"
         csv_path = os.path.join(output_folder, csv_filename)
 
         # 2. RECOPILAR VALORES (Para estadísticas)
