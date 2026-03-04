@@ -14,16 +14,26 @@ hybridization_types = ['S', 'SP', 'SP2', 'SP2D','SP3','SP3D', 'OTHER','UNSPECIFI
 
 # DICCIONARIO DE INDICES PARA MODO EMBEDDING
 # Basado en el orden de tu función get_atom_features(mode='embedding')
+# EMBEDDING_INDICES = {
+#     "ATOM_SYMBOL": 0,
+#     "HYBRIDIZATION": 1,
+#     "DEGREE": 2,
+#     "TOTAL_HS": 3,
+#     "IS_AROMATIC": 4,
+#     "FORMAL_CHARGE": 5,
+#     "GASTEIGER": 6,
+#     "IS_DONOR": 7,
+#     "IS_ACCEPTOR": 8
+# }
+
 EMBEDDING_INDICES = {
     "ATOM_SYMBOL": 0,
     "HYBRIDIZATION": 1,
     "DEGREE": 2,
     "TOTAL_HS": 3,
     "IS_AROMATIC": 4,
-    "FORMAL_CHARGE": 5,
-    "GASTEIGER": 6,
-    "IS_DONOR": 7,
-    "IS_ACCEPTOR": 8
+    "IS_DONOR": 5,
+    "IS_ACCEPTOR": 6
 }
 
 EDGE_EMBEDDING_INDICES = {
@@ -38,6 +48,8 @@ UNKNOWN_HYBRID_IDX = len(hybridization_types) - 1
 
 # Grupos para facilitar la lógica
 CATEGORICAL_INDICES = [EMBEDDING_INDICES["ATOM_SYMBOL"], EMBEDDING_INDICES["HYBRIDIZATION"]]
+# Definimos cuáles son categóricas para los enlaces
+CATEGORICAL_EDGE_INDICES = [EDGE_EMBEDDING_INDICES["BOND_TYPE"]]
 
 # --- ENLACES (Agregamos OTHER) ---
 BOND_TYPE_TO_INT = {
@@ -64,5 +76,8 @@ ATOM_EMB_PR = 0.4
 HYBRID_EMB_PR = 0.5
 BOND_EMB_PR = 1
 
-OTHER_NODE_FEATURES = 7
-OTHER_EDGE_FEATURES = 1
+# Total: 7. Categóricas: 2 (Symbol, Hybridization). Resto: 5.
+OTHER_NODE_FEATURES = len(EMBEDDING_INDICES) - len(CATEGORICAL_INDICES)
+
+# Total: 2. Categóricas: 1. Resto (Distance): 1.
+OTHER_EDGE_FEATURES = len(EDGE_EMBEDDING_INDICES) - len(CATEGORICAL_EDGE_INDICES)

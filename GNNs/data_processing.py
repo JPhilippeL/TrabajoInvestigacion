@@ -6,7 +6,7 @@ import torch
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from ui.utils.constants import (
-    BOND_TYPE_TO_INT, UNKNOWN_BOND_IDX, 
+    BOND_TYPE_TO_INT, UNKNOWN_BOND_IDX, UNKNOWN_ATOM_IDX, UNKNOWN_HYBRID_IDX,
     periodic_elements, hybridization_types,
     ATOM_TYPE_TO_IDX, HYBRID_TO_IDX
 )
@@ -48,17 +48,18 @@ def get_atom_features(atom, is_donor, is_acceptor, mode='one_hot'):
 
     if mode == 'one_hot':
         return (one_of_k_encoding_unk(atom.GetSymbol(), periodic_elements) + 
-                [degree, num_h, is_aromatic, formal_charge, gasteiger_charge] + 
+                [degree, num_h, is_aromatic] + #, formal_charge, gasteiger_charge] + 
                 [is_donor_feat, is_acceptor_feat] +  # <--- NUEVO
                 one_of_k_encoding_unk(atom.GetHybridization().name, hybridization_types))
     
     elif mode == 'embedding':
-        symbol_idx = ATOM_TYPE_TO_IDX.get(atom.GetSymbol(), len(ATOM_TYPE_TO_IDX) - 1)
-        hybrid_idx = HYBRID_TO_IDX.get(atom.GetHybridization().name, len(HYBRID_TO_IDX) - 1)
+        symbol_idx = ATOM_TYPE_TO_IDX.get(atom.GetSymbol(), UNKNOWN_ATOM_IDX)
+        hybrid_idx = HYBRID_TO_IDX.get(atom.GetHybridization().name, UNKNOWN_HYBRID_IDX)
         
         # Añadimos al final de las features continuas
-        return [symbol_idx, hybrid_idx, degree, num_h, is_aromatic, 
-                formal_charge, gasteiger_charge, is_donor_feat, is_acceptor_feat]
+        return [symbol_idx, hybrid_idx, degree, num_h, is_aromatic,
+                is_donor_feat, is_acceptor_feat] 
+                # formal_charge, gasteiger_charge, is_donor_feat, is_acceptor_feat]
     
     else:
         raise ValueError(f"Modo desconocido: {mode}")
