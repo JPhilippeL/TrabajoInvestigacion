@@ -51,16 +51,26 @@ CATEGORICAL_INDICES = [EMBEDDING_INDICES["ATOM_SYMBOL"], EMBEDDING_INDICES["HYBR
 # Definimos cuáles son categóricas para los enlaces
 CATEGORICAL_EDGE_INDICES = [EDGE_EMBEDDING_INDICES["BOND_TYPE"]]
 
-# --- ENLACES (Agregamos OTHER) ---
+# --- ENLACES
 BOND_TYPE_TO_INT = {
+    # --- ENLACES COVALENTES ESTÁNDAR ---
     Chem.rdchem.BondType.SINGLE: 0,
     Chem.rdchem.BondType.DOUBLE: 1,
     Chem.rdchem.BondType.TRIPLE: 2,
     Chem.rdchem.BondType.AROMATIC: 3,
-    Chem.rdchem.BondType.OTHER: 4  # <--- NUEVA CLASE PARA UNKNOWN/OTROS
+    
+    # --- ENLACES NO COVALENTES (Los agrupamos en el índice 4) ---
+    Chem.rdchem.BondType.IONIC: 4,
+    Chem.rdchem.BondType.HYDROGEN: 4,
+    Chem.rdchem.BondType.DATIVE: 4,
+    Chem.rdchem.BondType.ZERO: 4, # A veces usado para interacciones metálicas o de van der Waals
+    
+    # --- OTROS / DESCONOCIDOS ---
+    Chem.rdchem.BondType.OTHER: 5,
+    Chem.rdchem.BondType.UNSPECIFIED: 5
 }
 
-EDGE_FEATURE_NAMES = ["Single", "Double", "Triple", "Aromatic", "Other", "Distance"]
+EDGE_FEATURE_NAMES = ["Single", "Double", "Triple", "Aromatic", "No_Covalent", "Other", "Distance"]
 
 # Variable auxiliar para el índice de "Unknown Bond"
 UNKNOWN_BOND_IDX = BOND_TYPE_TO_INT[Chem.rdchem.BondType.OTHER]
@@ -71,10 +81,10 @@ HYBRID_TO_IDX = {h: i for i, h in enumerate(hybridization_types)}
 
 N_BOND_TYPES = len(BOND_TYPE_TO_INT)
 
-# Porcentaje Estandard de Reduccion del Embedding (40 * 0.4 = 16), (8 * 0.5 = 4), (4 * 1 = 4)
+# Porcentaje Estandard de Reduccion del Embedding (40 * 0.4 = 16), (8 * 0.5 = 4), (6 * 0.5 = 3)
 ATOM_EMB_PR = 0.4
 HYBRID_EMB_PR = 0.5
-BOND_EMB_PR = 1
+BOND_EMB_PR = 0.5
 
 # Total: 7. Categóricas: 2 (Symbol, Hybridization). Resto: 5.
 OTHER_NODE_FEATURES = len(EMBEDDING_INDICES) - len(CATEGORICAL_INDICES)

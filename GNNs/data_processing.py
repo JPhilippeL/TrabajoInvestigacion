@@ -131,7 +131,7 @@ def mol_to_graph_data(mol, mode='embedding'):
         dist = torch.norm(pos[i] - pos[j]).unsqueeze(0)
 
         # Tipo de enlace
-        bond_type_idx = BOND_TYPE_TO_INT.get(bond.GetBondType(), 0)
+        bond_type_idx = BOND_TYPE_TO_INT.get(bond.GetBondType(), UNKNOWN_BOND_IDX )
 
         # Obtener features del enlace (delegado a función auxiliar)
         edge_features = get_edge_features(bond_type_idx, dist, num_bond_types, mode=mode)
