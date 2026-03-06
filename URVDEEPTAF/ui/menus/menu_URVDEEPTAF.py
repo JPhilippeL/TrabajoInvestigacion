@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QMenu, QMessageBox
+from PySide6.QtWidgets import QMenu
 from PySide6.QtGui import QAction
 import logging
 
@@ -7,8 +7,9 @@ from URVDEEPTAF.ui.dialogs.generate_data_dialog import DBGenerationDialog
 from URVDEEPTAF.ui.dialogs.train_urvdtaf_dialog import TrainDialog
 from URVDEEPTAF.ui.dialogs.test_urvdtaf_dialog import TestDialog
 from URVDEEPTAF.ui.dialogs.batch_train_urvdtaf_dialog import BatchTrainDialog
+from URVDEEPTAF.ui.dialogs.batch_test_urvdtaf_dialog import BatchTestDialog
 
-from URVDEEPTAF.workers import DBGenerationThread, TrainThread, TrainAllModelsThread, TestThread
+from URVDEEPTAF.workers import DBGenerationThread, TrainThread, TrainAllModelsThread, TestThread, TestAllModelsThread
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,10 @@ class MenuURVDEEPTAF(QMenu):
         test_action = QAction("Evaluar Modelo", self)
         test_action.triggered.connect(self.testear_modelo_urvdeepdtaf)
         self.addAction(test_action)
+
+        batch_test_action = QAction("Evaluar Todos los Modelos (Carpeta)", self)
+        batch_test_action.triggered.connect(self.testear_multiples_modelos_urvdeepdtaf)
+        self.addAction(batch_test_action)
 
     # --- GENERACIÓN DE DATOS ---
     def generar_data_urvdeepdtaf(self):
@@ -113,6 +118,43 @@ class MenuURVDEEPTAF(QMenu):
             self.test_thread.finished_success.connect(self.on_test_success)
             self.test_thread.finished_error.connect(self.on_thread_error)
             self.test_thread.start()
+
+    def testear_multiples_modelos_urvdeepdtaf(self):
+        # Usamos el BatchTestDialog que arreglamos en el paso anterior
+        dialog = BatchTestDialog(self.main_window)
+        if dialog.exec():
+            params = dialog.get_inputs()
+            
+            if not params["models_dir"] or not params["data_path"]:
+                logger.warning("Faltan rutas de la carpeta madre o datos para la evaluación en lote.")
+                return
+
+            logger.info(f"Iniciando evaluación por lotes en la carpeta: {params['models_dir']}")
+            self.main_window.setEnabled(False) # Bloqueamos la UI
+
+            # Instanciamos el hilo y conectamos las señales
+            self.test_batch_thread = TestAllModelsThread(params)
+            self.test_batch_thread.model_finished_success.connect(self.on_batch_test_model_success)
+            self.test_batch_thread.model_finished_error.connect(self.on_batch_model_error) # Puedes reusar el del Train
+            self.test_batch_thread.all_finished.connect(self.on_batch_test_all_finished)
+            
+            self.test_batch_thread.start()
+
+    # =========================================================
+    # SLOTS DE RESPUESTA
+    # =========================================================
+    def on_batch_test_model_success(self, model_name, metrics):
+        # Formateamos las métricas para que se vean bien en consola
+        metrics_log = " | ".join([f"{k}: {v:.4f}" if isinstance(v, float) else f"{k}: {v}" for k, v in metrics.items()])
+        logger.info(f"✅ [Batch Test] {model_name} completado. Métricas: {metrics_log}")
+
+    def on_batch_test_all_finished(self, csv_path):
+        self.main_window.setEnabled(True) # Desbloqueamos la UI
+        
+        if csv_path:
+            logger.info(f"🎉 Evaluación por lotes finalizada. Resumen guardado en: {csv_path}")
+        else:
+            logger.warning("Evaluación finalizada, pero no se generaron métricas (¿Todos los modelos fallaron?).")
 
 
     # =========================================================================
