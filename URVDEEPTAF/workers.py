@@ -4,6 +4,9 @@ from URVDEEPTAF.Core.urvdtaf_trainer import train
 from URVDEEPTAF.Core.urvdtaf_tester import test_model
 from URVDEEPTAF.Core.urvdtaf_model import MODEL_DICT
 import traceback
+import os
+import glob
+import pandas as pd
 
 # ==============================================================================
 # HILO DE SEGUNDO PLANO (QThread) PARA NO BLOQUEAR LA UI
@@ -134,3 +137,75 @@ class TrainAllModelsThread(QThread):
         
         # 6. Al salir del bucle, avisamos que terminó el lote completo
         self.all_finished.emit()
+
+class TestAllModelsThread(QThread):
+    # --- Señales ---
+    # modelo_nombre, diccionario_metricas
+    model_finished_success = Signal(str, dict)  
+    model_finished_error = Signal(str, str)    
+    # Emite la ruta del CSV final cuando termina todo
+    all_finished = Signal(str)                  
+    progress_update = Signal(int, int, str)    
+
+    def __init__(self, params, parent=None):
+        super().__init__(parent)
+        self.params = params
+
+    def run(self):
+        models_dir = self.params.get("models_dir")
+        
+        # 1. Buscar todas las subcarpetas dentro de models_dir (ej. split0/)
+        # Solo obtenemos directorios, no archivos sueltos
+        subdirs = [os.path.join(models_dir, d) for d in os.listdir(models_dir) 
+                if os.path.isdir(os.path.join(models_dir, d))]
+        
+        all_metrics = []
+        total_models = len(subdirs)
+
+        for index, subdir in enumerate(subdirs):
+            model_name = os.path.basename(subdir) # Ej: "DeepDTAF"
+            self.progress_update.emit(index + 1, total_models, model_name)
+            
+            # 2. Buscar el archivo .pt o .pth dentro de esta carpeta
+            pt_files = glob.glob(os.path.join(subdir, "*.pt")) + glob.glob(os.path.join(subdir, "*.pth"))
+            
+            if not pt_files:
+                self.model_finished_error.emit(model_name, f"No se encontró ningún archivo .pt en {subdir}")
+                continue # Saltamos a la siguiente carpeta
+            
+            # Tomamos el primer .pt que encuentre
+            model_path = pt_files[0] 
+            
+            # 3. Preparamos los parámetros exactos para test_model
+            current_params = self.params.copy()
+            current_params.pop("models_dir", None) # Quitamos esto porque test_model no lo acepta
+            
+            current_params["model_path"] = model_path
+            # Le decimos que guarde los resultados (output_base) en la MISMA carpeta del modelo
+            current_params["output_base"] = subdir 
+            
+            try:
+                # 4. Ejecutamos la evaluación
+                metrics = test_model(**current_params)
+                
+                # Preparamos los datos para el CSV general
+                metrics_for_df = {"Model": model_name}
+                metrics_for_df.update(metrics) # Fusionamos el nombre con las métricas
+                all_metrics.append(metrics_for_df)
+                
+                self.model_finished_success.emit(model_name, metrics)
+                
+            except Exception as e:
+                error_trace = traceback.format_exc()
+                self.model_finished_error.emit(model_name, error_trace)
+                
+        # 5. Al terminar, generamos el CSV global
+        csv_path = ""
+        if all_metrics:
+            df = pd.DataFrame(all_metrics)
+            # Se guardará como split0/resumen_metricas_modelos.csv
+            csv_path = os.path.join(models_dir, "resumen_metricas_modelos.csv")
+            df.to_csv(csv_path, index=False)
+        
+        # Avisamos a la UI que todo el lote terminó
+        self.all_finished.emit(csv_path)
