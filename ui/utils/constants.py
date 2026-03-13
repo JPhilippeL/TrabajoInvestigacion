@@ -14,27 +14,27 @@ hybridization_types = ['S', 'SP', 'SP2', 'SP2D','SP3','SP3D', 'OTHER','UNSPECIFI
 
 # DICCIONARIO DE INDICES PARA MODO EMBEDDING
 # Basado en el orden de tu función get_atom_features(mode='embedding')
-# EMBEDDING_INDICES = {
-#     "ATOM_SYMBOL": 0,
-#     "HYBRIDIZATION": 1,
-#     "DEGREE": 2,
-#     "TOTAL_HS": 3,
-#     "IS_AROMATIC": 4,
-#     "FORMAL_CHARGE": 5,
-#     "GASTEIGER": 6,
-#     "IS_DONOR": 7,
-#     "IS_ACCEPTOR": 8
-# }
-
 EMBEDDING_INDICES = {
     "ATOM_SYMBOL": 0,
     "HYBRIDIZATION": 1,
     "DEGREE": 2,
     "TOTAL_HS": 3,
     "IS_AROMATIC": 4,
-    "IS_DONOR": 5,
-    "IS_ACCEPTOR": 6
+    "FORMAL_CHARGE": 5,
+    "GASTEIGER": 6,
+    "IS_DONOR": 7,
+    "IS_ACCEPTOR": 8
 }
+
+# EMBEDDING_INDICES = {
+#     "ATOM_SYMBOL": 0,
+#     "HYBRIDIZATION": 1,
+#     "DEGREE": 2,
+#     "TOTAL_HS": 3,
+#     "IS_AROMATIC": 4,
+#     "IS_DONOR": 5,
+#     "IS_ACCEPTOR": 6
+# }
 
 EDGE_EMBEDDING_INDICES = {
     "BOND_TYPE": 0,

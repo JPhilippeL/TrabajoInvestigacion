@@ -5,6 +5,7 @@ import logging
 
 from ui.dialogs.train_config_dialog import TrainConfigDialog
 from ui.dialogs.train_multiple_models import TrainMultipleModelsDialog
+from ui.dialogs.train_config_dialog_from_pt import TrainConfigDialogPT
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +21,13 @@ class MenuTrainGNN(QMenu):
         # Menu de Entrenamiento
 
         # Entrenamiento de IA
-        entrenar_action = QAction("Entrenar Modelo", self)
+        entrenar_action = QAction("Entrenar Modelo con SDFs", self)
         entrenar_action.triggered.connect(self.entrenar_gnn)
         self.addAction(entrenar_action)
+
+        entrenar_from_pt_action = QAction("Entrenar Modelo con .pt", self)
+        entrenar_from_pt_action.triggered.connect(self.entrenar_gnn_pt)
+        self.addAction(entrenar_from_pt_action)
 
         # Entrenamiento de múltiples modelos
         entrenar_multiple_action = QAction("Entrenar Múltiples Modelos", self)
@@ -63,6 +68,45 @@ class MenuTrainGNN(QMenu):
         self.main_window.training_controller.entrenar(
             sdf_dir=config["sdf_dir"],
             target_file=config["target_file"],
+            model_type=config["modelo"],
+            epochs=config["epochs"],
+            batch_size=config["batch_size"],
+            lr=config["lr"],
+            valid_split=config["valid_split"],
+            model_name=config['save_name'],
+            hidden_dim=config["hidden_dim"],
+            num_layers=config["num_layers"],
+            patience=config["early_stopping_patience"],
+            atom_emb_dim = config["atom_emb_pr"],
+            hibrid_emb_dim = config["hibrid_emb_pr"],
+            bond_emb_dim = config["bond_emb_pr"]
+        )
+
+    def entrenar_gnn_pt(self):
+        dialog = TrainConfigDialogPT(self.main_window)
+
+        if dialog.exec() != QDialog.Accepted:
+            return
+
+        config = dialog.get_values()
+
+        # ----- Validaciones -----
+        if not config["save_name"]:
+            QMessageBox.warning(self.main_window, "Nombre inválido", "El nombre del archivo no puede estar vacío.")
+            return
+
+        # Validar early stopping y validación
+        if config["early_stopping_patience"] > 0 and config["valid_split"] <= 0:
+            QMessageBox.warning(
+                self.main_window,
+                "Configuración inválida",
+                "Para usar Early Stopping, el porcentaje de validación debe ser mayor que 0."
+            )
+            return
+
+        # ----- Ejecutar entrenamiento -----
+        self.main_window.training_controller.entrenar_desde_pt(
+            pt_file = config["pt_file"],
             model_type=config["modelo"],
             epochs=config["epochs"],
             batch_size=config["batch_size"],

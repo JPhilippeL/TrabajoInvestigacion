@@ -8,7 +8,8 @@ from torch_geometric.loader import DataLoader
 from ui.utils.constants import (
     BOND_TYPE_TO_INT, UNKNOWN_BOND_IDX, UNKNOWN_ATOM_IDX, UNKNOWN_HYBRID_IDX,
     periodic_elements, hybridization_types,
-    ATOM_TYPE_TO_IDX, HYBRID_TO_IDX
+    ATOM_TYPE_TO_IDX, HYBRID_TO_IDX,
+    RESULTADOS_DIR
 )
 from sklearn.model_selection import train_test_split
 import math
@@ -276,6 +277,11 @@ def load_data_from_sdf(sdf_dir, target_dict):
     if not data_list:
         raise ValueError("No se pudo cargar ninguna molécula válida.")
 
+    # ... después de obtener tu data_list
+    # output_path = f"{RESULTADOS_DIR}/data_list_philippe.pt"
+    # torch.save(data_list, output_path)
+    # print(f"Dataset guardado con éxito en {output_path}")
+
     return data_list
 
 
@@ -318,5 +324,50 @@ def prepare_sdf_training_data(sdf_dir, target_file, batch_size=32, valid_split=0
 
     # Configurar dispositivo
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    return train_loader, val_loader, device, targetname
+
+import torch
+import os
+from sklearn.model_selection import train_test_split
+# Asumo que ya tienes importada tu función create_dataloader
+
+def prepare_pt_training_data(pt_file_path, batch_size=32, valid_split=0.2):
+    """
+    Prepara los datos de entrenamiento y validación directamente desde un archivo .pt.
+
+    Devuelve:
+        train_loader, val_loader, device, targetname
+    """
+    if not os.path.exists(pt_file_path):
+        raise FileNotFoundError(f"No se encontró el archivo: {pt_file_path}")
+
+    print(f"Cargando dataset preprocesado desde: {pt_file_path}...")
+    
+    # 1. Cargar la lista de moléculas directamente
+    data_list = torch.load(pt_file_path)
+
+    if not data_list or not isinstance(data_list, list):
+        raise ValueError("El archivo .pt está vacío o no contiene una lista válida.")
+
+    # 2. Obtener un nombre base para tus logs/guardados (opcional)
+    # Por ejemplo, si el archivo es "mis_datos_targetX.pt", targetname será "mis_datos_targetX"
+    targetname = os.path.splitext(os.path.basename(pt_file_path))[0]
+
+    # 3. Dividir en entrenamiento y validación
+    if 0 < valid_split < 1:
+        train_data, val_data = train_test_split(data_list, test_size=valid_split, random_state=42)
+        val_loader = create_dataloader(val_data, batch_size=batch_size)
+        print(f"Dataset dividido: {len(train_data)} train | {len(val_data)} val")
+    else:
+        train_data = data_list
+        val_loader = None
+        print(f"Dataset cargado completo: {len(train_data)} train (sin validación)")
+
+    train_loader = create_dataloader(train_data, batch_size=batch_size)
+
+    # 4. Configurar el dispositivo (GPU o CPU)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Dispositivo configurado: {device}")
 
     return train_loader, val_loader, device, targetname

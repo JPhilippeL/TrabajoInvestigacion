@@ -12,7 +12,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from torch_geometric.nn import GINConv, GINEConv, GATConv, global_add_pool, TransformerConv
 
-from GNNs.data_processing import prepare_sdf_training_data
+from GNNs.data_processing import prepare_sdf_training_data, prepare_pt_training_data
 
 logging.basicConfig(
     level=logging.INFO,
@@ -620,6 +620,80 @@ def train_multiple_models(
                 bond_emb_dim = bond_emb_dim
             )
             logging.info(f"Modelo guardado en: {save_path}")
+
+def train_and_save_model_from_pt(
+    pt_file,
+    model_type,
+    epochs,
+    model_name,  # Este es el nombre "sugerido" por el usuario
+    batch_size=32,
+    lr=0.001,
+    valid_split=0.2,
+    hidden_dim=64,
+    num_layers=3,
+    patience=0,
+    atom_emb_dim = ATOM_EMB_PR,
+    hibrid_emb_dim = HYBRID_EMB_PR,
+    bond_emb_dim = BOND_EMB_PR
+):
+    # 1. Calcular dimensiones y cargar datos
+    train_loader, val_loader, device, targetname = prepare_pt_training_data(
+        pt_file, batch_size=batch_size, valid_split=valid_split
+    )
+
+    # Cambia esto temporalmente
+    device = torch.device("cpu")
+    
+    calc_atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)
+    calc_hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
+    calc_bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
+
+    input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
+    edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
+
+    # --- NUEVO: CALCULAR NOMBRE ÚNICO AQUÍ ---
+    # Buscamos qué nombre está libre en la carpeta de modelos.
+    # Así usamos ESE MISMO nombre para la gráfica y para el guardado.
+    final_model_name = get_unique_name(model_name, MODELOS_DIR, extension=".pt")
+    
+    logging.info(f"Iniciando entrenamiento para: {final_model_name}")
+
+    # 2. Crear modelo
+    model = create_model(
+        model_type,
+        input_dim,
+        calc_atom_emb_dim,
+        calc_hibrid_emb_dim, 
+        calc_bond_emb_dim, 
+        hidden_dim=hidden_dim, 
+        num_layers=num_layers, 
+        edge_dim=edge_dim)
+
+    # 3. Entrenar (Pasamos final_model_name para que la gráfica no se sobrescriba)
+    train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience, model_name=final_model_name)
+
+    # 4. Guardar (Pasamos final_model_name para que coincida con la gráfica)
+    save_path = save_model(
+        model=model,
+        model_name=final_model_name, # <--- Usamos el nombre único
+        input_dim=input_dim,
+        edge_dim=edge_dim,
+        target_name=targetname,
+        model_type=model_type,
+        epochs=epochs,
+        hidden_dim=hidden_dim,
+        num_layers=num_layers,
+        batch_size=batch_size,
+        lr=lr,
+        valid_split=valid_split,
+        patience=patience,
+        atom_emb_dim = atom_emb_dim,
+        hibrid_emb_dim = hibrid_emb_dim,
+        bond_emb_dim = bond_emb_dim
+    )
+    logging.info(f"Modelo y gráficas guardados bajo el ID: {final_model_name}")
+
+    return save_path
 
 def calc_dim(x):
     return max(1, math.ceil(x))
