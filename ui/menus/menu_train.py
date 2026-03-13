@@ -91,7 +91,6 @@ class MenuTrainGNN(QMenu):
             epochs=config["epochs"],
             batch_size=config["batch_size"],
             lr=config["lr"],
-            valid_split=config["valid_split"],
             model_name=config['save_name'],
             hidden_dim=config["hidden_dim"],
             num_layers=config["num_layers"],
