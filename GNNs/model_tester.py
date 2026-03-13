@@ -190,6 +190,97 @@ def test_model_on_directory(checkpoint_path, sdf_dir, targets_file):
     except Exception as e:
         raise ValueError(e)
     
+
+def test_model_on_directory_pt(checkpoint_path, pt_file):
+    try:
+        model, device, target_name = cargar_modelo(checkpoint_path)
+
+        # Crear carpeta de resultados si no existe
+        os.makedirs(RESULTADOS_DIR, exist_ok=True)
+
+        # Crear carpeta específica para este modelo
+        model_filename = os.path.basename(checkpoint_path)
+        model_name_no_ext = os.path.splitext(model_filename)[0]
+
+        model_results_dir = os.path.join(RESULTADOS_DIR, model_name_no_ext)
+        os.makedirs(model_results_dir, exist_ok=True)
+
+        # Leer datos
+        data_list = torch.load(pt_file)
+
+        if not data_list or not isinstance(data_list, list):
+            raise ValueError("El archivo .pt está vacío o no contiene una lista válida.")
+
+        y_true, y_pred, filenames = [], [], []
+
+        for data in data_list:
+            data = data.to(device)
+            batch = torch.zeros(data.num_nodes, dtype=torch.long, device=device)
+
+            with torch.no_grad():
+                out = model(data.x, data.edge_index, data.edge_attr, batch)
+                pred = out.squeeze().item()
+
+            y_pred.append(pred)
+            y_true.append(data.y.item())
+            filenames.append(data.name if hasattr(data, 'name') else 'unknown')
+
+        # Nombre base de archivos (carpeta de origen)
+        folder_name = os.path.basename(pt_file.rstrip(os.sep))
+
+        # --- CAMBIO AQUÍ: Definir ruta CSV y llamar a la función auxiliar ---
+        output_csv_path = os.path.join(
+            model_results_dir,
+            f"predicciones_{model_name_no_ext}_{folder_name}.csv"
+        )
+        
+        # Llamamos a la función auxiliar que definimos arriba
+        guardar_predicciones_csv(output_csv_path, filenames, y_true, y_pred)
+        
+        logger.info(f"Predicciones guardadas en CSV: {output_csv_path}")
+        # -------------------------------------------------------------------
+
+        # RMSE
+        rmse = sqrt(mean_squared_error(y_true, y_pred))
+        logger.info(f"RMSE: {rmse:.4f}")
+
+        # R2 score
+        r2 = r2_score(y_true, y_pred)
+        logger.info(f"R2 score: {r2:.4f}")
+
+        # Pearson coefficient
+        if len(y_true) > 1:
+            pearson_r, _ = pearsonr(y_true, y_pred)
+            logger.info(f"Pearson coefficient: {pearson_r:.4f}")
+        else:
+            pearson_r = float("nan")
+            logger.info("Pearson coefficient: No se puede calcular con un solo punto.")
+
+        # Scatter plot
+        plt.figure(figsize=(6, 6))
+        plt.scatter(y_true, y_pred, alpha=0.7)
+        plt.plot([min(y_true), max(y_true)], [min(y_true), max(y_true)], color='red', linestyle='--')
+        plt.xlabel("Real Solubility", fontsize = 20)
+        plt.ylabel("Predicted Solubility", fontsize = 20)
+        plt.tick_params(axis='both', which='major', labelsize=16)
+        plt.grid(True)
+        plt.tight_layout()
+
+        # Guardar imagen
+        plot_filename = os.path.join(
+            model_results_dir,
+            f"scatter_plot_{model_name_no_ext}_{folder_name}.png"
+        )
+        plt.savefig(plot_filename)
+        plt.close()
+
+        logger.info(f"Scatter plot guardado en: {plot_filename}")
+
+        return plot_filename
+
+    except Exception as e:
+        raise ValueError(e)
+    
 def guardar_predicciones_csv(ruta_salida, nombres, y_real, y_pred):
     """
     Guarda los resultados de la inferencia en un archivo CSV incluyendo el error absoluto.
@@ -312,6 +403,92 @@ def test_all_models_in_directory(models_dir, sdf_dir, targets_file):
             # Guardar resultados completos (plots y predicciones)
             # Asumo que esta función ya hace sus propios guardados
             test_model_on_directory(model_path, sdf_dir, targets_file)
+
+            # Agregamos R2 a la tupla de resultados
+            resultados.append((fname, f"{rmse:.4f}", f"{pearson_r:.4f}", f"{r2_val:.4f}"))
+
+        except Exception as e:
+            logger.exception(f"Error con el modelo {fname}")
+            # Mantenemos la consistencia de columnas en caso de error (4 columnas)
+            resultados.append((fname, f"ERROR ({str(e)})", "ERROR", "ERROR"))
+
+    # Ordenar alfabéticamente por nombre de modelo
+    resultados.sort(key=lambda x: x[0].lower())
+
+    # Guardar CSV con RMSE, Pearson y R2
+    with open(resumen_path, mode="w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        # Agregamos la cabecera R2
+        writer.writerow(["Modelo", "RMSE", "Pearson", "R2"]) 
+        for row in resultados:
+            writer.writerow(row)
+
+    logger.info(f"Resumen CSV guardado en: {resumen_path}")
+
+    return resumen_path  # <--- AGREGA ESTO AL FINAL
+
+def test_all_models_in_directory_pt(models_dir, pt_file):
+    """
+    Testea todos los modelos de un directorio con un conjunto de moléculas y targets.
+    Genera resultados individuales por modelo y además un archivo resumen CSV con los RMSE,
+    Pearson coefficient y R2, ordenado alfabéticamente por nombre de modelo.
+    """
+    resumen_file_name = f"resumen_metrics_{os.path.basename(models_dir)}.csv"
+    resumen_path = os.path.join(RESULTADOS_DIR, resumen_file_name)
+    os.makedirs(RESULTADOS_DIR, exist_ok=True)
+    # Leer datos
+    # 1. Cargar la lista de moléculas directamente
+    data_list = torch.load(pt_file)
+
+    if not data_list or not isinstance(data_list, list):
+        raise ValueError("El archivo .pt está vacío o no contiene una lista válida.")
+
+    resultados = []
+
+    for fname in os.listdir(models_dir):
+        model_path = os.path.join(models_dir, fname)
+
+        if not os.path.isfile(model_path):
+            continue
+        if not fname.endswith((".pt", ".pth")):
+            continue  # saltar archivos que no sean modelos
+
+        try:
+            # Cargar modelo
+            model, device, target_name = cargar_modelo(model_path)
+
+            y_true, y_pred = [], []
+            for data in data_list:
+                data = data.to(device)
+                
+                # Crear batch ficticio si es una sola molécula
+                batch = torch.zeros(data.num_nodes, dtype=torch.long, device=device)
+                
+                with torch.no_grad():
+                    out = model(data.x, data.edge_index, data.edge_attr, batch)
+                    pred = out.squeeze().item()
+                
+                y_pred.append(pred)
+                y_true.append(data.y.item())
+
+            # --------------------------
+            # CÁLCULO DE MÉTRICAS
+            # --------------------------
+            
+            # 1. RMSE
+            rmse = sqrt(mean_squared_error(y_true, y_pred))
+
+            # 2. Pearson y R2
+            if len(y_true) > 1:
+                pearson_r, _ = pearsonr(y_true, y_pred)
+                r2_val = r2_score(y_true, y_pred)
+            else:
+                pearson_r = float("nan")
+                r2_val = float("nan")
+
+            # Guardar resultados completos (plots y predicciones)
+            # Asumo que esta función ya hace sus propios guardados
+            test_model_on_directory_pt(model_path, pt_file)
 
             # Agregamos R2 a la tupla de resultados
             resultados.append((fname, f"{rmse:.4f}", f"{pearson_r:.4f}", f"{r2_val:.4f}"))
