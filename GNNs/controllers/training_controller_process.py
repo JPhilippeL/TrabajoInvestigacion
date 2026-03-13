@@ -14,13 +14,13 @@ class TrainingControllerProcess:
 
     def entrenar(
         self,
-        sdf_dir,
+        train_dir,
+        val_dir,
         target_file,
         model_type,
         epochs,
         batch_size,
         lr,
-        valid_split,
         model_name,
         hidden_dim,
         num_layers,
@@ -37,14 +37,14 @@ class TrainingControllerProcess:
         self.process.setProgram(sys.executable)  # ejecuta el mismo Python
         self.process.setArguments([
             "-m", "GNNs.workers.trainer_worker",
-            "--sdf_dir", sdf_dir,
+            "--train_dir", train_dir,
+            "--val_dir", val_dir,
             "--target_file", target_file,
             "--model_type", model_type,
             "--epochs", str(epochs),
             "--model_name", model_name,
             "--batch_size", str(batch_size),
             "--lr", str(lr),
-            "--valid_split", str(valid_split),
             "--hidden_dim", str(hidden_dim),
             "--num_layers", str(num_layers),
             "--patience", str(patience),
@@ -171,12 +171,12 @@ class TrainingControllerProcess:
 
     def train_multiple_models(
         self,
-        sdf_dir,
+        train_dir,
+        val_dir,
         target_file,
         epochs,
         batch_size,
         lr,
-        valid_split,
         hidden_dim,
         patience,
         atom_emb_dim,
@@ -189,12 +189,12 @@ class TrainingControllerProcess:
         self.process.setProgram(sys.executable)
         self.process.setArguments([
             "-m", "GNNs.workers.multiple_models_trainer_worker",
-            "--sdf_dir", sdf_dir,
+            "--train_dir", train_dir,
+            "--val_dir", val_dir,
             "--target_file", target_file,
             "--epochs", str(epochs),
             "--batch_size", str(batch_size),
             "--lr", str(lr),
-            "--valid_split", str(valid_split),
             "--hidden_dim", str(hidden_dim),
             "--patience", str(patience),
             "--atom_emb_dim", str(atom_emb_dim),

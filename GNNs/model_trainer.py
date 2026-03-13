@@ -12,7 +12,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from torch_geometric.nn import GINConv, GINEConv, GATConv, global_add_pool, TransformerConv
 
-from GNNs.data_processing import prepare_sdf_training_data, prepare_pt_training_data
+from GNNs.data_processing import prepare_split_training_data, prepare_pt_training_data
 
 logging.basicConfig(
     level=logging.INFO,
@@ -481,7 +481,8 @@ def save_model(
 
 
 def train_and_save_model(
-    sdf_dir,
+    train_dir,
+    val_dir,
     target_file,
     model_type,
     epochs,
@@ -497,8 +498,8 @@ def train_and_save_model(
     bond_emb_dim = BOND_EMB_PR
 ):
     # 1. Calcular dimensiones y cargar datos
-    train_loader, val_loader, device, targetname = prepare_sdf_training_data(
-        sdf_dir, target_file, batch_size=batch_size, valid_split=valid_split
+    train_loader, val_loader, device, targetname = prepare_split_training_data(
+        train_dir, val_dir, target_file, batch_size=batch_size
     )
     
     calc_atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)
@@ -554,7 +555,8 @@ def train_and_save_model(
 
 # Entrenar y guardar modelos cambiandole las capas
 def train_multiple_models(
-    sdf_dir,
+    train_dir,
+    val_dir,
     target_file,
     epochs,
     batch_size=32,
@@ -571,8 +573,8 @@ def train_multiple_models(
     nombreTarget = os.path.splitext(os.path.basename(target_file))[0]
 
     # Preparar datos
-    train_loader, val_loader, device, targetname = prepare_sdf_training_data(
-        sdf_dir, target_file, batch_size=batch_size, valid_split=valid_split
+    train_loader, val_loader, device, targetname = prepare_split_training_data(
+        train_dir, val_dir, target_file, batch_size=batch_size
     )
 
     calc_atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)

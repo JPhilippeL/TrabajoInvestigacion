@@ -327,10 +327,39 @@ def prepare_sdf_training_data(sdf_dir, target_file, batch_size=32, valid_split=0
 
     return train_loader, val_loader, device, targetname
 
-import torch
-import os
-from sklearn.model_selection import train_test_split
-# Asumo que ya tienes importada tu función create_dataloader
+def prepare_split_training_data(train_dir, val_dir, target_file, batch_size=32):
+    """
+    Prepara los datos cargando explícitamente desde carpetas separadas 
+    para entrenamiento y validación.
+
+    Devuelve:
+        train_loader, val_loader, device, targetname
+    """
+    # 1. Leer el diccionario general de targets
+    # Asumimos que target_file tiene los valores para TODAS las moléculas (train y val)
+    target_dict = read_targets(target_file)
+    targetname = os.path.splitext(os.path.basename(target_file))[0]
+
+    # 2. Cargar datos desde los directorios específicos
+    print(f"Cargando dataset de Entrenamiento desde: {train_dir}")
+    train_data = load_data_from_sdf(train_dir, target_dict)
+
+    print(f"Cargando dataset de Validación desde: {val_dir}")
+    val_data = load_data_from_sdf(val_dir, target_dict)
+
+    # 3. Crear los DataLoaders directamente
+    # Entrenamiento SIEMPRE debe mezclarse (shuffle=True) para que la red aprenda mejor
+    train_loader = create_dataloader(train_data, batch_size=batch_size, shuffle=True)
+    
+    # Validación NO necesita mezclarse (shuffle=False) para que la evaluación sea determinista
+    val_loader = create_dataloader(val_data, batch_size=batch_size, shuffle=False)
+
+    # 4. Configurar dispositivo
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    print(f"Listos: {len(train_data)} moléculas de train | {len(val_data)} moléculas de val")
+
+    return train_loader, val_loader, device, targetname
 
 def prepare_pt_training_data(pt_file_path, batch_size=32, valid_split=0.2):
     """
@@ -368,6 +397,52 @@ def prepare_pt_training_data(pt_file_path, batch_size=32, valid_split=0.2):
 
     # 4. Configurar el dispositivo (GPU o CPU)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Dispositivo configurado: {device}")
+
+    return train_loader, val_loader, device, targetname
+
+def prepare_split_pt_training_data(train_pt_path, val_pt_path, batch_size=32):
+    """
+    Prepara los datos de entrenamiento y validación cargando directamente 
+    desde dos archivos .pt separados.
+
+    Devuelve:
+        train_loader, val_loader, device, targetname
+    """
+    # 1. Validar que ambos archivos existen
+    if not os.path.exists(train_pt_path):
+        raise FileNotFoundError(f"No se encontró el archivo de train: {train_pt_path}")
+    if not os.path.exists(val_pt_path):
+        raise FileNotFoundError(f"No se encontró el archivo de validation: {val_pt_path}")
+
+    # 2. Cargar las listas de moléculas directamente a memoria
+    print(f"Cargando dataset de Entrenamiento desde: {train_pt_path}")
+    train_data = torch.load(train_pt_path)
+    
+    print(f"Cargando dataset de Validación desde: {val_pt_path}")
+    val_data = torch.load(val_pt_path)
+
+    # Chequeo rápido de seguridad
+    if not train_data or not isinstance(train_data, list):
+        raise ValueError("El archivo .pt de entrenamiento está vacío o no es válido.")
+    if not val_data or not isinstance(val_data, list):
+        raise ValueError("El archivo .pt de validación está vacío o no es válido.")
+
+    # 3. Obtener un nombre base para tus logs/guardados
+    # Usamos el nombre del archivo de entrenamiento como base
+    targetname = os.path.splitext(os.path.basename(train_pt_path))[0]
+
+    # 4. Crear los DataLoaders
+    # Entrenamiento SIEMPRE debe mezclarse (shuffle=True) para mejor aprendizaje
+    train_loader = create_dataloader(train_data, batch_size=batch_size, shuffle=True)
+    
+    # Validación NO necesita mezclarse (shuffle=False) para evaluaciones consistentes
+    val_loader = create_dataloader(val_data, batch_size=batch_size, shuffle=False)
+
+    # 5. Configurar el dispositivo (GPU o CPU)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    print(f"Listos: {len(train_data)} grafos en Train | {len(val_data)} grafos en Val")
     print(f"Dispositivo configurado: {device}")
 
     return train_loader, val_loader, device, targetname

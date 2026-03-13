@@ -43,9 +43,6 @@ class MenuTrainGNN(QMenu):
         config = dialog.get_values()
 
         # ----- Validaciones -----
-        if not config["sdf_dir"] or not os.path.isdir(config["sdf_dir"]):
-            QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
-            return
 
         if not config["target_file"] or not os.path.isfile(config["target_file"]):
             QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
@@ -55,24 +52,15 @@ class MenuTrainGNN(QMenu):
             QMessageBox.warning(self.main_window, "Nombre inválido", "El nombre del archivo no puede estar vacío.")
             return
 
-        # Validar early stopping y validación
-        if config["early_stopping_patience"] > 0 and config["valid_split"] <= 0:
-            QMessageBox.warning(
-                self.main_window,
-                "Configuración inválida",
-                "Para usar Early Stopping, el porcentaje de validación debe ser mayor que 0."
-            )
-            return
-
         # ----- Ejecutar entrenamiento -----
         self.main_window.training_controller.entrenar(
-            sdf_dir=config["sdf_dir"],
+            train_dir=config["train_sdf_dir"],
+            val_dir=config["val_sdf_dir"],
             target_file=config["target_file"],
             model_type=config["modelo"],
             epochs=config["epochs"],
             batch_size=config["batch_size"],
             lr=config["lr"],
-            valid_split=config["valid_split"],
             model_name=config['save_name'],
             hidden_dim=config["hidden_dim"],
             num_layers=config["num_layers"],
@@ -130,30 +118,18 @@ class MenuTrainGNN(QMenu):
         config = dialog.get_values()
 
         # ----- Validaciones -----
-        if not config.get("sdf_dir") or not os.path.isdir(config["sdf_dir"]):
-            QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
-            return
         if not config.get("target_file") or not os.path.isfile(config["target_file"]):
             QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
             return
 
-        # Validar early stopping y porcentaje de validación
-        if config.get("patience", 0) > 0 and config.get("valid_split", 0) <= 0:
-            QMessageBox.warning(
-                self.main_window,
-                "Configuración inválida",
-                "Para usar Early Stopping, el porcentaje de validación debe ser mayor que 0."
-            )
-            return
-
         # ----- Ejecutar entrenamiento múltiple -----
         self.main_window.training_controller.train_multiple_models(
-            sdf_dir=config["sdf_dir"],
+            train_dir=config["train_sdf_dir"],
+            val_dir=config["val_sdf_dir"],
             target_file=config["target_file"],
             epochs=config["epochs"],
             batch_size=config["batch_size"],
             lr=config["lr"],
-            valid_split=config["valid_split"],
             hidden_dim=config["hidden_dim"],
             patience=config["patience"],
             atom_emb_dim = config["atom_emb_pr"],

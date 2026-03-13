@@ -8,14 +8,14 @@ from GNNs.model_trainer import train_and_save_model
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--sdf_dir")
+    parser.add_argument("--train_dir")
+    parser.add_argument("--val_dir")
     parser.add_argument("--target_file")
     parser.add_argument("--model_type")
     parser.add_argument("--epochs", type=int)
     parser.add_argument("--model_name", type=str)
     parser.add_argument("--batch_size", type=int)
     parser.add_argument("--lr", type=float)
-    parser.add_argument("--valid_split", type=float)
     parser.add_argument("--hidden_dim", type=int)
     parser.add_argument("--num_layers", type=int)
     parser.add_argument("--patience", type=int)
@@ -27,14 +27,14 @@ def main():
     try:
         start = time.time()
         path = train_and_save_model(
-            sdf_dir=args.sdf_dir,
+            train_dir=args.train_dir,
+            val_dir=args.val_dir,
             target_file=args.target_file,
             model_type=args.model_type,
             epochs=args.epochs,
             model_name=args.model_name,
             batch_size=args.batch_size,
             lr=args.lr,
-            valid_split=args.valid_split,
             hidden_dim=args.hidden_dim,
             num_layers=args.num_layers,
             patience=args.patience,
