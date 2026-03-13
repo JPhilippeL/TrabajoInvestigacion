@@ -10,7 +10,7 @@ import gc
 import math
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from torch_geometric.nn import GINConv, GINEConv, GATConv, global_add_pool, TransformerConv
+from torch_geometric.nn import GINConv, GINEConv, GATConv, global_mean_pool, TransformerConv
 
 from GNNs.data_processing import prepare_split_training_data, prepare_pt_training_data
 
@@ -85,7 +85,7 @@ class GINNet(torch.nn.Module):
             x = conv(x, edge_index)
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         out = self.fc(x)
         return out.view(-1)
         
@@ -94,7 +94,7 @@ class GINNet(torch.nn.Module):
         for conv in self.convs:
             x = conv(x, edge_index) if edge_attr is None else conv(x, edge_index, edge_attr)
             x = F.relu(x)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         return x
     
 class GINENet(torch.nn.Module):
@@ -134,7 +134,7 @@ class GINENet(torch.nn.Module):
             # Dropout después de cada bloque convolucional
             x = F.dropout(x, p=self.dropout, training=self.training)
             
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         out = self.fc(x)
         return out.view(-1)
     
@@ -143,7 +143,7 @@ class GINENet(torch.nn.Module):
         for conv in self.convs:
             x = conv(x, edge_index) if edge_attr is None else conv(x, edge_index, edge_attr)
             x = F.relu(x)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         return x
     
 class GATNet(torch.nn.Module):
@@ -175,7 +175,7 @@ class GATNet(torch.nn.Module):
             x = conv(x, edge_index)
             x = F.elu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         out = self.fc(x)
         return out.view(-1)
     
@@ -184,7 +184,7 @@ class GATNet(torch.nn.Module):
         for conv in self.convs:
             x = conv(x, edge_index) if edge_attr is None else conv(x, edge_index, edge_attr)
             x = F.relu(x)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         return x
     
 class EGATNet(torch.nn.Module):
@@ -222,7 +222,7 @@ class EGATNet(torch.nn.Module):
             x = conv(x, edge_index, edge_attr)
             x = F.elu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         out = self.fc(x)
         return out.view(-1)
     
@@ -231,7 +231,7 @@ class EGATNet(torch.nn.Module):
         for conv in self.convs:
             x = conv(x, edge_index) if edge_attr is None else conv(x, edge_index, edge_attr)
             x = F.relu(x)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         return x
     
 class GraphTransformerNet(torch.nn.Module):
@@ -270,7 +270,7 @@ class GraphTransformerNet(torch.nn.Module):
             x = conv(x, edge_index, edge_attr)
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         out = self.fc(x)
         return out.view(-1)
     
@@ -279,7 +279,7 @@ class GraphTransformerNet(torch.nn.Module):
         for conv in self.convs:
             x = conv(x, edge_index) if edge_attr is None else conv(x, edge_index, edge_attr)
             x = F.relu(x)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         return x
 
 
@@ -568,7 +568,8 @@ def train_multiple_models(
     hibrid_emb_dim = HYBRID_EMB_PR,
     bond_emb_dim = BOND_EMB_PR
 ):
-    model_types = ["GIN", "GINE", "GAT", "EGAT", "GraphTransformer"]
+    # model_types = ["GIN", "GINE", "GAT", "EGAT", "GraphTransformer"]
+    model_types = ["GINE"]
     capas = [2, 3, 4, 5]
     nombreTarget = os.path.splitext(os.path.basename(target_file))[0]
 
