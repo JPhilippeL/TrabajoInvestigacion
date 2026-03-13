@@ -83,18 +83,10 @@ class MenuTrainGNN(QMenu):
             QMessageBox.warning(self.main_window, "Nombre inválido", "El nombre del archivo no puede estar vacío.")
             return
 
-        # Validar early stopping y validación
-        if config["early_stopping_patience"] > 0 and config["valid_split"] <= 0:
-            QMessageBox.warning(
-                self.main_window,
-                "Configuración inválida",
-                "Para usar Early Stopping, el porcentaje de validación debe ser mayor que 0."
-            )
-            return
-
         # ----- Ejecutar entrenamiento -----
         self.main_window.training_controller.entrenar_desde_pt(
-            pt_file = config["pt_file"],
+            train_pt = config["train_pt_file"],
+            val_pt = config["val_pt_file"],
             model_type=config["modelo"],
             epochs=config["epochs"],
             batch_size=config["batch_size"],

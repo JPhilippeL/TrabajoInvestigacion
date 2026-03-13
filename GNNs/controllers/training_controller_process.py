@@ -62,12 +62,12 @@ class TrainingControllerProcess:
 
     def entrenar_desde_pt(
         self,
-        pt_file,
+        train_pt,
+        val_pt,
         model_type,
         epochs,
         batch_size,
         lr,
-        valid_split,
         model_name,
         hidden_dim,
         num_layers,
@@ -84,13 +84,13 @@ class TrainingControllerProcess:
         self.process.setProgram(sys.executable)  # ejecuta el mismo Python
         self.process.setArguments([
             "-m", "GNNs.workers.trainer_worker_from_pt",
-            "--pt_file", pt_file,
+            "--train_pt", train_pt,
+            "--val_pt", val_pt,
             "--model_type", model_type,
             "--epochs", str(epochs),
             "--model_name", model_name,
             "--batch_size", str(batch_size),
             "--lr", str(lr),
-            "--valid_split", str(valid_split),
             "--hidden_dim", str(hidden_dim),
             "--num_layers", str(num_layers),
             "--patience", str(patience),

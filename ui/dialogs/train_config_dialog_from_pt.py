@@ -18,16 +18,27 @@ class TrainConfigDialogPT(QDialog):
         layout = QVBoxLayout()
         form_layout = QFormLayout()
 
-        # ---------- PT File (Reemplaza SDF y Target) ----------
-        self.pt_path_input = QLineEdit()
-        self.pt_path_input.setText(self.settings.value("trainPT/pt_file", ""))
-        self.pt_path_button = QPushButton("Elegir archivo...")
-        self.pt_path_button.clicked.connect(self.select_pt_file)
+        # ---------- Train PT File ----------
+        self.train_pt_input = QLineEdit()
+        self.train_pt_input.setText(self.settings.value("trainPT/train_pt_file", ""))
+        self.train_pt_button = QPushButton("Elegir archivo...")
+        self.train_pt_button.clicked.connect(self.select_train_pt_file)
         
-        pt_layout = QHBoxLayout()
-        pt_layout.addWidget(self.pt_path_input)
-        pt_layout.addWidget(self.pt_path_button)
-        form_layout.addRow("Archivo Dataset (.pt):", pt_layout)
+        train_layout = QHBoxLayout()
+        train_layout.addWidget(self.train_pt_input)
+        train_layout.addWidget(self.train_pt_button)
+        form_layout.addRow("Dataset Entrenamiento (.pt):", train_layout)
+
+        # ---------- Validation PT File ----------
+        self.val_pt_input = QLineEdit()
+        self.val_pt_input.setText(self.settings.value("trainPT/val_pt_file", ""))
+        self.val_pt_button = QPushButton("Elegir archivo...")
+        self.val_pt_button.clicked.connect(self.select_val_pt_file)
+        
+        val_layout = QHBoxLayout()
+        val_layout.addWidget(self.val_pt_input)
+        val_layout.addWidget(self.val_pt_button)
+        form_layout.addRow("Dataset Validación (.pt):", val_layout)
 
         # ---------- Modelo y configuraciones ----------
         self.model_select = QComboBox()
@@ -38,11 +49,7 @@ class TrainConfigDialogPT(QDialog):
         self.epochs_input.setRange(1, 10000)
         self.epochs_input.setValue(int(self.settings.value("trainPT/epochs", 100)))
 
-        self.valid_split_input = QDoubleSpinBox()
-        self.valid_split_input.setDecimals(2)
-        self.valid_split_input.setRange(0.0, 0.5)
-        self.valid_split_input.setSingleStep(0.05)
-        self.valid_split_input.setValue(float(self.settings.value("trainPT/valid_split", 0.2)))
+        # Nota: Se eliminó el campo de valid_split
 
         self.early_stopping_patience_input = QSpinBox()
         self.early_stopping_patience_input.setRange(0, 1000)
@@ -91,7 +98,6 @@ class TrainConfigDialogPT(QDialog):
         # ---------- Añadir al formulario ----------
         form_layout.addRow("Modelo:", self.model_select)
         form_layout.addRow("Épocas:", self.epochs_input)
-        form_layout.addRow("Porcentaje validación:", self.valid_split_input)
         form_layout.addRow("Paciencia Early Stopping:", self.early_stopping_patience_input)
         form_layout.addRow("Batch size:", self.batch_input)
         form_layout.addRow("Learning rate:", self.lr_input)
@@ -118,25 +124,27 @@ class TrainConfigDialogPT(QDialog):
     # Selección de archivos
     # --------------------
 
-    def select_pt_file(self):
-        # Cambiamos el filtro para buscar solo archivos .pt
-        file, _ = QFileDialog.getOpenFileName(self, "Seleccionar dataset preprocesado", filter="PyTorch files (*.pt)")
+    def select_train_pt_file(self):
+        file, _ = QFileDialog.getOpenFileName(self, "Seleccionar dataset de Entrenamiento", filter="PyTorch files (*.pt)")
         if file:
-            self.pt_path_input.setText(file)
+            self.train_pt_input.setText(file)
+
+    def select_val_pt_file(self):
+        file, _ = QFileDialog.getOpenFileName(self, "Seleccionar dataset de Validación", filter="PyTorch files (*.pt)")
+        if file:
+            self.val_pt_input.setText(file)
 
     # --------------------
     # Guardar configuraciones
     # --------------------
 
     def accept(self):
-        # Guardamos la ruta del PT y eliminamos sdf_dir y target_file
-        self.settings.setValue("trainPT/pt_file", self.pt_path_input.text())
-        
+        self.settings.setValue("trainPT/train_pt_file", self.train_pt_input.text())
+        self.settings.setValue("trainPT/val_pt_file", self.val_pt_input.text())
         self.settings.setValue("trainPT/modelo", self.model_select.currentText())
         self.settings.setValue("trainPT/epochs", self.epochs_input.value())
         self.settings.setValue("trainPT/batch_size", self.batch_input.value())
         self.settings.setValue("trainPT/lr", self.lr_input.value())
-        self.settings.setValue("trainPT/valid_split", self.valid_split_input.value())
         self.settings.setValue("trainPT/save_name", self.save_name_input.text())
         self.settings.setValue("trainPT/hidden_dim", self.hidden_dim_input.value())
         self.settings.setValue("trainPT/num_layers", self.num_layers_input.value())
@@ -155,14 +163,12 @@ class TrainConfigDialogPT(QDialog):
 
     def get_values(self):
         return {
-            # Devolvemos pt_file en lugar de sdf_dir y target_file
-            "pt_file": self.pt_path_input.text(),
-            
+            "train_pt_file": self.train_pt_input.text(),
+            "val_pt_file": self.val_pt_input.text(),
             "modelo": self.model_select.currentText(),
             "epochs": self.epochs_input.value(),
             "batch_size": self.batch_input.value(),
             "lr": self.lr_input.value(),
-            "valid_split": self.valid_split_input.value(),
             "save_name": self.save_name_input.text(),
             "hidden_dim": self.hidden_dim_input.value(),
             "num_layers": self.num_layers_input.value(),

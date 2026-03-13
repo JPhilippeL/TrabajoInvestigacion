@@ -12,7 +12,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from torch_geometric.nn import GINConv, GINEConv, GATConv, global_mean_pool, TransformerConv
 
-from GNNs.data_processing import prepare_split_training_data, prepare_pt_training_data
+from GNNs.data_processing import prepare_split_training_data, prepare_split_pt_training_data
 
 logging.basicConfig(
     level=logging.INFO,
@@ -625,7 +625,8 @@ def train_multiple_models(
             logging.info(f"Modelo guardado en: {save_path}")
 
 def train_and_save_model_from_pt(
-    pt_file,
+    train_pt,
+    val_pt,
     model_type,
     epochs,
     model_name,  # Este es el nombre "sugerido" por el usuario
@@ -640,8 +641,8 @@ def train_and_save_model_from_pt(
     bond_emb_dim = BOND_EMB_PR
 ):
     # 1. Calcular dimensiones y cargar datos
-    train_loader, val_loader, device, targetname = prepare_pt_training_data(
-        pt_file, batch_size=batch_size, valid_split=valid_split
+    train_loader, val_loader, device, targetname = prepare_split_pt_training_data(
+        train_pt, val_pt, batch_size=batch_size
     )
 
     # Cambia esto temporalmente
