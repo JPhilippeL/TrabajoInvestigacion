@@ -570,7 +570,7 @@ def train_multiple_models(
 ):
     # model_types = ["GIN", "GINE", "GAT", "EGAT", "GraphTransformer"]
     model_types = ["GINE"]
-    capas = [2, 3, 4, 5]
+    capas = [1, 2, 3, 4, 5, 6, 7]
     nombreTarget = os.path.splitext(os.path.basename(target_file))[0]
 
     # Preparar datos
