@@ -699,6 +699,77 @@ def train_and_save_model_from_pt(
 
     return save_path
 
+# Entrenar y guardar modelos cambiandole las capas
+def train_multiple_models_from_pt(
+    train_pt,
+    val_pt,
+    target_file,
+    epochs,
+    batch_size=32,
+    lr=0.001,
+    valid_split=0.2,
+    hidden_dim=64,
+    patience=0,
+    atom_emb_dim = ATOM_EMB_PR,
+    hibrid_emb_dim = HYBRID_EMB_PR,
+    bond_emb_dim = BOND_EMB_PR
+):
+    # model_types = ["GIN", "GINE", "GAT", "EGAT", "GraphTransformer"]
+    model_types = ["GINE"]
+    capas = [1, 2, 3, 4, 5, 6, 7]
+    nombreTarget = os.path.splitext(os.path.basename(target_file))[0]
+
+    # 1. Calcular dimensiones y cargar datos
+    train_loader, val_loader, device, targetname = prepare_split_pt_training_data(
+        train_pt, val_pt, batch_size=batch_size
+    )
+
+    calc_atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)
+    calc_hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
+    calc_bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
+
+    # Son porcentajes por los que se multiplican las dimensiones reales, 
+    # de esta manera el usuario elige si quiere desde 1 dimension sola hasta el 100%
+    input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
+    edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
+
+    for model_type in model_types:
+        for num_layers in capas:
+            model_name = f"{model_type}_{num_layers}capas_fromPT_{nombreTarget}"
+            logging.info(f"Entrenando modelo: {model_name}")
+            # Crear modelo
+            model = create_model(
+                model_type,
+                input_dim,
+                calc_atom_emb_dim,
+                calc_hibrid_emb_dim, 
+                calc_bond_emb_dim, 
+                hidden_dim=hidden_dim, 
+                num_layers=num_layers, 
+                edge_dim=edge_dim)
+            # Entrenar
+            train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience, model_name=model_name)
+            # Guardar
+            save_path = save_model(
+                model=model,
+                model_name=model_name,
+                input_dim=input_dim,
+                edge_dim=edge_dim,
+                target_name=targetname,
+                model_type=model_type,
+                epochs=epochs,
+                hidden_dim=hidden_dim,
+                num_layers=num_layers,
+                batch_size=batch_size,
+                lr=lr,
+                valid_split=valid_split,
+                patience=patience,
+                atom_emb_dim = atom_emb_dim,
+                hibrid_emb_dim = hibrid_emb_dim,
+                bond_emb_dim = bond_emb_dim
+            )
+            logging.info(f"Modelo guardado en: {save_path}")
+
 def calc_dim(x):
     return max(1, math.ceil(x))
 

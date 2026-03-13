@@ -206,6 +206,43 @@ class TrainingControllerProcess:
         self.process.readyReadStandardError.connect(self.on_stderr)
         self.process.start()
 
+    def train_multiple_models_pt(
+        self,
+        train_pt,
+        val_pt,
+        target_file,
+        epochs,
+        batch_size,
+        lr,
+        hidden_dim,
+        patience,
+        atom_emb_dim,
+        hibrid_emb_dim,
+        bond_emb_dim
+    ):      
+        logger.info("Inicializando entrenamiento múltiple...")
+
+        self.process = QProcess()
+        self.process.setProgram(sys.executable)
+        self.process.setArguments([
+            "-m", "GNNs.workers.multiple_models_trainer_worker_pt",
+            "--train_pt", train_pt,
+            "--val_pt", val_pt,
+            "--target_file", target_file,
+            "--epochs", str(epochs),
+            "--batch_size", str(batch_size),
+            "--lr", str(lr),
+            "--hidden_dim", str(hidden_dim),
+            "--patience", str(patience),
+            "--atom_emb_dim", str(atom_emb_dim),
+            "--hibrid_emb_dim", str(hibrid_emb_dim),
+            "--bond_emb_dim", str(bond_emb_dim)
+        ])
+
+        self.process.readyReadStandardOutput.connect(self.on_stdout)
+        self.process.readyReadStandardError.connect(self.on_stderr)
+        self.process.start()
+
     def transfer_train_multiple_models(
         self,
         pretrained_model_directory_path,
