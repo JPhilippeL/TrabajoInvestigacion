@@ -703,7 +703,6 @@ def train_and_save_model_from_pt(
 def train_multiple_models_from_pt(
     train_pt,
     val_pt,
-    target_file,
     epochs,
     batch_size=32,
     lr=0.001,
@@ -717,7 +716,7 @@ def train_multiple_models_from_pt(
     # model_types = ["GIN", "GINE", "GAT", "EGAT", "GraphTransformer"]
     model_types = ["GINE"]
     capas = [1, 2, 3, 4, 5, 6, 7]
-    nombreTarget = os.path.splitext(os.path.basename(target_file))[0]
+    nombreTarget = "BindingAffinity"
 
     # 1. Calcular dimensiones y cargar datos
     train_loader, val_loader, device, targetname = prepare_split_pt_training_data(

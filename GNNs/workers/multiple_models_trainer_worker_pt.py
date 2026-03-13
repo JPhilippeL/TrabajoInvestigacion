@@ -9,7 +9,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--train_pt")
     parser.add_argument("--val_pt")
-    parser.add_argument("--target_file")
     parser.add_argument("--epochs", type=int)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=0.001)
@@ -25,7 +24,6 @@ def main():
         paths = train_multiple_models_from_pt(
             train_pt = args.train_pt,
             val_pt = args.val_pt,
-            target_file=args.target_file,
             epochs=args.epochs,
             batch_size=args.batch_size,
             lr=args.lr,

@@ -142,20 +142,16 @@ class MenuTrainGNN(QMenu):
         config = dialog.get_values()
 
         # ----- Validaciones -----
-        if not config.get("target_file") or not os.path.isfile(config["target_file"]):
-            QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
-            return
 
         # ----- Ejecutar entrenamiento múltiple -----
         self.main_window.training_controller.train_multiple_models_pt(
             train_pt = config["train_pt_file"],
             val_pt = config["val_pt_file"],
-            target_file=config["target_file"],
             epochs=config["epochs"],
             batch_size=config["batch_size"],
             lr=config["lr"],
             hidden_dim=config["hidden_dim"],
-            patience=config["patience"],
+            patience=config["early_stopping_patience"],
             atom_emb_dim = config["atom_emb_pr"],
             hibrid_emb_dim = config["hibrid_emb_pr"],
             bond_emb_dim = config["bond_emb_pr"]
