@@ -10,7 +10,7 @@ import gc
 import math
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from torch_geometric.nn import GINConv, GINEConv, GATConv, global_mean_pool, TransformerConv
+from torch_geometric.nn import GINConv, GINEConv, GATConv, global_mean_pool, TransformerConv, NNConv
 
 from GNNs.data_processing import prepare_split_training_data, prepare_split_pt_training_data
 
@@ -21,7 +21,17 @@ logging.basicConfig(
     stream=sys.stdout
 )
 
-from ui.utils.constants import RESULTADOS_DIR, MODELOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, ATOM_EMB_PR, HYBRID_EMB_PR, BOND_EMB_PR, OTHER_EDGE_FEATURES, OTHER_NODE_FEATURES
+from ui.utils.constants import (RESULTADOS_DIR,
+                                MODELOS_DIR,
+                                hybridization_types, 
+                                periodic_elements, 
+                                N_BOND_TYPES, 
+                                ATOM_EMB_PR, 
+                                HYBRID_EMB_PR, 
+                                BOND_EMB_PR, 
+                                OTHER_EDGE_FEATURES, 
+                                OTHER_NODE_FEATURES,
+                                GNN_ARCHITECTURES )
 HEADS = 4  # Número de cabezas para GAT y GraphTransformer
 
 
@@ -281,6 +291,69 @@ class GraphTransformerNet(torch.nn.Module):
             x = F.relu(x)
         x = global_mean_pool(x, batch)
         return x
+    
+class NNConvNet(torch.nn.Module):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=128, dropout=0.2):
+        super().__init__()
+
+        self.dropout = dropout
+
+        # Instancia del encoder compartido
+        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim)
+        self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
+        self.convs = torch.nn.ModuleList()
+
+        for _ in range(num_layers):
+            # Para NNConv, la red neuronal sobre las aristas debe transformar
+            # la dimensión de la arista (edge_dim) a (in_channels * out_channels)
+            edge_nn = torch.nn.Sequential(
+                torch.nn.Linear(edge_dim, hidden_dim),
+                torch.nn.ReLU(),
+                torch.nn.Linear(hidden_dim, hidden_dim * hidden_dim)
+            )
+            
+            conv = NNConv(
+                in_channels=hidden_dim, 
+                out_channels=hidden_dim, 
+                nn=edge_nn, 
+                aggr='add',
+                root_weight=True,
+                bias=True
+            )
+            self.convs.append(conv)
+
+        self.fc = torch.nn.Sequential(
+            torch.nn.Linear(hidden_dim, fc_hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(p=dropout),
+            torch.nn.Linear(fc_hidden_dim, 1)
+        )
+
+    def forward(self, x, edge_index, edge_attr, batch):
+        # 1. Codificación inicial
+        x = self.encoder.encode_nodes(x)
+        x = self.node_encoder(x)
+        edge_attr = self.encoder.encode_edges(edge_attr)
+        
+        # 2. Paso de mensajes a través de las capas NNConv
+        for conv in self.convs:
+            x = conv(x, edge_index, edge_attr)
+            x = F.relu(x)
+            x = F.dropout(x, p=self.dropout, training=self.training)
+            
+        # 3. Pooling y fully connected
+        x = global_mean_pool(x, batch)
+        out = self.fc(x)
+        return out.view(-1)
+    
+    def get_embedding(self, x, edge_index, edge_attr=None, batch=None):
+        x = self.node_encoder(x) if hasattr(self, 'node_encoder') else x
+        for conv in self.convs:
+            # NNConv requiere edge_attr obligatoriamente
+            x = conv(x, edge_index, edge_attr) if edge_attr is not None else conv(x, edge_index)
+            x = F.relu(x)
+        x = global_mean_pool(x, batch)
+        return x
 
 
 # ----------------------
@@ -298,6 +371,8 @@ def create_model(model_name, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_d
         return GraphTransformerNet(input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim, num_layers, HEADS)
     elif model_name == "EGAT":
         return EGATNet(input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim, num_layers, HEADS)
+    elif model_name == "NNConv":
+        return NNConvNet(input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim, num_layers)
     else:
         raise ValueError(f"Modelo desconocido: {model_name}")
 
@@ -568,7 +643,7 @@ def train_multiple_models(
     hibrid_emb_dim = HYBRID_EMB_PR,
     bond_emb_dim = BOND_EMB_PR
 ):
-    # model_types = ["GIN", "GINE", "GAT", "EGAT", "GraphTransformer"]
+    # model_types = GNN_ARCHITECTURES
     model_types = ["GINE"]
     capas = [1, 2, 3, 4, 5, 6, 7]
     nombreTarget = os.path.splitext(os.path.basename(target_file))[0]
@@ -713,7 +788,7 @@ def train_multiple_models_from_pt(
     hibrid_emb_dim = HYBRID_EMB_PR,
     bond_emb_dim = BOND_EMB_PR
 ):
-    # model_types = ["GIN", "GINE", "GAT", "EGAT", "GraphTransformer"]
+    # model_types = GNN_ARCHITECTURES
     model_types = ["GINE"]
     capas = [1, 2, 3, 4, 5, 6, 7]
     nombreTarget = "BindingAffinity"

@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QSettings
 
 # Asegúrate de importar tus valores por defecto:
-from ui.utils.constants import ATOM_EMB_PR, HYBRID_EMB_PR, BOND_EMB_PR
+from ui.utils.constants import ATOM_EMB_PR, HYBRID_EMB_PR, BOND_EMB_PR, GNN_ARCHITECTURES
 
 
 class TrainConfigDialog(QDialog):
@@ -50,8 +50,9 @@ class TrainConfigDialog(QDialog):
 
         # ---------- Modelo y configuraciones ----------
         self.model_select = QComboBox()
-        self.model_select.addItems(["GIN", "GINE", "GAT", "EGAT", "GraphTransformer"])
-        self.model_select.setCurrentText(self.settings.value("train/modelo", "GIN"))
+        # Se convierte la tupla en lista para agregarla al QComboBox
+        self.model_select.addItems(list(GNN_ARCHITECTURES))
+        self.model_select.setCurrentText(self.settings.value("train/modelo", GNN_ARCHITECTURES[0]))
 
         self.epochs_input = QSpinBox()
         self.epochs_input.setRange(1, 10000)

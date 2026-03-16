@@ -91,3 +91,12 @@ OTHER_NODE_FEATURES = len(EMBEDDING_INDICES) - len(CATEGORICAL_INDICES)
 
 # Total: 2. Categóricas: 1. Resto (Distance): 1.
 OTHER_EDGE_FEATURES = len(EDGE_EMBEDDING_INDICES) - len(CATEGORICAL_EDGE_INDICES)
+
+GNN_ARCHITECTURES = (
+    "GIN",
+    "GINE",
+    "GAT",
+    "GraphTransformer",
+    "EGAT",
+    "NNConv"  # <-- Puedes agregar fácilmente el modelo que definiste antes
+)
