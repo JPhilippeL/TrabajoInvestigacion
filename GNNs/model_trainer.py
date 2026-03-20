@@ -641,7 +641,8 @@ def train_multiple_models(
     patience=0,
     atom_emb_dim = ATOM_EMB_PR,
     hibrid_emb_dim = HYBRID_EMB_PR,
-    bond_emb_dim = BOND_EMB_PR
+    bond_emb_dim = BOND_EMB_PR,
+    output_dir = MODELOS_DIR
 ):
     # model_types = GNN_ARCHITECTURES
     model_types = ["GINE"]
@@ -691,6 +692,7 @@ def train_multiple_models(
                 num_layers=num_layers,
                 batch_size=batch_size,
                 lr=lr,
+                modelos_dir=output_dir,
                 valid_split=valid_split,
                 patience=patience,
                 atom_emb_dim = atom_emb_dim,
@@ -844,6 +846,47 @@ def train_multiple_models_from_pt(
             )
             logging.info(f"Modelo guardado en: {save_path}")
 
+def train_all_splits(
+    mother_dir,
+    target_file,
+    epochs,
+    **kwargs        # Permite pasar batch_size, lr, etc., directamente a la función base
+):
+    """
+    Explora 'mother_dir', busca los splits y lanza el entrenamiento iterativo para cada uno.
+    """
+    # 1. Obtener todas las subcarpetas dentro del directorio madre
+    posibles_splits = [d for d in os.listdir(mother_dir) if os.path.isdir(os.path.join(mother_dir, d))]
+    
+    for split_folder in sorted(posibles_splits):
+        split_path = os.path.join(mother_dir, split_folder)
+        
+        # 2. Definir rutas esperadas de train y validation
+        train_dir = os.path.join(split_path, "train")
+        val_dir = os.path.join(split_path, "validation") # Cambia a "val" si tu carpeta se llama así
+        
+        # 3. Validar que realmente sea una carpeta de split
+        if not os.path.exists(train_dir) or not os.path.exists(val_dir):
+            logging.warning(f"Ignorando '{split_folder}': No contiene carpetas 'train' o 'validation'.")
+            continue
+            
+        logging.info(f"\n{5}\nIniciando entrenamiento para: {split_folder}\n{'='*10}")
+        
+        # 4. Crear un directorio ÚNICO de guardado para este split
+        # Ej: base_save_dir/split_1/
+        split_save_dir = os.path.join(MODELOS_DIR, split_folder)
+        os.makedirs(split_save_dir, exist_ok=True)
+        
+        # 5. Ejecutar tu función original, pasándole el directorio de guardado
+        train_multiple_models(
+            train_dir=train_dir,
+            val_dir=val_dir,
+            target_file=target_file,
+            epochs=epochs,
+            output_dir=split_save_dir, # <--- ¡NUEVO PARÁMETRO!
+            **kwargs
+        )
+
 def calc_dim(x):
     return max(1, math.ceil(x))
 
@@ -864,3 +907,31 @@ def get_unique_name(base_name, directory, extension=".pt"):
         counter += 1
         
     return unique_name
+
+# ==========================================
+if __name__ == "__main__":
+    # Configurar el logging para que los mensajes salgan bonitos por consola
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
+    
+    # Definir las rutas principales (¡Cámbialas por tus rutas reales!)
+    CARPETA_MADRE = "./datos_proyecto/mis_5_splits" 
+    ARCHIVO_TARGET = "./datos_proyecto/target.txt"
+    
+    print("🚀 Iniciando el pipeline de entrenamiento para todos los splits...")
+    
+    # Lanzar la función controladora
+    train_all_splits(
+        mother_dir=CARPETA_MADRE,
+        target_file=ARCHIVO_TARGET,
+        epochs = 500,
+        batch_size=16,
+        lr=0.001,
+        valid_split=0.2,
+        hidden_dim=64,
+        patience=100,
+        atom_emb_dim = ATOM_EMB_PR,
+        hibrid_emb_dim = HYBRID_EMB_PR,
+        bond_emb_dim = 0.5,
+    )
+    
+    print("✅ ¡Entrenamiento de todos los splits finalizado!")

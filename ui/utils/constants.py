@@ -82,9 +82,9 @@ HYBRID_TO_IDX = {h: i for i, h in enumerate(hybridization_types)}
 N_BOND_TYPES = len(BOND_TYPE_TO_INT)
 
 # Porcentaje Estandard de Reduccion del Embedding (40 * 0.4 = 16), (8 * 0.5 = 4), (6 * 0.5 = 3)
-ATOM_EMB_PR = 0.4
-HYBRID_EMB_PR = 0.5
-BOND_EMB_PR = 0.5
+ATOM_EMB_PR = 0.3
+HYBRID_EMB_PR = 0.3
+BOND_EMB_PR = 0.3
 
 # Total: 7. Categóricas: 2 (Symbol, Hybridization). Resto: 5.
 OTHER_NODE_FEATURES = len(EMBEDDING_INDICES) - len(CATEGORICAL_INDICES)
