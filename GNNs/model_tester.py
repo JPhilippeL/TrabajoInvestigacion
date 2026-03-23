@@ -5,6 +5,7 @@ from rdkit import Chem
 from torch_geometric.data import Data
 from GNNs.model_trainer import create_model, calc_dim
 import os
+import re
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error, r2_score
 from math import sqrt
@@ -344,15 +345,15 @@ def obtener_info_checkpoint(model_path):
 
 logger = logging.getLogger(__name__)
 
-def test_all_models_in_directory(models_dir, sdf_dir, targets_file):
+def test_all_models_in_directory(models_dir, sdf_dir, targets_file, output_dir=RESULTADOS_DIR): # <--- NUEVO PARÁMETRO
     """
     Testea todos los modelos de un directorio con un conjunto de moléculas y targets.
-    Genera resultados individuales por modelo y además un archivo resumen CSV con los RMSE,
-    Pearson coefficient y R2, ordenado alfabéticamente por nombre de modelo.
+    Genera resultados individuales por modelo y además un archivo resumen CSV.
     """
+    # Usamos output_dir en lugar de un RESULTADOS_DIR global
     resumen_file_name = f"resumen_metrics_{os.path.basename(models_dir)}.csv"
-    resumen_path = os.path.join(RESULTADOS_DIR, resumen_file_name)
-    os.makedirs(RESULTADOS_DIR, exist_ok=True)
+    resumen_path = os.path.join(output_dir, resumen_file_name) 
+    
     # Leer datos
     target_dict = read_targets(targets_file)
     data_list = load_data_from_sdf(sdf_dir, target_dict)
@@ -365,7 +366,7 @@ def test_all_models_in_directory(models_dir, sdf_dir, targets_file):
         if not os.path.isfile(model_path):
             continue
         if not fname.endswith((".pt", ".pth")):
-            continue  # saltar archivos que no sean modelos
+            continue  
 
         try:
             # Cargar modelo
@@ -374,8 +375,6 @@ def test_all_models_in_directory(models_dir, sdf_dir, targets_file):
             y_true, y_pred = [], []
             for data in data_list:
                 data = data.to(device)
-                
-                # Crear batch ficticio si es una sola molécula
                 batch = torch.zeros(data.num_nodes, dtype=torch.long, device=device)
                 
                 with torch.no_grad():
@@ -385,14 +384,9 @@ def test_all_models_in_directory(models_dir, sdf_dir, targets_file):
                 y_pred.append(pred)
                 y_true.append(data.y.item())
 
-            # --------------------------
             # CÁLCULO DE MÉTRICAS
-            # --------------------------
-            
-            # 1. RMSE
             rmse = sqrt(mean_squared_error(y_true, y_pred))
 
-            # 2. Pearson y R2
             if len(y_true) > 1:
                 pearson_r, _ = pearsonr(y_true, y_pred)
                 r2_val = r2_score(y_true, y_pred)
@@ -400,43 +394,78 @@ def test_all_models_in_directory(models_dir, sdf_dir, targets_file):
                 pearson_r = float("nan")
                 r2_val = float("nan")
 
-            # Guardar resultados completos (plots y predicciones)
-            # Asumo que esta función ya hace sus propios guardados
-            test_model_on_directory(model_path, sdf_dir, targets_file)
+            # ATENCIÓN AQUÍ: Si test_model_on_directory guarda archivos, 
+            # también deberías pasarle output_dir para que no mezcle los plots.
+            test_model_on_directory(model_path, sdf_dir, targets_file, output_dir) 
 
-            # Agregamos R2 a la tupla de resultados
             resultados.append((fname, f"{rmse:.4f}", f"{pearson_r:.4f}", f"{r2_val:.4f}"))
 
         except Exception as e:
-            logger.exception(f"Error con el modelo {fname}")
-            # Mantenemos la consistencia de columnas en caso de error (4 columnas)
+            logging.exception(f"Error con el modelo {fname}: {e}")
             resultados.append((fname, f"ERROR ({str(e)})", "ERROR", "ERROR"))
 
-    # Ordenar alfabéticamente por nombre de modelo
+    # Ordenar alfabéticamente
     resultados.sort(key=lambda x: x[0].lower())
 
-    # Guardar CSV con RMSE, Pearson y R2
+    # Guardar CSV
     with open(resumen_path, mode="w", newline="") as csvfile:
         writer = csv.writer(csvfile)
-        # Agregamos la cabecera R2
         writer.writerow(["Modelo", "RMSE", "Pearson", "R2"]) 
         for row in resultados:
             writer.writerow(row)
 
-    logger.info(f"Resumen CSV guardado en: {resumen_path}")
+    logging.info(f"Resumen CSV guardado en: {resumen_path}")
 
-    return resumen_path  # <--- AGREGA ESTO AL FINAL
+    return resumen_path
 
-def test_all_models_in_directory_pt(models_dir, pt_file):
+def test_all_splits(
+    models_mother_dir, 
+    data_mother_dir, 
+    targets_file, 
+    base_results_dir = RESULTADOS_DIR,
+    test_folder_name="test" # Puede ser "validation" o "test", según cómo se llame tu carpeta de SDFs
+):
     """
-    Testea todos los modelos de un directorio con un conjunto de moléculas y targets.
-    Genera resultados individuales por modelo y además un archivo resumen CSV con los RMSE,
-    Pearson coefficient y R2, ordenado alfabéticamente por nombre de modelo.
+    Explora la carpeta madre de modelos, busca los splits y los empareja con
+    los datos correspondientes en la carpeta madre de datos para testearlos.
     """
+    # 1. Obtener las subcarpetas de los splits (ej: split_0, split_1...)
+    splits_modelos = [d for d in os.listdir(models_mother_dir) if os.path.isdir(os.path.join(models_mother_dir, d))]
+    
+    for split_folder in sorted(splits_modelos):
+        models_dir = os.path.join(models_mother_dir, split_folder)
+        
+        # 2. Buscar la carpeta de datos correspondiente
+        # Ej: datos_madre/split_0/test
+        sdf_dir = os.path.join(data_mother_dir, split_folder, test_folder_name)
+        
+        if not os.path.exists(sdf_dir):
+            logging.warning(f"Ignorando '{split_folder}': No se encontró la carpeta de datos en {sdf_dir}")
+            continue
+            
+        logging.info(f"\n{'='*50}\nIniciando Testing para: {split_folder}\n{'='*50}")
+        
+        # 3. Crear directorio de resultados para este split
+        split_results_dir = os.path.join(base_results_dir, split_folder)
+        os.makedirs(split_results_dir, exist_ok=True)
+        
+        # 4. Lanzar tu función de testeo
+        test_all_models_in_directory(
+            models_dir=models_dir,
+            sdf_dir=sdf_dir,
+            targets_file=targets_file,
+            output_dir=split_results_dir # <--- Pasamos la ruta de guardado
+        )
+
+def test_all_models_in_directory_pt(models_dir, pt_file, output_dir=RESULTADOS_DIR): # <--- NUEVO PARÁMETRO
+    """
+    Testea todos los modelos de un directorio con un conjunto de moléculas desde un archivo .pt.
+    Genera resultados individuales y un archivo resumen CSV.
+    """
+    # Usamos output_dir en lugar de RESULTADOS_DIR global
     resumen_file_name = f"resumen_metrics_{os.path.basename(models_dir)}.csv"
-    resumen_path = os.path.join(RESULTADOS_DIR, resumen_file_name)
-    os.makedirs(RESULTADOS_DIR, exist_ok=True)
-    # Leer datos
+    resumen_path = os.path.join(output_dir, resumen_file_name) 
+    
     # 1. Cargar la lista de moléculas directamente
     data_list = torch.load(pt_file)
 
@@ -451,7 +480,7 @@ def test_all_models_in_directory_pt(models_dir, pt_file):
         if not os.path.isfile(model_path):
             continue
         if not fname.endswith((".pt", ".pth")):
-            continue  # saltar archivos que no sean modelos
+            continue  
 
         try:
             # Cargar modelo
@@ -461,7 +490,6 @@ def test_all_models_in_directory_pt(models_dir, pt_file):
             for data in data_list:
                 data = data.to(device)
                 
-                # Crear batch ficticio si es una sola molécula
                 batch = torch.zeros(data.num_nodes, dtype=torch.long, device=device)
                 
                 with torch.no_grad():
@@ -471,14 +499,9 @@ def test_all_models_in_directory_pt(models_dir, pt_file):
                 y_pred.append(pred)
                 y_true.append(data.y.item())
 
-            # --------------------------
             # CÁLCULO DE MÉTRICAS
-            # --------------------------
-            
-            # 1. RMSE
             rmse = sqrt(mean_squared_error(y_true, y_pred))
 
-            # 2. Pearson y R2
             if len(y_true) > 1:
                 pearson_r, _ = pearsonr(y_true, y_pred)
                 r2_val = r2_score(y_true, y_pred)
@@ -486,30 +509,92 @@ def test_all_models_in_directory_pt(models_dir, pt_file):
                 pearson_r = float("nan")
                 r2_val = float("nan")
 
-            # Guardar resultados completos (plots y predicciones)
-            # Asumo que esta función ya hace sus propios guardados
-            test_model_on_directory_pt(model_path, pt_file)
+            # ATENCIÓN: Pasa output_dir a esta función interna también
+            test_model_on_directory_pt(model_path, pt_file, output_dir) 
 
-            # Agregamos R2 a la tupla de resultados
             resultados.append((fname, f"{rmse:.4f}", f"{pearson_r:.4f}", f"{r2_val:.4f}"))
 
         except Exception as e:
-            logger.exception(f"Error con el modelo {fname}")
-            # Mantenemos la consistencia de columnas en caso de error (4 columnas)
+            logging.exception(f"Error con el modelo {fname}: {e}")
             resultados.append((fname, f"ERROR ({str(e)})", "ERROR", "ERROR"))
 
-    # Ordenar alfabéticamente por nombre de modelo
+    # Ordenar alfabéticamente
     resultados.sort(key=lambda x: x[0].lower())
 
-    # Guardar CSV con RMSE, Pearson y R2
+    # Guardar CSV
     with open(resumen_path, mode="w", newline="") as csvfile:
         writer = csv.writer(csvfile)
-        # Agregamos la cabecera R2
         writer.writerow(["Modelo", "RMSE", "Pearson", "R2"]) 
         for row in resultados:
             writer.writerow(row)
 
-    logger.info(f"Resumen CSV guardado en: {resumen_path}")
+    logging.info(f"Resumen CSV guardado en: {resumen_path}")
 
-    return resumen_path  # <--- AGREGA ESTO AL FINAL
+    return resumen_path
 
+def test_all_splits_pt(
+    models_mother_dir, 
+    data_mother_dir, 
+    base_results_dir,
+    test_file_prefix="pocket_BD_test_" # Prefijo de tus archivos .pt de testing
+):
+    """
+    Explora la carpeta madre de modelos, identifica los splits, busca el archivo 
+    .pt de testeo correspondiente y lanza la evaluación.
+    """
+    # 1. Obtener las subcarpetas de los splits de modelos (ej: split_0, split_1...)
+    splits_modelos = [d for d in os.listdir(models_mother_dir) if os.path.isdir(os.path.join(models_mother_dir, d))]
+    
+    for split_folder in sorted(splits_modelos):
+        models_dir = os.path.join(models_mother_dir, split_folder)
+        
+        # 2. Extraer el número del split del nombre de la carpeta (asumiendo formato "split_X")
+        match = re.search(r'_(\d+)$', split_folder)
+        if not match:
+            logging.warning(f"Ignorando '{split_folder}': No se pudo extraer un número de split del nombre.")
+            continue
+            
+        num_split = match.group(1)
+        
+        # 3. Construir el nombre del archivo de test esperado (ej: pocket_BD_test_0.pt)
+        test_pt_filename = f"{test_file_prefix}{num_split}.pt"
+        pt_file_path = os.path.join(data_mother_dir, test_pt_filename)
+        
+        if not os.path.exists(pt_file_path):
+            logging.warning(f"Ignorando '{split_folder}': No se encontró el archivo de datos {pt_file_path}")
+            continue
+            
+        logging.info(f"\n{'='*50}\nIniciando Testing para: {split_folder} con {test_pt_filename}\n{'='*50}")
+        
+        # 4. Crear directorio de resultados para este split
+        split_results_dir = os.path.join(base_results_dir, split_folder)
+        os.makedirs(split_results_dir, exist_ok=True)
+        
+        # 5. Lanzar tu función de testeo
+        test_all_models_in_directory_pt(
+            models_dir=models_dir,
+            pt_file=pt_file_path,
+            output_dir=split_results_dir # <--- Pasamos la ruta de guardado
+        )
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
+    
+    # Rutas principales
+    MODELOS_MADRE = "./modelos_entrenados"      # Donde están las carpetas split_0, split_1... con los .pt
+    DATOS_MADRE = "./datos_proyecto/mis_5_splits" # Donde están las carpetas de los splits con los SDF
+    TARGETS = "./datos_proyecto/target.txt"
+    RESULTADOS_MADRE = "./resultados_testing"   # Donde se guardarán los CSV finales
+    
+    print("🚀 Iniciando el testing masivo de todos los splits...")
+    
+    test_all_splits(
+        models_mother_dir=MODELOS_MADRE,
+        data_mother_dir=DATOS_MADRE,
+        targets_file=TARGETS,
+        base_results_dir=RESULTADOS_MADRE,
+        test_folder_name="validation" # Cambia esto a "test" si tu carpeta de datos a probar se llama así
+    )
+    
+    print("✅ ¡Testing finalizado!")
