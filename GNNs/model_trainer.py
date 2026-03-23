@@ -69,7 +69,7 @@ class EmbeddingEncoder(torch.nn.Module):
 # Modelos GNN
 # ----------------------    
 class GINNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=128, dropout = 0.2):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout = 0.2):
         super().__init__()
 
         self.dropout = dropout  # Guardamos la probabilidad de dropout
@@ -114,8 +114,10 @@ class GINNet(torch.nn.Module):
     
 class GINENet(torch.nn.Module):
     # Añadimos el argumento 'dropout' al init
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=128, dropout=0.2):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout=0.2):
         super().__init__()
+        
+        fc_hidden_dim = hidden_dim/2
         
         self.dropout = dropout  # Guardamos la probabilidad de dropout
 
@@ -162,8 +164,10 @@ class GINENet(torch.nn.Module):
         return x
     
 class GATNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128, dropout = 0.2):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout = 0.2):
         super().__init__()
+
+        fc_hidden_dim = hidden_dim/2
 
         self.dropout = dropout  # Guardamos la probabilidad de dropout
 
@@ -203,10 +207,12 @@ class GATNet(torch.nn.Module):
         return x
     
 class EGATNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128, dropout = 0.2):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout = 0.2):
         super().__init__()
 
         self.dropout = dropout
+
+        fc_hidden_dim = hidden_dim/2
 
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
@@ -250,10 +256,12 @@ class EGATNet(torch.nn.Module):
         return x
     
 class GraphTransformerNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128, dropout = 0.2):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout = 0.2):
         super().__init__()
 
         self.dropout = dropout
+
+        fc_hidden_dim = hidden_dim/2
 
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
@@ -298,10 +306,12 @@ class GraphTransformerNet(torch.nn.Module):
         return x
     
 class NNConvNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=128, dropout=0.2):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout=0.2):
         super().__init__()
 
         self.dropout = dropout
+
+        fc_hidden_dim = hidden_dim/2
 
         # Instancia del encoder compartido
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim)
