@@ -12,6 +12,10 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from torch_geometric.nn import GINConv, GINEConv, GATConv, global_mean_pool, TransformerConv, NNConv
 
+dir_actual = os.path.dirname(os.path.abspath(__file__))
+dir_padre = os.path.abspath(os.path.join(dir_actual, ".."))
+sys.path.insert(0, dir_padre)
+
 from GNNs.data_processing import prepare_split_training_data, prepare_split_pt_training_data
 
 logging.basicConfig(
@@ -645,8 +649,8 @@ def train_multiple_models(
     output_dir = MODELOS_DIR
 ):
     # model_types = GNN_ARCHITECTURES
-    model_types = ["GINE"]
-    capas = [1, 2, 3, 4, 5, 6, 7]
+    model_types = ["GINE", "NNConv"]
+    capas = [2, 3, 4, 5]
     nombreTarget = os.path.splitext(os.path.basename(target_file))[0]
 
     # Preparar datos
@@ -914,8 +918,8 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
     
     # Definir las rutas principales (¡Cámbialas por tus rutas reales!)
-    CARPETA_MADRE = "./datos_proyecto/mis_5_splits" 
-    ARCHIVO_TARGET = "./datos_proyecto/target.txt"
+    CARPETA_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits" 
+    ARCHIVO_TARGET = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits/pIC50.txt"
     
     print("🚀 Iniciando el pipeline de entrenamiento para todos los splits...")
     
@@ -931,7 +935,7 @@ if __name__ == "__main__":
         patience=100,
         atom_emb_dim = ATOM_EMB_PR,
         hibrid_emb_dim = HYBRID_EMB_PR,
-        bond_emb_dim = 0.5,
+        bond_emb_dim = 0.3,
     )
     
     print("✅ ¡Entrenamiento de todos los splits finalizado!")
