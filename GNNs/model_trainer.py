@@ -9,6 +9,7 @@ import logging
 import gc
 import math
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+import re
 
 from torch_geometric.nn import GINConv, GINEConv, GATConv, global_mean_pool, TransformerConv, NNConv
 
@@ -792,7 +793,8 @@ def train_multiple_models_from_pt(
     patience=0,
     atom_emb_dim = ATOM_EMB_PR,
     hibrid_emb_dim = HYBRID_EMB_PR,
-    bond_emb_dim = BOND_EMB_PR
+    bond_emb_dim = BOND_EMB_PR,
+    output_dir = MODELOS_DIR
 ):
     # model_types = GNN_ARCHITECTURES
     model_types = ["GINE"]
@@ -842,6 +844,7 @@ def train_multiple_models_from_pt(
                 num_layers=num_layers,
                 batch_size=batch_size,
                 lr=lr,
+                modelos_dir=output_dir,
                 valid_split=valid_split,
                 patience=patience,
                 atom_emb_dim = atom_emb_dim,
@@ -888,6 +891,67 @@ def train_all_splits(
             target_file=target_file,
             epochs=epochs,
             output_dir=split_save_dir, # <--- ¡NUEVO PARÁMETRO!
+            **kwargs
+        )
+
+def train_all_splits_from_pt(
+    mother_dir,
+    epochs,
+    **kwargs
+):
+    """
+    Explora 'mother_dir', busca los archivos .pt (train y valid) por número de split,
+    y lanza el entrenamiento iterativo para cada par.
+    """
+    # 1. Obtener todos los archivos .pt en la carpeta madre
+    archivos_pt = [f for f in os.listdir(mother_dir) if f.endswith('.pt')]
+    
+    # 2. Encontrar qué números de split existen
+    # Usamos una expresión regular para buscar números al final del nombre del archivo (antes de .pt)
+    # Ej: "pocket_BD_train_0.pt" -> extrae "0"
+    splits_encontrados = set()
+    for archivo in archivos_pt:
+        match = re.search(r'_(\d+)\.pt$', archivo)
+        if match:
+            splits_encontrados.add(int(match.group(1)))
+            
+    # Ordenamos los splits para que se ejecuten en orden (0, 1, 2...)
+    splits_ordenados = sorted(list(splits_encontrados))
+    
+    if not splits_ordenados:
+        logging.warning(f"No se encontraron archivos .pt con el formato '_X.pt' en {mother_dir}")
+        return
+
+    logging.info(f"Splits detectados: {splits_ordenados}")
+
+    # 3. Iterar sobre cada número de split encontrado
+    for num_split in splits_ordenados:
+        # 4. Construir los nombres de archivo esperados para este split
+        # Asumiendo que el prefijo es "pocket_BD_"
+        train_file = f"pocket_BD_train_{num_split}.pt"
+        val_file = f"pocket_BD_valid_{num_split}.pt"
+        
+        train_path = os.path.join(mother_dir, train_file)
+        val_path = os.path.join(mother_dir, val_file)
+        
+        # 5. Validar que ambos archivos (train y valid) existan para este split
+        if not os.path.exists(train_path) or not os.path.exists(val_path):
+            logging.warning(f"Ignorando split {num_split}: Faltan archivos de train o valid.")
+            continue
+            
+        logging.info(f"\n{'='*50}\nIniciando entrenamiento para el Split: {num_split}\n{'='*50}")
+        
+        # 6. Crear un directorio ÚNICO de guardado para este split
+        nombre_carpeta_split = f"split_{num_split}"
+        split_save_dir = os.path.join(MODELOS_DIR, nombre_carpeta_split)
+        os.makedirs(split_save_dir, exist_ok=True)
+        
+        # 7. Ejecutar tu función adaptada para .pt
+        train_multiple_models_from_pt(
+            train_pt=train_path,    # Le pasamos la ruta completa del archivo .pt de train
+            val_pt=val_path,        # Le pasamos la ruta completa del archivo .pt de validation
+            epochs=epochs,
+            output_dir=split_save_dir, # <--- Pasamos el directorio para guardar los modelos de este split
             **kwargs
         )
 
