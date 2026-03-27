@@ -147,10 +147,10 @@ class GNNEncoder(nn.Module):
     """
     def __init__(
         self,
-        input_dim: int,
+        input_dim: int = 20,
         hidden_dim: int = 64,
         output_dim: int = 128,
-        edge_feat_dim: int = 6  # 4 bond types + conjugation + ring membership
+        edge_feat_dim: int = 3  # 4 bond types + conjugation + ring membership
     ):
         super().__init__()
         self.node_in       = input_dim
@@ -197,68 +197,6 @@ class GNNEncoder(nn.Module):
         x = global_add_pool(x, batch)  # [batch_size, output_dim]
         x = self.bn(x)
         x = self.prelu(x)
-        return x
-
-
-    def _build_convs(self, edge_feat_dim):
-        """Build the NNConv layers and their edge‐MLP once we know edge_feat_dim."""
-        self.edge_feat_dim = edge_feat_dim
-
-        # MLP for conv1: maps edge → (node_in * hidden)
-        self.edge_mlp1 = nn.Sequential(
-            nn.Linear(edge_feat_dim, self.node_in * self.hidden),
-            nn.ReLU(),
-            nn.Linear(self.node_in * self.hidden, self.node_in * self.hidden),
-        )
-        self.conv1 = NNConv(self.node_in, self.hidden, self.edge_mlp1, aggr='mean')
-
-        # MLP for conv2: maps edge → (hidden * hidden)
-        self.edge_mlp2 = nn.Sequential(
-            nn.Linear(edge_feat_dim, self.hidden * self.hidden),
-            nn.ReLU(),
-            nn.Linear(self.hidden * self.hidden, self.hidden * self.hidden),
-        )
-        self.conv2 = NNConv(self.hidden, self.hidden, self.edge_mlp2, aggr='mean')
-
-        # MLP for conv3: maps edge → (hidden * out)
-        self.edge_mlp3 = nn.Sequential(
-            nn.Linear(edge_feat_dim, self.hidden * self.out),
-            nn.ReLU(),
-            nn.Linear(self.hidden * self.out, self.hidden * self.out),
-        )
-        self.conv3 = NNConv(self.hidden, self.out, self.edge_mlp3, aggr='mean')
-
-    def forward(self, x, edge_index, edge_attr, batch):
-        """
-        Forward pass through GNN encoder.
-        
-        Args:
-            x: Node features (num_nodes, num_features)
-            edge_index: Edge indices (2, num_edges)
-            batch: Batch indices (num_nodes)
-            
-        Returns:
-            Graph embedding (batch_size, output_dim)
-        """
-        # Node embeddings
-        # on first pass, build NNConv layers
-        if self.edge_feat_dim is None:
-            # edge_attr.shape = [num_edges, edge_feat_dim]
-            self._build_convs(edge_attr.size(1))
-
-        x = self.conv1(x, edge_index, edge_attr)
-        x = torch.relu(x)
-        x = self.conv2(x, edge_index, edge_attr)
-        x = torch.relu(x)
-        x = self.conv3(x, edge_index, edge_attr)
-        
-        # Readout - aggregate node features to graph representation
-        x = global_add_pool(x, batch)  # [batch_size, output_dim]
-        
-        # Normalization and activation
-        x = self.bn(x)
-        x = self.prelu(x)
-        
         return x
 
 class BaseDeepDTAF(nn.Module):
@@ -308,10 +246,8 @@ class BaseDeepDTAF(nn.Module):
         if use_ligand:
             if use_gnn:
                 self.gnn_encoder = GNNEncoder(
-                    input_dim=gnn_node_feat,
                     hidden_dim=gnn_hidden,
                     output_dim=smi_oc,
-                    edge_feat_dim=6
                 )
             else:
                 self.smi_embed = nn.Embedding(CHAR_SMI_SET_LEN, smi_embed_size)
