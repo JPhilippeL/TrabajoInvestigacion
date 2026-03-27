@@ -39,6 +39,8 @@ from ui.utils.constants import (RESULTADOS_DIR,
                                 GNN_ARCHITECTURES )
 HEADS = 4  # Número de cabezas para GAT y GraphTransformer
 
+MODELOS = GNN_ARCHITECTURES
+CAPAS = [2,3,4,5]
 
 class EmbeddingEncoder(torch.nn.Module):
     def __init__(self, atom_emb_dim, hybrid_emb_dim, bond_emb_dim):
@@ -73,6 +75,7 @@ class GINNet(torch.nn.Module):
         super().__init__()
 
         self.dropout = dropout  # Guardamos la probabilidad de dropout
+        fc_hidden_dim = hidden_dim//2
 
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
@@ -117,7 +120,7 @@ class GINENet(torch.nn.Module):
     def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout=0.2):
         super().__init__()
         
-        fc_hidden_dim = hidden_dim/2
+        fc_hidden_dim = hidden_dim//2
         
         self.dropout = dropout  # Guardamos la probabilidad de dropout
 
@@ -167,7 +170,7 @@ class GATNet(torch.nn.Module):
     def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout = 0.2):
         super().__init__()
 
-        fc_hidden_dim = hidden_dim/2
+        fc_hidden_dim = hidden_dim//2
 
         self.dropout = dropout  # Guardamos la probabilidad de dropout
 
@@ -212,7 +215,7 @@ class EGATNet(torch.nn.Module):
 
         self.dropout = dropout
 
-        fc_hidden_dim = hidden_dim/2
+        fc_hidden_dim = hidden_dim//2
 
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
@@ -261,7 +264,7 @@ class GraphTransformerNet(torch.nn.Module):
 
         self.dropout = dropout
 
-        fc_hidden_dim = hidden_dim/2
+        fc_hidden_dim = hidden_dim//2
 
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
@@ -311,7 +314,7 @@ class NNConvNet(torch.nn.Module):
 
         self.dropout = dropout
 
-        fc_hidden_dim = hidden_dim/2
+        fc_hidden_dim = hidden_dim//2
 
         # Instancia del encoder compartido
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim)
@@ -660,8 +663,8 @@ def train_multiple_models(
     output_dir = MODELOS_DIR
 ):
     # model_types = GNN_ARCHITECTURES
-    model_types = ["GINE", "NNConv"]
-    capas = [2, 3, 4, 5]
+    model_types = MODELOS
+    capas = CAPAS
     nombreTarget = os.path.splitext(os.path.basename(target_file))[0]
 
     # Preparar datos
@@ -807,8 +810,8 @@ def train_multiple_models_from_pt(
     output_dir = MODELOS_DIR
 ):
     # model_types = GNN_ARCHITECTURES
-    model_types = ["GINE"]
-    capas = [1, 2, 3, 4, 5, 6, 7]
+    model_types = MODELOS
+    capas = CAPAS
     nombreTarget = "BindingAffinity"
 
     # 1. Calcular dimensiones y cargar datos
@@ -991,13 +994,11 @@ if __name__ == "__main__":
     # Configurar el logging para que los mensajes salgan bonitos por consola
     logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
     
-    # Definir las rutas principales (¡Cámbialas por tus rutas reales!)
-    CARPETA_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits" 
-    ARCHIVO_TARGET = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits/pIC50.txt"
-    
     print("🚀 Iniciando el pipeline de entrenamiento para todos los splits...")
     
-    # Lanzar la función controladora
+    # Definir las rutas principales (¡Cámbialas por tus rutas reales!)
+    CARPETA_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/SplitsSMILES" 
+    ARCHIVO_TARGET = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits/pIC50.txt"
     train_all_splits(
         mother_dir=CARPETA_MADRE,
         target_file=ARCHIVO_TARGET,
@@ -1009,7 +1010,21 @@ if __name__ == "__main__":
         patience=100,
         atom_emb_dim = ATOM_EMB_PR,
         hibrid_emb_dim = HYBRID_EMB_PR,
-        bond_emb_dim = 0.3,
+        bond_emb_dim = BOND_EMB_PR,
     )
+
+    # CARPETA_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/data_list_splits_by_folds"
+    # train_all_splits_from_pt(
+    #     mother_dir=CARPETA_MADRE,
+    #     epochs = 500,
+    #     batch_size=16,
+    #     lr=0.001,
+    #     valid_split=0.2,
+    #     hidden_dim=64,
+    #     patience=100,
+    #     atom_emb_dim = 0.1,
+    #     hibrid_emb_dim = HYBRID_EMB_PR,
+    #     bond_emb_dim = BOND_EMB_PR,
+    # )
     
     print("✅ ¡Entrenamiento de todos los splits finalizado!")
