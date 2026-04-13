@@ -77,8 +77,6 @@ def generar_comparativa_fidelity(
         fiab_graph=fiab_graphexp,
         k_values_gnn=k_vals_gnn,          # <--- K de GNNExplainer
         fiab_gnn=fiab_gnn,
-        auc_graph=auc_graph,
-        auc_gnn=auc_gnn,
         model_name=model_folder_name,
         mol_name=mol_name,
         mode=mode,
@@ -111,7 +109,7 @@ def calcular_metricas_comparativas(
         return None, None, None, None, 0.0, None
 
     tensor_gnn = None
-    if gnnexp_weights_path is not None:
+    if gnnexp_weights_path is not None and mode != 'gamma':
         try:
             tensor_gnn = cargar_pesos_tensor(gnnexp_weights_path, device)
         except Exception:
@@ -270,19 +268,6 @@ def calcular_curvas_fidelity(
                     filtered.append(idx)
             indices_activos_reales = filtered
 
-        elif mode == 'gamma':
-            if data_gpu.edge_attr is not None:
-                cat_cols = [EDGE_EMBEDDING_INDICES["BOND_TYPE"]]
-                filtered = []
-                e_vals = data_cpu.edge_attr
-                
-                for idx in sorted_indices:
-                    if idx in cat_cols:
-                        filtered.append(idx)
-                    elif (e_vals[:, idx] != 0).any():
-                        filtered.append(idx)
-                indices_activos_reales = filtered
-
     # Aplicar filtro
     sorted_indices = np.array(indices_activos_reales)
     limit = len(sorted_indices)
@@ -401,9 +386,7 @@ def guardar_plot_fidelity_comparativo(
         k_values_graph,      # K values específicos para tu explainer
         fiab_graph, 
         k_values_gnn,        # K values específicos para GNNExplainer
-        fiab_gnn,
-        auc_graph,           # <--- NUEVO ARGUMENTO: Ya viene calculado
-        auc_gnn,             # <--- NUEVO ARGUMENTO: Ya viene calculado 
+        fiab_gnn,            # <--- NUEVO ARGUMENTO: Ya viene calculado 
         model_name, 
         mol_name,
         mode,

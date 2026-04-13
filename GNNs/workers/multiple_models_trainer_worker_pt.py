@@ -1,24 +1,19 @@
-# trainer_worker.py
+# multiple_models_trainer_worker.py
 import argparse
 import time
 import torch
 import gc
-from GNNs.model_trainer import train_and_save_model
-
+from GNNs.model_trainer import train_multiple_models_from_pt
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--train_dir")
-    parser.add_argument("--val_dir")
-    parser.add_argument("--target_file")
-    parser.add_argument("--model_type")
+    parser.add_argument("--train_pt")
+    parser.add_argument("--val_pt")
     parser.add_argument("--epochs", type=int)
-    parser.add_argument("--model_name", type=str)
-    parser.add_argument("--batch_size", type=int)
-    parser.add_argument("--lr", type=float)
-    parser.add_argument("--hidden_dim", type=int)
-    parser.add_argument("--num_layers", type=int)
-    parser.add_argument("--patience", type=int)
+    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--hidden_dim", type=int, default=64)
+    parser.add_argument("--patience", type=int, default=0)
     parser.add_argument("--atom_emb_dim", type=float)
     parser.add_argument("--hibrid_emb_dim", type=float)
     parser.add_argument("--bond_emb_dim", type=float)
@@ -26,17 +21,13 @@ def main():
 
     try:
         start = time.time()
-        path = train_and_save_model(
-            train_dir=args.train_dir,
-            val_dir=args.val_dir,
-            target_file=args.target_file,
-            model_type=args.model_type,
+        paths = train_multiple_models_from_pt(
+            train_pt = args.train_pt,
+            val_pt = args.val_pt,
             epochs=args.epochs,
-            model_name=args.model_name,
             batch_size=args.batch_size,
             lr=args.lr,
             hidden_dim=args.hidden_dim,
-            num_layers=args.num_layers,
             patience=args.patience,
             atom_emb_dim=args.atom_emb_dim,
             hibrid_emb_dim=args.hibrid_emb_dim,
@@ -44,13 +35,12 @@ def main():
         )
         elapsed = time.time() - start
 
-        print(f"FINISHED|{path}|{elapsed:.2f}", flush=True)
+        print(f"FINISHED||{elapsed:.2f}", flush=True)
     except Exception as e:
         print(f"ERROR|{str(e)}", flush=True)
     finally:
         torch.cuda.empty_cache()
         gc.collect()
-
 
 if __name__ == "__main__":
     main()
