@@ -28,6 +28,9 @@ HBD_PATTERN = Chem.MolFromSmarts('[$([N;!H0;v3,v4&+1]),$([O,S;H1;+0]),n&H1&+0]')
 # Aceptor: N u O con pares libres disponibles (definición estándar de Lipinski)
 HBA_PATTERN = Chem.MolFromSmarts('[$([O,S;H1;v2;!$(*-*=[O,N,P,S])]),$([O,S;H0;v2]),$([O,S;-]),$([N;v3;!$(N-*=[O,N,P,S])]),n&H0&+0,$([o,s;+0;!$([o,s]:n);!$([o,s]:c:n)])]')
 
+# Patrón para enlace rotable: Enlace simple (-), no en anillo (!@), entre átomos no terminales (!D1)
+FLEXIBILITY_BOND_PATTERN = Chem.MolFromSmarts('[!$(*#*)&!D1]-&!@[!$(*#*)&!D1]')
+
 def get_atom_features(atom, is_donor, is_acceptor, mode='one_hot'):
     # 1. Features básicas
     degree = atom.GetDegree() / 10.0
@@ -65,53 +68,56 @@ def get_atom_features(atom, is_donor, is_acceptor, mode='one_hot'):
     else:
         raise ValueError(f"Modo desconocido: {mode}")
 
-def get_edge_features(bond_type_idx, dist, num_bond_types, mode='one_hot'):
+def get_edge_features(bond_type_idx, dist, num_bond_types, bond_flexibility, mode='one_hot'):
     """Construye el vector de características del enlace."""
     
+    # Convertimos el float de rotación a un tensor de 1 dimensión
+    rot_tensor = torch.tensor([bond_flexibility], dtype=torch.float)
+    
     if mode == 'one_hot':
-        # One-hot encoding del tipo de enlace + distancia
+        # One-hot encoding del tipo de enlace + distancia + rotación
         bond_onehot = F.one_hot(torch.tensor(bond_type_idx), num_classes=num_bond_types).float()
-        return torch.cat([bond_onehot, dist], dim=0)
+        return torch.cat([bond_onehot, dist, rot_tensor], dim=0)
         
     elif mode == 'embedding':
-        # Índice del tipo de enlace + distancia
-        return torch.tensor([bond_type_idx, dist.item()], dtype=torch.float)
+        # Índice del tipo de enlace + distancia + rotación
+        return torch.tensor([bond_type_idx, dist.item(), bond_flexibility], dtype=torch.float)
 
 def mol_to_graph_data(mol, mode='embedding'):
     """
     Función unificada para convertir molécula a data
-    Args:
-        mol: Objeto molécula de RDKit.
-        mode: 'one_hot' (para el primer caso) o 'embedding' (para el segundo).
     """
     
     # A. Cargas Gasteiger
     AllChem.ComputeGasteigerCharges(mol)
     
     # B. Identificar Donadores y Aceptores (Indices)
-    # GetSubstructMatches devuelve tuplas de tuplas ((idx1,), (idx2,), ...), lo aplanamos a un set
     hbd_matches = mol.GetSubstructMatches(HBD_PATTERN)
-    hbd_indices = {idx[0] for idx in hbd_matches} # Usamos set para búsqueda rápida O(1)
+    hbd_indices = {idx[0] for idx in hbd_matches} 
 
     hba_matches = mol.GetSubstructMatches(HBA_PATTERN)
     hba_indices = {idx[0] for idx in hba_matches}
+    
+    # C. Identificar Enlaces Rotables (NUEVO)
+    # Devuelve tuplas de pares de átomos conectados por un enlace rotable (idx1, idx2)
+    flexible_matches = mol.GetSubstructMatches(FLEXIBILITY_BOND_PATTERN)
+    flexible_edges = set()
+    for match in flexible_matches:
+        # Añadimos ambas direcciones porque nuestro grafo será bidireccional
+        flexible_edges.add((match[0], match[1]))
+        flexible_edges.add((match[1], match[0]))
 
     # === 1. ÁTOMOS ===
     atom_features = []
     for atom in mol.GetAtoms():
         idx = atom.GetIdx()
-        
-        # Chequeamos si el índice actual está en los sets calculados
         is_donor = idx in hbd_indices
         is_acceptor = idx in hba_indices
-        
-        # Pasamos los flags a la función auxiliar
         atom_features.append(get_atom_features(atom, is_donor, is_acceptor, mode=mode))
 
     x = torch.tensor(atom_features, dtype=torch.float)
 
     # === 2. COORDENADAS 3D ===
-    # Esta parte es idéntica en ambas funciones
     conf = mol.GetConformer()
     pos = []
     for atom in mol.GetAtoms():
@@ -132,10 +138,13 @@ def mol_to_graph_data(mol, mode='embedding'):
         dist = torch.norm(pos[i] - pos[j]).unsqueeze(0)
 
         # Tipo de enlace
-        bond_type_idx = BOND_TYPE_TO_INT.get(bond.GetBondType(), UNKNOWN_BOND_IDX )
+        bond_type_idx = BOND_TYPE_TO_INT.get(bond.GetBondType(), UNKNOWN_BOND_IDX)
 
-        # Obtener features del enlace (delegado a función auxiliar)
-        edge_features = get_edge_features(bond_type_idx, dist, num_bond_types, mode=mode)
+        # Chequear si es rotable (NUEVO)
+        bond_flexibility = 1.0 if (i, j) in flexible_edges else 0.0
+
+        # Obtener features del enlace con el nuevo parámetro
+        edge_features = get_edge_features(bond_type_idx, dist, num_bond_types, bond_flexibility, mode=mode)
 
         # Grafo no dirigido: agregamos (i, j) y (j, i)
         edge_index.append([i, j])
@@ -146,10 +155,10 @@ def mol_to_graph_data(mol, mode='embedding'):
     # Formateo final de tensores
     edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
     
-    if edge_attr: # Prevenir error si no hay enlaces
+    if edge_attr:
         edge_attr = torch.stack(edge_attr).float()
     else:
-        edge_attr = torch.empty((0, x.size(1))) # O dimensión adecuada vacía
+        edge_attr = torch.empty((0, x.size(1))) # Asegúrate de que esta dimensión vacía coincida con el tamaño real de tus edge features si falla
 
     return Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
 
@@ -195,25 +204,26 @@ def onehot_to_indices(data):
     data_new = data.clone()
     data_new.x = x_new
 
-    # === 4. ENLACES (Actualizado) ===
-    if data_new.edge_attr is not None and data_new.edge_attr.shape[1] > 2:
+    # === 4. ENLACES (Actualizado con Rotación) ===
+    # Ajustamos la condición: al menos 1 feature de bond + dist + bond_flexibility = 3
+    if data_new.edge_attr is not None and data_new.edge_attr.shape[1] >= 3:
         edge_attr = data_new.edge_attr
         
-        dist = edge_attr[:, -1].unsqueeze(1)
-        bond_onehot = edge_attr[:, :-1] # Todo menos distancia
+        # Ahora tenemos DOS features continuas al final (dist y bond_flexibility)
+        cont_features = edge_attr[:, -2:] 
+        bond_onehot = edge_attr[:, :-2] # Todo menos las últimas dos columnas
         
         bond_idx = bond_onehot.argmax(dim=1, keepdim=True)
         
         # --- CORRECCIÓN PARA ENLACES ---
-        # Si borramos el enlace (todo ceros), asignamos UNKNOWN_BOND_IDX
-        # Esto es vital para que GraphExplainer funcione bien con enlaces.
         idx_unknown_bond = UNKNOWN_BOND_IDX 
         
         is_empty_bond = (bond_onehot.sum(dim=1, keepdim=True) == 0)
         bond_idx[is_empty_bond] = idx_unknown_bond
         bond_idx = bond_idx.float()
         
-        data_new.edge_attr = torch.cat([bond_idx, dist], dim=1)
+        # Concatenamos el índice recuperado con la distancia y la rotación
+        data_new.edge_attr = torch.cat([bond_idx, cont_features], dim=1)
 
     return data_new
 

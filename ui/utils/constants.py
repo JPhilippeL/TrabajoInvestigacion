@@ -38,7 +38,8 @@ EMBEDDING_INDICES = {
 
 EDGE_EMBEDDING_INDICES = {
     "BOND_TYPE": 0,
-    "DISTANCE": 1
+    "DISTANCE": 1,
+    "BOND_FLEXIBILITY": 2  # <--- NUEVO
 }
 
 # Definimos los valores de "Unknown" para las categorías
@@ -53,24 +54,43 @@ CATEGORICAL_EDGE_INDICES = [EDGE_EMBEDDING_INDICES["BOND_TYPE"]]
 
 # --- ENLACES
 BOND_TYPE_TO_INT = {
-    # --- ENLACES COVALENTES ESTÁNDAR ---
+    # --- ENLACES COVALENTES ESTÁNDAR (Enums RDKit) ---
     Chem.rdchem.BondType.SINGLE: 0,
     Chem.rdchem.BondType.DOUBLE: 1,
     Chem.rdchem.BondType.TRIPLE: 2,
     Chem.rdchem.BondType.AROMATIC: 3,
     
-    # --- ENLACES NO COVALENTES (Los agrupamos en el índice 4) ---
-    Chem.rdchem.BondType.IONIC: 4,
-    Chem.rdchem.BondType.HYDROGEN: 4,
-    Chem.rdchem.BondType.DATIVE: 4,
-    Chem.rdchem.BondType.ZERO: 4, # A veces usado para interacciones metálicas o de van der Waals
+    # --- INTERACCIONES NO COVALENTES (Strings Arpeggio) ---
+    "AMIDERING": 4,
+    "hydrophobic": 5,
+    "CARBONPI": 6,
+    "DONORPI": 7,
+    "METSULPHURPI": 8,
+    "EF": 9,           # Edge-to-Face 
+    "vdw_clash": 10,
+    "FE": 11,          # Face-to-Edge / Face-to-Face
+    "vdw": 12,
+    "hbond": 13,
     
-    # --- OTROS / DESCONOCIDOS ---
-    Chem.rdchem.BondType.OTHER: 5,
-    Chem.rdchem.BondType.UNSPECIFIED: 5
+    # --- AGRUPACIÓN DE ENLACES DÉBILES ---
+    # Todos estos apuntan al mismo índice (14)
+    "weak_hbond": 14,
+    "weak_polar": 14,
+    "polar": 14,
+    
+    # --- OTROS / DESCONOCIDOS (Índice Final) ---
+    Chem.rdchem.BondType.OTHER: 15,
+    Chem.rdchem.BondType.UNSPECIFIED: 15,
+    "OTHER": 15
 }
 
-EDGE_FEATURE_NAMES = ["Single", "Double", "Triple", "Aromatic", "No_Covalent", "Other", "Distance"]
+EDGE_FEATURE_NAMES = [
+    "Single", "Double", "Triple", "Aromatic", 
+    "AMIDERING", "Hydrophobic", "CARBONPI", "DONORPI", 
+    "METSULPHURPI", "EF", "Vdw_clash", "FE", "Vdw", "Hbond", 
+    "Weak_hbond_group", "Other",
+    "Distance", "Is_Rotatable" # (Tus variables continuas al final)
+]
 
 # Variable auxiliar para el índice de "Unknown Bond"
 UNKNOWN_BOND_IDX = BOND_TYPE_TO_INT[Chem.rdchem.BondType.OTHER]

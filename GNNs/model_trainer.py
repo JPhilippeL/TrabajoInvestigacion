@@ -60,9 +60,11 @@ class EmbeddingEncoder(torch.nn.Module):
 
     def encode_edges(self, edge_attr):
         bond_idx = edge_attr[:, 0].long()
-        bond_dist = edge_attr[:, 1].unsqueeze(1)
+        # Tomamos TODAS las features continuas de enlaces (distancia y rotación)
+        cont_features = edge_attr[:, 1:] 
+        
         bond_emb = self.bond_embedding(bond_idx)
-        return torch.cat([bond_emb, bond_dist], dim=1)
+        return torch.cat([bond_emb, cont_features], dim=1)
 
 
 # ----------------------
