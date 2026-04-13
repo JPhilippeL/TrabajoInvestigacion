@@ -2,11 +2,18 @@ from PySide6.QtCore import QThread, Signal
 from URVDEEPTAF.Core.urvdtaf_generate_data import URVDataGenerator
 from URVDEEPTAF.Core.urvdtaf_trainer import train
 from URVDEEPTAF.Core.urvdtaf_tester import test_model
-from URVDEEPTAF.Core.urvdtaf_model import MODEL_DICT
+from URVDEEPTAF.Core.urvdtaf_model import MODEL_DICT, DeepDTAF_GNN, DeepDTAF_GNN_NoPocket, DeepDTAF_GNN_NoProtein, DeepDTAF_GNN_OnlyLigand
 import traceback
 import os
 import glob
 import pandas as pd
+
+MODEL_DICT_2 = {
+    'DeepDTAF_GNN': DeepDTAF_GNN,              # Model E
+    'DeepDTAF_GNN_NoPocket': DeepDTAF_GNN_NoPocket,     # Model F
+    'DeepDTAF_GNN_NoProtein': DeepDTAF_GNN_NoProtein,    # Model G
+    'DeepDTAF_GNN_OnlyLigand': DeepDTAF_GNN_OnlyLigand,   # Model H
+}
 
 # ==============================================================================
 # HILO DE SEGUNDO PLANO (QThread) PARA NO BLOQUEAR LA UI
@@ -103,7 +110,7 @@ class TrainAllModelsThread(QThread):
     def __init__(self, base_params, parent=None):
         super().__init__(parent)
         self.base_params = base_params
-        self.model_names = MODEL_DICT # Lista de las keys de MODEL_DICT
+        self.model_names = MODEL_DICT_2 # Lista de las keys de MODEL_DICT
 
     def run(self):
         """Itera sobre la lista de modelos y los entrena uno por uno."""

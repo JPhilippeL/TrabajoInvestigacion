@@ -260,7 +260,7 @@ class MyDataset(Dataset):
         
         # Pre-compute molecular graphs if using GNN
         if use_gnn:
-            data_list = torch.load(os.path.join(os.path.dirname(data_path), f"data_list_ligand.pt"), weights_only=False)
+            data_list = torch.load(os.path.join(os.path.dirname(data_path), f"data_list_pocket.pt"), weights_only=False)
             data_dict = {}
             for data in data_list:
                 x = data.x.detach() if data.x is not None else None
@@ -280,10 +280,13 @@ class MyDataset(Dataset):
 
                 data_dict[fixed_data.name] = fixed_data
 
-            #data_dict = {data.name: data for data in data_list}
+            # Only add graphs for PDB IDs present in both ligands and data_dict
             self.graphs = {}
             for pdbid, smiles in ligands.items():
-                self.graphs[pdbid] = data_dict[pdbid]
+                if pdbid in data_dict:
+                    self.graphs[pdbid] = data_dict[pdbid]
+                else:
+                    print(f"Warning: No graph data found for PDB ID '{pdbid}' in data_list_pocket.pt. Skipping.")
                # graph = smiles_to_graph(smiles)
               #  if graph is not None:
               #      self.graphs[pdbid] = graph
