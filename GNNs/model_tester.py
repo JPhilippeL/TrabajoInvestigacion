@@ -2,19 +2,24 @@
 import pandas as pd
 import torch
 from rdkit import Chem
-from torch_geometric.data import Data
-from GNNs.model_trainer import create_model, calc_dim
 import os
 import re
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error, r2_score
 from math import sqrt
-from GNNs.data_processing import read_targets, load_data_from_sdf, mol_to_graph_data
 import logging
 import sys
-from ui.utils.constants import RESULTADOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, OTHER_EDGE_FEATURES, OTHER_NODE_FEATURES
 import csv
 from scipy.stats import pearsonr
+
+dir_actual = os.path.dirname(os.path.abspath(__file__))
+dir_padre = os.path.abspath(os.path.join(dir_actual, ".."))
+sys.path.insert(0, dir_padre)
+
+from GNNs.data_processing import read_targets, load_data_from_sdf, mol_to_graph_data
+from GNNs.model_trainer import create_model, calc_dim
+from ui.utils.constants import RESULTADOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, OTHER_EDGE_FEATURES, OTHER_NODE_FEATURES
+
 
 # Logger por módulo (no tocar basicConfig aquí)
 logger = logging.getLogger(__name__)
@@ -396,7 +401,7 @@ def test_all_models_in_directory(models_dir, sdf_dir, targets_file, output_dir=R
 
             # ATENCIÓN AQUÍ: Si test_model_on_directory guarda archivos, 
             # también deberías pasarle output_dir para que no mezcle los plots.
-            test_model_on_directory(model_path, sdf_dir, targets_file, output_dir) 
+            test_model_on_directory(model_path, sdf_dir, targets_file) 
 
             resultados.append((fname, f"{rmse:.4f}", f"{pearson_r:.4f}", f"{r2_val:.4f}"))
 
@@ -454,7 +459,7 @@ def test_all_splits(
             models_dir=models_dir,
             sdf_dir=sdf_dir,
             targets_file=targets_file,
-            output_dir=split_results_dir # <--- Pasamos la ruta de guardado
+            output_dir=base_results_dir # <--- Pasamos la ruta de guardado
         )
 
 def test_all_models_in_directory_pt(models_dir, pt_file, output_dir=RESULTADOS_DIR): # <--- NUEVO PARÁMETRO
@@ -582,10 +587,10 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
     
     # Rutas principales
-    MODELOS_MADRE = "./modelos_entrenados"      # Donde están las carpetas split_0, split_1... con los .pt
-    DATOS_MADRE = "./datos_proyecto/mis_5_splits" # Donde están las carpetas de los splits con los SDF
-    TARGETS = "./datos_proyecto/target.txt"
-    RESULTADOS_MADRE = "./resultados_testing"   # Donde se guardarán los CSV finales
+    MODELOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebaSoloSMILES"      # Donde están las carpetas split_0, split_1... con los .pt
+    DATOS_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/SplitsSMILES" # Donde están las carpetas de los splits con los SDF
+    TARGETS = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits/pIC50.txt"
+    RESULTADOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebaSoloSmiles"   # Donde se guardarán los CSV finales
     
     print("🚀 Iniciando el testing masivo de todos los splits...")
     
@@ -594,7 +599,7 @@ if __name__ == "__main__":
         data_mother_dir=DATOS_MADRE,
         targets_file=TARGETS,
         base_results_dir=RESULTADOS_MADRE,
-        test_folder_name="validation" # Cambia esto a "test" si tu carpeta de datos a probar se llama así
+        test_folder_name="test" # Cambia esto a "test" si tu carpeta de datos a probar se llama así
     )
     
     print("✅ ¡Testing finalizado!")
