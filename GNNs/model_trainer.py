@@ -990,6 +990,7 @@ if __name__ == "__main__":
     
     print("🚀 Iniciando el pipeline de entrenamiento para todos los splits...")
     
+    # TRAINING CON SDFS
     # Definir las rutas principales (¡Cámbialas por tus rutas reales!)
     CARPETA_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/SplitsSMILES" 
     ARCHIVO_TARGET = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits/pIC50.txt"
@@ -1007,7 +1008,8 @@ if __name__ == "__main__":
         bond_emb_dim = BOND_EMB_PR,
     )
 
-    # CARPETA_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/data_list_splits_by_folds"
+    # TRAINING CON .PT
+    # CARPETA_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/data_list_splits_by_folds" # Carpeta donde estan los .pt
     # train_all_splits_from_pt(
     #     mother_dir=CARPETA_MADRE,
     #     epochs = 500,
@@ -1016,7 +1018,7 @@ if __name__ == "__main__":
     #     valid_split=0.2,
     #     hidden_dim=64,
     #     patience=100,
-    #     atom_emb_dim = 0.1,
+    #     atom_emb_dim = ATOM_EMB_PR,
     #     hibrid_emb_dim = HYBRID_EMB_PR,
     #     bond_emb_dim = BOND_EMB_PR,
     # )
