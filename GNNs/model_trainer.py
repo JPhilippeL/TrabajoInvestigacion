@@ -244,7 +244,7 @@ class EGATNet(torch.nn.Module):
     def forward(self, x, edge_index, edge_attr, batch):
         # x = self.encoder.encode_nodes(x)
         x = self.node_encoder(x)
-        edge_attr = self.encoder.encode_edges(edge_attr)
+        # edge_attr = self.encoder.encode_edges(edge_attr)
         for conv in self.convs:
             x = conv(x, edge_index, edge_attr)
             x = F.elu(x)
@@ -294,7 +294,7 @@ class GraphTransformerNet(torch.nn.Module):
     def forward(self, x, edge_index, edge_attr, batch):
         # x = self.encoder.encode_nodes(x)
         x = self.node_encoder(x)
-        edge_attr = self.encoder.encode_edges(edge_attr)
+        # edge_attr = self.encoder.encode_edges(edge_attr)
         for conv in self.convs:
             x = conv(x, edge_index, edge_attr)
             x = F.relu(x)
@@ -354,7 +354,7 @@ class NNConvNet(torch.nn.Module):
         # 1. Codificación inicial
         # x = self.encoder.encode_nodes(x)
         x = self.node_encoder(x)
-        edge_attr = self.encoder.encode_edges(edge_attr)
+        # edge_attr = self.encoder.encode_edges(edge_attr)
         
         # 2. Paso de mensajes a través de las capas NNConv
         for conv in self.convs:
