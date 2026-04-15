@@ -67,31 +67,6 @@ class TrainThread(QThread):
             # Avisamos a la UI que hubo un error
             self.finished_error.emit(str(e))
 
-# ==============================================================================
-# HILO DE SEGUNDO PLANO PARA EVALUACIÓN (QThread)
-# ==============================================================================
-class TestThread(QThread):
-    # Envía el diccionario con las métricas (RMSE, MAE, R2, etc.)
-    finished_success = Signal(dict)  
-    # Envía el mensaje de error (string)
-    finished_error = Signal(str)     
-
-    def __init__(self, params, parent=None):
-        super().__init__(parent)
-        self.params = params
-
-    def run(self):
-        """Ejecuta la evaluación en segundo plano"""
-        try:
-            # Tu función test_model ya retorna el diccionario 'metrics'
-            metrics = test_model(**self.params)
-            
-            # Avisamos a la UI que todo salió bien
-            self.finished_success.emit(metrics)
-        except Exception as e:
-            # Avisamos a la UI que hubo un error
-            self.finished_error.emit(str(e))
-
 class TrainAllModelsThread(QThread):
     # --- Señales ---
     # Se emite cada vez que un modelo termina exitosamente: (nombre_modelo, run_dir)
@@ -144,6 +119,111 @@ class TrainAllModelsThread(QThread):
         
         # 6. Al salir del bucle, avisamos que terminó el lote completo
         self.all_finished.emit()
+
+class TrainAllSplitsThread(QThread):
+    # --- Señales ---
+    # Se emite al iniciar un split: (nombre_split, actual, total)
+    split_started = Signal(str, int, int)       
+    
+    # Se emite cuando un split termina con éxito: (nombre_split, run_dir)
+    split_finished_success = Signal(str, str)   
+    
+    # Se emite si falla un split: (nombre_split, error_completo)
+    split_finished_error = Signal(str, str)     
+    
+    # Se emite al terminar de procesar TODOS los splits válidos
+    all_finished = Signal()                     
+
+    def __init__(self, mother_dir, base_params, parent=None):
+        super().__init__(parent)
+        self.mother_dir = mother_dir
+        self.base_params = base_params
+        
+        # Opcional: Define aquí tu carpeta base donde guardar los modelos de los splits
+        self.base_save_dir = base_params.get("output_dir", "./resultados_splits") 
+
+    def run(self):
+        """Itera sobre las carpetas de splits y lanza el entrenamiento para cada una."""
+        # 1. Obtener todas las subcarpetas dentro del directorio madre
+        try:
+            posibles_splits = [d for d in os.listdir(self.mother_dir) 
+                               if os.path.isdir(os.path.join(self.mother_dir, d))]
+        except Exception as e:
+            self.split_finished_error.emit("Error_Lectura", traceback.format_exc())
+            self.all_finished.emit()
+            return
+
+        # 2. Filtrar solo las carpetas que realmente tengan train y validation
+        splits_validos = []
+        for split_folder in sorted(posibles_splits):
+            split_path = os.path.join(self.mother_dir, split_folder)
+            train_dir = os.path.join(split_path, "train")
+            val_dir = os.path.join(split_path, "validation") # o "val"
+            
+            if os.path.exists(train_dir) and os.path.exists(val_dir):
+                splits_validos.append((split_folder, train_dir, val_dir))
+            else:
+                print(f"Ignorando '{split_folder}': Faltan carpetas train/validation.")
+
+        total_splits = len(splits_validos)
+
+        # 3. Iterar sobre los splits válidos
+        for index, (split_folder, train_dir, val_dir) in enumerate(splits_validos):
+            # Avisamos a la UI que empieza un nuevo split
+            self.split_started.emit(split_folder, index + 1, total_splits)
+            
+            # Copiar parámetros base para no alterar el diccionario original
+            current_params = self.base_params.copy()
+            
+            # Actualizamos las rutas específicas para este split
+            current_params['train_dir'] = train_dir
+            current_params['val_dir'] = val_dir
+            
+            # Crear directorio único de guardado para este split
+            split_save_dir = os.path.join(self.base_save_dir, split_folder)
+            os.makedirs(split_save_dir, exist_ok=True)
+            current_params['output_dir'] = split_save_dir
+            
+            try:
+                # 4. Ejecutar la función de entrenamiento
+                # (Asegúrate de que 'train' está importada y acepta estos parámetros)
+                run_dir = train(**current_params)
+                
+                # 5. Avisar de éxito
+                self.split_finished_success.emit(split_folder, run_dir)
+                
+            except Exception as e:
+                # Capturar el error completo y emitirlo
+                error_completo = traceback.format_exc()
+                self.split_finished_error.emit(split_folder, error_completo)
+        
+        # 6. Al terminar el bucle, avisar a la UI
+        self.all_finished.emit()
+
+# ==============================================================================
+# HILO DE SEGUNDO PLANO PARA EVALUACIÓN (QThread)
+# ==============================================================================
+class TestThread(QThread):
+    # Envía el diccionario con las métricas (RMSE, MAE, R2, etc.)
+    finished_success = Signal(dict)  
+    # Envía el mensaje de error (string)
+    finished_error = Signal(str)     
+
+    def __init__(self, params, parent=None):
+        super().__init__(parent)
+        self.params = params
+
+    def run(self):
+        """Ejecuta la evaluación en segundo plano"""
+        try:
+            # Tu función test_model ya retorna el diccionario 'metrics'
+            metrics = test_model(**self.params)
+            
+            # Avisamos a la UI que todo salió bien
+            self.finished_success.emit(metrics)
+        except Exception as e:
+            # Avisamos a la UI que hubo un error
+            self.finished_error.emit(str(e))
 
 class TestAllModelsThread(QThread):
     # --- Señales ---

@@ -9,7 +9,7 @@ from URVDEEPTAF.ui.dialogs.test_urvdtaf_dialog import TestDialog
 from URVDEEPTAF.ui.dialogs.batch_train_urvdtaf_dialog import BatchTrainDialog
 from URVDEEPTAF.ui.dialogs.batch_test_urvdtaf_dialog import BatchTestDialog
 
-from URVDEEPTAF.workers import DBGenerationThread, TrainThread, TrainAllModelsThread, TestThread, TestAllModelsThread
+from URVDEEPTAF.workers import DBGenerationThread, TrainThread, TrainAllModelsThread, TestThread, TestAllModelsThread, TrainAllSplitsThread
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,10 @@ class MenuURVDEEPTAF(QMenu):
         batch_train_action = QAction("Entrenar Todos los Modelos", self)
         batch_train_action.triggered.connect(self.entrenar_muchos_modelos_urvdeepdtaf)
         self.addAction(batch_train_action)
+
+        train_splits_action = QAction("Entrenar Splits", self)
+        train_splits_action.triggered.connect(self.entrenar_todos_los_splits)
+        self.addAction(train_splits_action)
 
         # 4. Test Model 
         test_action = QAction("Evaluar Modelo", self)
@@ -101,6 +105,98 @@ class MenuURVDEEPTAF(QMenu):
             self.train_batch_thread.model_finished_error.connect(self.on_batch_model_error)
             self.train_batch_thread.all_finished.connect(self.on_batch_all_finished) # <- Esta desbloquea la UI
             self.train_batch_thread.start()
+    
+    def entrenar_todos_los_splits(self):
+        # Asumiendo que tienes un diálogo o configuración previa para obtener estos datos
+        mother_dir = "/ruta/a/tu/carpeta/madre_de_splits"
+        
+        # Parámetros base que espera tu función train (épocas, batch_size, target_file, etc.)
+        base_params = {
+            "target_file": "targets.csv",
+            "epochs": 50,
+            "batch_size": 32,
+            "output_dir": "./mis_modelos_guardados" # Carpeta raíz de guardado
+        }
+        
+        logger.info(f"Iniciando entrenamiento por splits en: {mother_dir}")
+        self.main_window.setEnabled(False) # Bloqueamos la UI
+        
+        # Instanciamos el hilo
+        self.train_splits_thread = TrainAllSplitsThread(mother_dir, base_params)
+        
+        # Conectamos las señales a los slots de respuesta
+        self.train_splits_thread.split_started.connect(self.on_split_started)
+        self.train_splits_thread.split_finished_success.connect(self.on_split_success)
+        self.train_splits_thread.split_finished_error.connect(self.on_split_error)
+        self.train_splits_thread.all_finished.connect(self.on_all_splits_finished)
+        
+        # Arrancamos el hilo
+        self.train_splits_thread.start()
+
+    # =========================================================
+    # SLOTS DE RESPUESTA PARA LOS SPLITS
+    # =========================================================
+    def on_split_started(self, split_name, actual, total):
+        # Aquí puedes actualizar una ProgressBar si la tienes
+        logger.info(f"🔄 [{actual}/{total}] Iniciando entrenamiento para: {split_name}")
+        # self.ui.progressBar.setValue(actual)
+        # self.ui.progressBar.setMaximum(total)
+
+    def on_split_success(self, split_name, run_dir):
+        logger.info(f"✅ Split completado con éxito: {split_name}. Guardado en: {run_dir}")
+
+    def on_split_error(self, split_name, error_msg):
+        logger.error(f"❌ Error en el split {split_name}:\n{error_msg}")
+
+    def on_all_splits_finished(self):
+        self.main_window.setEnabled(True) # Desbloqueamos la UI
+        logger.info("🎉 Entrenamiento de todos los splits finalizado.")
+
+    def entrenar_todos_los_splits(self):
+        # Asumiendo que tienes un diálogo o configuración previa para obtener estos datos
+        mother_dir = "/ruta/a/tu/carpeta/madre_de_splits"
+        
+        # Parámetros base que espera tu función train (épocas, batch_size, target_file, etc.)
+        base_params = {
+            "target_file": "targets.csv",
+            "epochs": 50,
+            "batch_size": 32,
+            "output_dir": "./mis_modelos_guardados" # Carpeta raíz de guardado
+        }
+        
+        logger.info(f"Iniciando entrenamiento por splits en: {mother_dir}")
+        self.main_window.setEnabled(False) # Bloqueamos la UI
+        
+        # Instanciamos el hilo
+        self.train_splits_thread = TrainAllSplitsThread(mother_dir, base_params)
+        
+        # Conectamos las señales a los slots de respuesta
+        self.train_splits_thread.split_started.connect(self.on_split_started)
+        self.train_splits_thread.split_finished_success.connect(self.on_split_success)
+        self.train_splits_thread.split_finished_error.connect(self.on_split_error)
+        self.train_splits_thread.all_finished.connect(self.on_all_splits_finished)
+        
+        # Arrancamos el hilo
+        self.train_splits_thread.start()
+
+    # =========================================================
+    # SLOTS DE RESPUESTA PARA LOS SPLITS
+    # =========================================================
+    def on_split_started(self, split_name, actual, total):
+        # Aquí puedes actualizar una ProgressBar si la tienes
+        logger.info(f"🔄 [{actual}/{total}] Iniciando entrenamiento para: {split_name}")
+        # self.ui.progressBar.setValue(actual)
+        # self.ui.progressBar.setMaximum(total)
+
+    def on_split_success(self, split_name, run_dir):
+        logger.info(f"✅ Split completado con éxito: {split_name}. Guardado en: {run_dir}")
+
+    def on_split_error(self, split_name, error_msg):
+        logger.error(f"❌ Error en el split {split_name}:\n{error_msg}")
+
+    def on_all_splits_finished(self):
+        self.main_window.setEnabled(True) # Desbloqueamos la UI
+        logger.info("🎉 Entrenamiento de todos los splits finalizado.")
 
     # --- TEST ---
     def testear_modelo_urvdeepdtaf(self):
