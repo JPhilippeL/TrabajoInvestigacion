@@ -1028,7 +1028,7 @@ if __name__ == "__main__":
     #     valid_split=0.2,
     #     hidden_dim=64,
     #     patience=100,
-    #     atom_emb_dim = 0.1,
+    #     atom_emb_dim = ATOM_EMB_PR,
     #     hibrid_emb_dim = HYBRID_EMB_PR,
     #     bond_emb_dim = BOND_EMB_PR,
     # )

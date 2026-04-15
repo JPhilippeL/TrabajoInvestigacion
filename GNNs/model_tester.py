@@ -587,13 +587,14 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
     
     # Rutas principales
-    MODELOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebaNuevasFeatures2"      # Donde están las carpetas split_0, split_1... con los .pt
-    DATOS_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/SplitsSMILES" # Donde están las carpetas de los splits con los SDF
-    TARGETS = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits/pIC50.txt"
-    RESULTADOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Resultados/PruebasNuevasFeatures2"   # Donde se guardarán los CSV finales
+    MODELOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebaOneHot"      # Donde están las carpetas split_0, split_1... con los .pt del modelo
+    RESULTADOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebOneHot"   # Donde se guardarán los CSV finales
     
     print("🚀 Iniciando el testing masivo de todos los splits...")
     
+    # -------------------TESTEO CON SDF ------------------------------
+    DATOS_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/SplitsSMILES" # Donde están las carpetas de los splits con los SDF
+    TARGETS = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits/pIC50.txt"
     test_all_splits(
         models_mother_dir=MODELOS_MADRE,
         data_mother_dir=DATOS_MADRE,
@@ -601,5 +602,13 @@ if __name__ == "__main__":
         base_results_dir=RESULTADOS_MADRE,
         test_folder_name="test" # Cambia esto a "test" si tu carpeta de datos a probar se llama así
     )
+
+    # -------------------TESTEO CON .PT ------------------------------
+    # DATOS_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/SplitsSMILES" # CARPETA DONDE ESTAN LOS .PT
+    # test_all_splits_pt(
+    #     models_mother_dir=MODELOS_MADRE,
+    #     data_mother_dir=DATOS_MADRE,
+    #     base_results_dir=RESULTADOS_MADRE
+    # )
     
     print("✅ ¡Testing finalizado!")
