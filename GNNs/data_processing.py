@@ -9,7 +9,7 @@ from ui.utils.constants import (
     BOND_TYPE_TO_INT, UNKNOWN_BOND_IDX, UNKNOWN_ATOM_IDX, UNKNOWN_HYBRID_IDX,
     periodic_elements, hybridization_types,
     ATOM_TYPE_TO_IDX, HYBRID_TO_IDX,
-    RESULTADOS_DIR
+    RESULTADOS_DIR, N_BOND_TYPES, OTHER_EDGE_FEATURES,OTHER_NODE_FEATURES
 )
 from sklearn.model_selection import train_test_split
 import math
@@ -31,136 +31,185 @@ HBA_PATTERN = Chem.MolFromSmarts('[$([O,S;H1;v2;!$(*-*=[O,N,P,S])]),$([O,S;H0;v2
 # Patrón para enlace rotable: Enlace simple (-), no en anillo (!@), entre átomos no terminales (!D1)
 FLEXIBILITY_BOND_PATTERN = Chem.MolFromSmarts('[!$(*#*)&!D1]-&!@[!$(*#*)&!D1]')
 
-def get_atom_features(atom, is_donor, is_acceptor, mode='one_hot'):
-    # 1. Features básicas
-    degree = atom.GetDegree() / 10.0
-    num_h = atom.GetTotalNumHs() / 10.0
-    is_aromatic = float(atom.GetIsAromatic())
-    
-    # 2. Cargas (Formal y Gasteiger)
-    formal_charge = float(atom.GetFormalCharge())
-    try:
-        gasteiger_charge = atom.GetDoubleProp('_GasteigerCharge')
-        if math.isnan(gasteiger_charge) or math.isinf(gasteiger_charge):
-            gasteiger_charge = 0.0
-    except KeyError:
-        gasteiger_charge = 0.0
-        
-    # 3. H-Bonds (Convertimos bool a float 1.0/0.0)
-    is_donor_feat = float(is_donor)
-    is_acceptor_feat = float(is_acceptor)
+import torch
+from torch_geometric.data import Data
+from rdkit import Chem
+from typing import Any, List
 
-    if mode == 'one_hot':
-        return (one_of_k_encoding_unk(atom.GetSymbol(), periodic_elements) + 
-                [degree, num_h, is_aromatic] + #, formal_charge, gasteiger_charge] + 
-                [is_donor_feat, is_acceptor_feat] +  # <--- NUEVO
-                one_of_k_encoding_unk(atom.GetHybridization().name, hybridization_types))
-    
-    elif mode == 'embedding':
-        symbol_idx = ATOM_TYPE_TO_IDX.get(atom.GetSymbol(), UNKNOWN_ATOM_IDX)
-        hybrid_idx = HYBRID_TO_IDX.get(atom.GetHybridization().name, UNKNOWN_HYBRID_IDX)
-        
-        # Añadimos al final de las features continuas
-        return [symbol_idx, hybrid_idx, degree, num_h, is_aromatic,
-                is_donor_feat, is_acceptor_feat] 
-                # formal_charge, gasteiger_charge, is_donor_feat, is_acceptor_feat]
-    
+# =====================================================================
+# 1. DICCIONARIOS Y FUNCIONES ORIGINALES (Copiados tal cual)
+# =====================================================================
+
+ATOM_FEATURES = {
+    'atomic_num': [1, 6, 7, 8, 9, 15, 16, 17, 35, 53],
+    'formal_charge': [-1, 0, 1],
+    'hybridization': [
+        Chem.rdchem.HybridizationType.SP,
+        Chem.rdchem.HybridizationType.SP2,
+        Chem.rdchem.HybridizationType.SP3
+    ],
+    'aromatic': [0, 1],
+    'ring_size': [0, 3, 4, 5, 6, 7, 8],
+    'h_bonding': [0, 1, 2]
+}
+
+BOND_FEATURES = {
+    'bond_type': [
+        Chem.rdchem.BondType.SINGLE,
+        Chem.rdchem.BondType.DOUBLE,
+        Chem.rdchem.BondType.TRIPLE,
+        Chem.rdchem.BondType.AROMATIC
+    ],
+    'is_conjugated': [0, 1],
+    'is_in_ring': [0, 1]
+}
+
+def one_hot_encoding(value: Any, feature_list: List) -> List[int]:
+    if value not in feature_list:
+        encoding = [0] * len(feature_list)
     else:
-        raise ValueError(f"Modo desconocido: {mode}")
+        encoding = [0] * len(feature_list)
+        encoding[feature_list.index(value)] = 1
+    return encoding
 
-def get_edge_features(bond_type_idx, dist, num_bond_types, bond_flexibility, mode='one_hot'):
-    """Construye el vector de características del enlace."""
+def get_atom_features(atom: Chem.Atom) -> List[int]:
+    features = []
+    features += one_hot_encoding(atom.GetAtomicNum(), ATOM_FEATURES['atomic_num'])
+    features += one_hot_encoding(atom.GetFormalCharge(), ATOM_FEATURES['formal_charge'])
+    features += one_hot_encoding(atom.GetHybridization(), ATOM_FEATURES['hybridization'])
+    features += [int(atom.GetIsAromatic())]
     
-    # Convertimos el float de rotación a un tensor de 1 dimensión
-    rot_tensor = torch.tensor([bond_flexibility], dtype=torch.float)
+    ring_size = 0
+    mol = atom.GetOwningMol()
+    for ring in mol.GetRingInfo().AtomRings():
+        if atom.GetIdx() in ring:
+            ring_size = len(ring)
+            break
+    features += one_hot_encoding(ring_size, ATOM_FEATURES['ring_size'])
     
-    if mode == 'one_hot':
-        # One-hot encoding del tipo de enlace + distancia + rotación
-        bond_onehot = F.one_hot(torch.tensor(bond_type_idx), num_classes=num_bond_types).float()
-        return torch.cat([bond_onehot, dist, rot_tensor], dim=0)
-        
-    elif mode == 'embedding':
-        # Índice del tipo de enlace + distancia + rotación
-        return torch.tensor([bond_type_idx, dist.item(), bond_flexibility], dtype=torch.float)
+    h_bonding = 0
+    if atom.GetAtomicNum() in [7, 8]:
+        h_bonding = 1
+    if atom.GetTotalNumHs() > 0 and atom.GetAtomicNum() in [7, 8]:
+        h_bonding = 2
+    features += one_hot_encoding(h_bonding, ATOM_FEATURES['h_bonding'])
+    
+    return features
 
-def mol_to_graph_data(mol, mode='embedding'):
+def get_bond_features(bond: Chem.Bond) -> List[int]:
+    features = []
+    features += one_hot_encoding(bond.GetBondType(), BOND_FEATURES['bond_type'])
+    features += [int(bond.GetIsConjugated())]
+    features += [int(bond.IsInRing())]
+    return features
+
+
+# =====================================================================
+# 2. TU FUNCIÓN DE GRAFO ACTUALIZADA
+# =====================================================================
+
+def mol_to_graph_data(mol: Chem.Mol) -> Data:
     """
-    Función unificada para convertir molécula a data
+    Convierte una molécula RDKit en un objeto Data de PyTorch Geometric
+    usando estrictamente las nuevas features one-hot.
     """
     
-    # A. Cargas Gasteiger
-    AllChem.ComputeGasteigerCharges(mol)
-    
-    # B. Identificar Donadores y Aceptores (Indices)
-    hbd_matches = mol.GetSubstructMatches(HBD_PATTERN)
-    hbd_indices = {idx[0] for idx in hbd_matches} 
-
-    hba_matches = mol.GetSubstructMatches(HBA_PATTERN)
-    hba_indices = {idx[0] for idx in hba_matches}
-    
-    # C. Identificar Enlaces Rotables (NUEVO)
-    # Devuelve tuplas de pares de átomos conectados por un enlace rotable (idx1, idx2)
-    flexible_matches = mol.GetSubstructMatches(FLEXIBILITY_BOND_PATTERN)
-    flexible_edges = set()
-    for match in flexible_matches:
-        # Añadimos ambas direcciones porque nuestro grafo será bidireccional
-        flexible_edges.add((match[0], match[1]))
-        flexible_edges.add((match[1], match[0]))
-
-    # === 1. ÁTOMOS ===
+    # === 1. NODOS (Átomos) ===
     atom_features = []
     for atom in mol.GetAtoms():
-        idx = atom.GetIdx()
-        is_donor = idx in hbd_indices
-        is_acceptor = idx in hba_indices
-        atom_features.append(get_atom_features(atom, is_donor, is_acceptor, mode=mode))
+        atom_features.append(get_atom_features(atom))
 
+    # PyTorch Geometric espera que las features de nodos sean floats
     x = torch.tensor(atom_features, dtype=torch.float)
 
-    # === 2. COORDENADAS 3D ===
-    conf = mol.GetConformer()
-    pos = []
-    for atom in mol.GetAtoms():
-        p = conf.GetAtomPosition(atom.GetIdx())
-        pos.append([p.x, p.y, p.z])
-    pos = torch.tensor(pos, dtype=torch.float)
-
-    # === 3. ENLACES ===
+    # === 2. ARISTAS (Enlaces) ===
     edge_index = []
     edge_attr = []
-    num_bond_types = len(BOND_TYPE_TO_INT)
 
     for bond in mol.GetBonds():
         i = bond.GetBeginAtomIdx()
         j = bond.GetEndAtomIdx()
 
-        # Calcular distancia
-        dist = torch.norm(pos[i] - pos[j]).unsqueeze(0)
-
-        # Tipo de enlace
-        bond_type_idx = BOND_TYPE_TO_INT.get(bond.GetBondType(), UNKNOWN_BOND_IDX)
-
-        # Chequear si es rotable (NUEVO)
-        bond_flexibility = 1.0 if (i, j) in flexible_edges else 0.0
-
-        # Obtener features del enlace con el nuevo parámetro
-        edge_features = get_edge_features(bond_type_idx, dist, num_bond_types, bond_flexibility, mode=mode)
+        # Obtenemos las features del enlace
+        bond_feat = get_bond_features(bond)
 
         # Grafo no dirigido: agregamos (i, j) y (j, i)
         edge_index.append([i, j])
         edge_index.append([j, i])
-        edge_attr.append(edge_features)
-        edge_attr.append(edge_features)
+        
+        # Duplicamos las features para cada dirección
+        edge_attr.append(bond_feat)
+        edge_attr.append(bond_feat)
 
     # Formateo final de tensores
     edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
     
     if edge_attr:
-        edge_attr = torch.stack(edge_attr).float()
+        # PyTorch Geometric espera que las features de enlaces sean floats
+        edge_attr = torch.tensor(edge_attr, dtype=torch.float)
     else:
-        edge_attr = torch.empty((0, x.size(1))) # Asegúrate de que esta dimensión vacía coincida con el tamaño real de tus edge features si falla
+        # Manejo de seguridad por si hay una molécula sin enlaces (ej. un ion suelto)
+        # El tamaño del vector de enlaces de este código es de 6 dimensiones
+        num_bond_features = len(BOND_FEATURES['bond_type']) + 1 + 1 # 4 + 1 + 1 = 6
+        edge_attr = torch.empty((0, num_bond_features), dtype=torch.float)
 
-    return Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+    # === 3. COORDENADAS 3D (Opcional) ===
+    # Mantengo el pos por si tu GNN usa posiciones (ej. SchNet o EGNN)
+    # Si tu GNN no las usa, puedes borrar este bloque.
+    try:
+        conf = mol.GetConformer()
+        pos = []
+        for atom in mol.GetAtoms():
+            p = conf.GetAtomPosition(atom.GetIdx())
+            pos.append([p.x, p.y, p.z])
+        pos = torch.tensor(pos, dtype=torch.float)
+    except ValueError:
+        # Si la molécula viene de un SMILES sin conformación 3D generada
+        pos = None
+
+    return Data(x=x, edge_index=edge_index, edge_attr=edge_attr, pos=pos)
+
+def get_model_dimensions(mode='one_hot', atom_emb_dim=None, hibrid_emb_dim=None, bond_emb_dim=None):
+    """
+    Calcula las dimensiones de entrada para los nodos (input_dim) 
+    y enlaces (edge_dim) según el modo de extracción de features.
+    """
+    if mode == 'one_hot':
+        # Sumamos las longitudes de las listas en el diccionario ATOM_FEATURES
+        # + 1 por el flag booleano (aromatic) que no usa one-hot
+        input_dim = (
+            len(ATOM_FEATURES['atomic_num']) +
+            len(ATOM_FEATURES['formal_charge']) +
+            len(ATOM_FEATURES['hybridization']) +
+            1 +  # is_aromatic flag (float)
+            len(ATOM_FEATURES['ring_size']) +
+            len(ATOM_FEATURES['h_bonding'])
+        )
+        
+        # Sumamos la longitud de bond_types
+        # + 2 por los flags booleanos (is_conjugated e is_in_ring)
+        edge_dim = (
+            len(BOND_FEATURES['bond_type']) +
+            1 +  # is_conjugated flag (float)
+            1    # is_in_ring flag (float)
+        )
+        
+    elif mode == 'embedding':
+        # Tu lógica original para embeddings
+        calc_atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)
+        calc_hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
+        calc_bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
+
+        input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
+        edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
+        
+    else:
+        raise ValueError(f"Modo desconocido: {mode}. Usa 'one_hot' o 'embedding'.")
+        
+    return input_dim, edge_dim
+
+def calc_dim(x):
+    return max(1, math.ceil(x))
 
 def onehot_to_indices(data):
     """

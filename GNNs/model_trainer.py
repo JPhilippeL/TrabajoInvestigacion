@@ -17,7 +17,7 @@ dir_actual = os.path.dirname(os.path.abspath(__file__))
 dir_padre = os.path.abspath(os.path.join(dir_actual, ".."))
 sys.path.insert(0, dir_padre)
 
-from GNNs.data_processing import prepare_split_training_data, prepare_split_pt_training_data
+from GNNs.data_processing import prepare_split_training_data, prepare_split_pt_training_data, get_model_dimensions, calc_dim
 
 logging.basicConfig(
     level=logging.INFO,
@@ -79,7 +79,7 @@ class GINNet(torch.nn.Module):
         self.dropout = dropout  # Guardamos la probabilidad de dropout
         fc_hidden_dim = hidden_dim//2
 
-        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
+        # self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
         self.convs = torch.nn.ModuleList()
 
@@ -99,7 +99,7 @@ class GINNet(torch.nn.Module):
         )
 
     def forward(self, x, edge_index, edge_attr = None, batch = None):
-        x = self.encoder.encode_nodes(x)
+        # x = self.encoder.encode_nodes(x)
         x = self.node_encoder(x)
         for conv in self.convs:
             x = conv(x, edge_index)
@@ -126,7 +126,8 @@ class GINENet(torch.nn.Module):
         
         self.dropout = dropout  # Guardamos la probabilidad de dropout
 
-        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
+        # --- LÍNEA COMENTADA ---
+        # self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
         self.convs = torch.nn.ModuleList()
 
@@ -146,9 +147,9 @@ class GINENet(torch.nn.Module):
         )
 
     def forward(self, x, edge_index, edge_attr, batch):
-        x = self.encoder.encode_nodes(x)
+        # x = self.encoder.encode_nodes(x)
         x = self.node_encoder(x)
-        edge_attr = self.encoder.encode_edges(edge_attr)
+        # edge_attr = self.encoder.encode_edges(edge_attr)
         
         for conv in self.convs:
             x = conv(x, edge_index, edge_attr)
@@ -176,7 +177,7 @@ class GATNet(torch.nn.Module):
 
         self.dropout = dropout  # Guardamos la probabilidad de dropout
 
-        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
+        # self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
         self.convs = torch.nn.ModuleList()
 
@@ -193,7 +194,7 @@ class GATNet(torch.nn.Module):
         )
 
     def forward(self, x, edge_index, edge_attr=None, batch=None):
-        x = self.encoder.encode_nodes(x)
+        # x = self.encoder.encode_nodes(x)
         x = self.node_encoder(x)
         for conv in self.convs:
             x = conv(x, edge_index)
@@ -219,7 +220,7 @@ class EGATNet(torch.nn.Module):
 
         fc_hidden_dim = hidden_dim//2
 
-        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
+        # self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
         self.convs = torch.nn.ModuleList()
 
@@ -241,7 +242,7 @@ class EGATNet(torch.nn.Module):
         )
 
     def forward(self, x, edge_index, edge_attr, batch):
-        x = self.encoder.encode_nodes(x)
+        # x = self.encoder.encode_nodes(x)
         x = self.node_encoder(x)
         edge_attr = self.encoder.encode_edges(edge_attr)
         for conv in self.convs:
@@ -268,7 +269,7 @@ class GraphTransformerNet(torch.nn.Module):
 
         fc_hidden_dim = hidden_dim//2
 
-        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
+        # self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
         self.convs = torch.nn.ModuleList()
 
@@ -291,7 +292,7 @@ class GraphTransformerNet(torch.nn.Module):
         )
 
     def forward(self, x, edge_index, edge_attr, batch):
-        x = self.encoder.encode_nodes(x)
+        # x = self.encoder.encode_nodes(x)
         x = self.node_encoder(x)
         edge_attr = self.encoder.encode_edges(edge_attr)
         for conv in self.convs:
@@ -319,7 +320,7 @@ class NNConvNet(torch.nn.Module):
         fc_hidden_dim = hidden_dim//2
 
         # Instancia del encoder compartido
-        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim)
+        # self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
         self.convs = torch.nn.ModuleList()
 
@@ -351,7 +352,7 @@ class NNConvNet(torch.nn.Module):
 
     def forward(self, x, edge_index, edge_attr, batch):
         # 1. Codificación inicial
-        x = self.encoder.encode_nodes(x)
+        # x = self.encoder.encode_nodes(x)
         x = self.node_encoder(x)
         edge_attr = self.encoder.encode_edges(edge_attr)
         
@@ -601,8 +602,7 @@ def train_and_save_model(
     calc_hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
     calc_bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
 
-    input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
-    edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
+    input_dim, edge_dim = get_model_dimensions()
 
     # --- NUEVO: CALCULAR NOMBRE ÚNICO AQUÍ ---
     # Buscamos qué nombre está libre en la carpeta de modelos.
@@ -678,10 +678,7 @@ def train_multiple_models(
     calc_hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
     calc_bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
 
-    # Son porcentajes por los que se multiplican las dimensiones reales, 
-    # de esta manera el usuario elige si quiere desde 1 dimension sola hasta el 100%
-    input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
-    edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
+    input_dim, edge_dim = get_model_dimensions()
 
     for model_type in model_types:
         for num_layers in capas:
@@ -749,8 +746,7 @@ def train_and_save_model_from_pt(
     calc_hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
     calc_bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
 
-    input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
-    edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
+    input_dim, edge_dim = get_model_dimensions()
 
     # --- NUEVO: CALCULAR NOMBRE ÚNICO AQUÍ ---
     # Buscamos qué nombre está libre en la carpeta de modelos.
@@ -827,8 +823,7 @@ def train_multiple_models_from_pt(
 
     # Son porcentajes por los que se multiplican las dimensiones reales, 
     # de esta manera el usuario elige si quiere desde 1 dimension sola hasta el 100%
-    input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
-    edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
+    input_dim, edge_dim = get_model_dimensions()
 
     for model_type in model_types:
         for num_layers in capas:
@@ -969,9 +964,6 @@ def train_all_splits_from_pt(
             output_dir=split_save_dir, # <--- Pasamos el directorio para guardar los modelos de este split
             **kwargs
         )
-
-def calc_dim(x):
-    return max(1, math.ceil(x))
 
 def get_unique_name(base_name, directory, extension=".pt"):
     """
