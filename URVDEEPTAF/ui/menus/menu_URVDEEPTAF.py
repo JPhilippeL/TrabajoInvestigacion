@@ -9,7 +9,11 @@ from URVDEEPTAF.ui.dialogs.test_urvdtaf_dialog import TestDialog
 from URVDEEPTAF.ui.dialogs.batch_train_urvdtaf_dialog import BatchTrainDialog
 from URVDEEPTAF.ui.dialogs.batch_test_urvdtaf_dialog import BatchTestDialog
 
-from URVDEEPTAF.workers import DBGenerationThread, TrainThread, TrainAllModelsThread, TestThread, TestAllModelsThread, TrainAllSplitsThread
+from URVDEEPTAF.workers import (
+    DBGenerationThread,
+    TrainThread, TrainAllModelsThread, TrainAllSplitsThread,
+    TestThread, TestAllModelsThread, TestAllSplitsThread
+) 
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +52,10 @@ class MenuURVDEEPTAF(QMenu):
         batch_test_action = QAction("Evaluar Todos los Modelos (Carpeta)", self)
         batch_test_action.triggered.connect(self.testear_multiples_modelos_urvdeepdtaf)
         self.addAction(batch_test_action)
+
+        test_splits_action = QAction("Test Splits", self)
+        test_splits_action.triggered.connect(self.testear_todos_los_splits)
+        self.addAction(train_splits_action)
 
     # --- GENERACIÓN DE DATOS ---
     def generar_data_urvdeepdtaf(self):
@@ -152,52 +160,6 @@ class MenuURVDEEPTAF(QMenu):
         self.main_window.setEnabled(True) # Desbloqueamos la UI
         logger.info("🎉 Entrenamiento de todos los splits finalizado.")
 
-    def entrenar_todos_los_splits(self):
-        # Asumiendo que tienes un diálogo o configuración previa para obtener estos datos
-        mother_dir = "/ruta/a/tu/carpeta/madre_de_splits"
-        
-        # Parámetros base que espera tu función train (épocas, batch_size, target_file, etc.)
-        base_params = {
-            "target_file": "targets.csv",
-            "epochs": 50,
-            "batch_size": 32,
-            "output_dir": "./mis_modelos_guardados" # Carpeta raíz de guardado
-        }
-        
-        logger.info(f"Iniciando entrenamiento por splits en: {mother_dir}")
-        self.main_window.setEnabled(False) # Bloqueamos la UI
-        
-        # Instanciamos el hilo
-        self.train_splits_thread = TrainAllSplitsThread(mother_dir, base_params)
-        
-        # Conectamos las señales a los slots de respuesta
-        self.train_splits_thread.split_started.connect(self.on_split_started)
-        self.train_splits_thread.split_finished_success.connect(self.on_split_success)
-        self.train_splits_thread.split_finished_error.connect(self.on_split_error)
-        self.train_splits_thread.all_finished.connect(self.on_all_splits_finished)
-        
-        # Arrancamos el hilo
-        self.train_splits_thread.start()
-
-    # =========================================================
-    # SLOTS DE RESPUESTA PARA LOS SPLITS
-    # =========================================================
-    def on_split_started(self, split_name, actual, total):
-        # Aquí puedes actualizar una ProgressBar si la tienes
-        logger.info(f"🔄 [{actual}/{total}] Iniciando entrenamiento para: {split_name}")
-        # self.ui.progressBar.setValue(actual)
-        # self.ui.progressBar.setMaximum(total)
-
-    def on_split_success(self, split_name, run_dir):
-        logger.info(f"✅ Split completado con éxito: {split_name}. Guardado en: {run_dir}")
-
-    def on_split_error(self, split_name, error_msg):
-        logger.error(f"❌ Error en el split {split_name}:\n{error_msg}")
-
-    def on_all_splits_finished(self):
-        self.main_window.setEnabled(True) # Desbloqueamos la UI
-        logger.info("🎉 Entrenamiento de todos los splits finalizado.")
-
     # --- TEST ---
     def testear_modelo_urvdeepdtaf(self):
         dialog = TestDialog(self.main_window)
@@ -251,6 +213,57 @@ class MenuURVDEEPTAF(QMenu):
             logger.info(f"🎉 Evaluación por lotes finalizada. Resumen guardado en: {csv_path}")
         else:
             logger.warning("Evaluación finalizada, pero no se generaron métricas (¿Todos los modelos fallaron?).")
+
+    def testear_todos_los_splits(self):
+        # Configuración o valores obtenidos de tu UI/Dialog
+        # Esta es la carpeta donde están guardados los modelos previamente entrenados
+        mother_dir = "./resultados_splits" 
+        
+        # Parámetros base que espera test_model (rutas de datos de validación, batch size de test, etc.)
+        base_params = {
+            "data_path": "/ruta/a/tus/datos_test.csv"
+            # Añade aquí otros parámetros si test_model los necesita
+        }
+        
+        logger.info(f"Iniciando testeo masivo de splits en: {mother_dir}")
+        self.main_window.setEnabled(False) # Bloqueamos la UI
+        
+        # Instanciamos el hilo de testeo
+        self.test_splits_thread = TestAllSplitsThread(mother_dir, base_params)
+        
+        # Conectamos las señales a los slots de respuesta
+        self.test_splits_thread.split_started.connect(self.on_test_split_started)
+        self.test_splits_thread.split_finished_success.connect(self.on_test_split_success)
+        self.test_splits_thread.split_finished_error.connect(self.on_test_split_error)
+        self.test_splits_thread.all_finished.connect(self.on_test_all_splits_finished)
+        
+        # Arrancamos el hilo
+        self.test_splits_thread.start()
+
+    # =========================================================
+    # SLOTS DE RESPUESTA PARA EL TESTEO DE SPLITS
+    # =========================================================
+    def on_test_split_started(self, split_name, actual, total):
+        logger.info(f"🧪 [{actual}/{total}] Iniciando testeo para: {split_name}")
+        # self.ui.progressBar.setValue(actual)
+        # self.ui.progressBar.setMaximum(total)
+
+    def on_test_split_success(self, split_name, metrics):
+        # Formateamos las métricas para que se vean bien en la consola o en un TextEdit
+        metrics_str = " | ".join([f"{k}: {v:.4f}" if isinstance(v, float) else f"{k}: {v}" for k, v in metrics.items()])
+        logger.info(f"✅ [Test Success] {split_name} completado. Métricas: {metrics_str}")
+
+    def on_test_split_error(self, split_name, error_msg):
+        logger.error(f"❌ Error al testear el split {split_name}:\n{error_msg}")
+
+    def on_test_all_splits_finished(self, csv_path):
+        self.main_window.setEnabled(True) # Desbloqueamos la UI
+        
+        if csv_path:
+            logger.info(f"🎉 Testeo de todos los splits finalizado. Resumen guardado en: {csv_path}")
+            # Aquí podrías abrir el CSV automáticamente o mostrar un mensaje de éxito
+        else:
+            logger.warning("Testeo finalizado, pero no se generaron métricas (¿No había modelos válidos?).")
 
 
     # =========================================================================

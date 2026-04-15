@@ -296,3 +296,87 @@ class TestAllModelsThread(QThread):
         
         # Avisamos a la UI que todo el lote terminó
         self.all_finished.emit(csv_path)
+
+class TestAllSplitsThread(QThread):
+    # --- Señales ---
+    # Se emite al iniciar un split: (nombre_split, actual, total)
+    split_started = Signal(str, int, int)       
+    
+    # Se emite cuando un split termina con éxito: (nombre_split, diccionario_metricas)
+    split_finished_success = Signal(str, dict)   
+    
+    # Se emite si falla el testeo de un split: (nombre_split, error_completo)
+    split_finished_error = Signal(str, str)     
+    
+    # Se emite al terminar de procesar TODOS los splits, devuelve la ruta del CSV final
+    all_finished = Signal(str)                     
+
+    def __init__(self, mother_dir, base_params, parent=None):
+        super().__init__(parent)
+        self.mother_dir = mother_dir
+        self.base_params = base_params
+
+    def run(self):
+        """Itera sobre las carpetas de splits, evalúa el modelo de cada una y genera un CSV."""
+        # 1. Obtener todas las subcarpetas (splits) dentro del directorio madre
+        try:
+            subdirs = [d for d in os.listdir(self.mother_dir) 
+                       if os.path.isdir(os.path.join(self.mother_dir, d))]
+        except Exception as e:
+            self.split_finished_error.emit("Error_Lectura", traceback.format_exc())
+            self.all_finished.emit("")
+            return
+        
+        all_metrics = []
+        # Ordenamos para que vaya split_1, split_2, etc.
+        subdirs = sorted(subdirs)
+        total_splits = len(subdirs)
+
+        for index, split_folder in enumerate(subdirs):
+            split_path = os.path.join(self.mother_dir, split_folder)
+            
+            # Avisamos a la UI
+            self.split_started.emit(split_folder, index + 1, total_splits)
+            
+            # 2. Buscar el archivo .pt o .pth dentro de esta carpeta de split
+            pt_files = glob.glob(os.path.join(split_path, "*.pt")) + glob.glob(os.path.join(split_path, "*.pth"))
+            
+            if not pt_files:
+                self.split_finished_error.emit(split_folder, f"No se encontró archivo .pt o .pth en {split_path}")
+                continue # Saltamos al siguiente split
+            
+            # Tomamos el primer modelo encontrado
+            model_path = pt_files[0] 
+            
+            # 3. Preparar parámetros exactos para test_model
+            current_params = self.base_params.copy()
+            current_params["model_path"] = model_path
+            
+            # Guardamos resultados específicos de este test en la misma carpeta del split
+            current_params["output_base"] = split_path 
+            
+            try:
+                # 4. Ejecutar la evaluación (asegúrate de que test_model está importada)
+                metrics = test_model(**current_params)
+                
+                # Preparamos los datos para el CSV general
+                metrics_for_df = {"Split": split_folder}
+                metrics_for_df.update(metrics)
+                all_metrics.append(metrics_for_df)
+                
+                self.split_finished_success.emit(split_folder, metrics)
+                
+            except Exception as e:
+                # Capturar el error completo
+                error_completo = traceback.format_exc()
+                self.split_finished_error.emit(split_folder, error_completo)
+        
+        # 5. Al terminar todos los splits, generamos el CSV global
+        csv_path = ""
+        if all_metrics:
+            df = pd.DataFrame(all_metrics)
+            csv_path = os.path.join(self.mother_dir, "resumen_metricas_splits.csv")
+            df.to_csv(csv_path, index=False)
+        
+        # 6. Avisamos a la UI que todo terminó, pasando la ruta del CSV
+        self.all_finished.emit(csv_path)
