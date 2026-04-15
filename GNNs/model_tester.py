@@ -16,8 +16,8 @@ dir_actual = os.path.dirname(os.path.abspath(__file__))
 dir_padre = os.path.abspath(os.path.join(dir_actual, ".."))
 sys.path.insert(0, dir_padre)
 
-from GNNs.data_processing import read_targets, load_data_from_sdf, mol_to_graph_data
-from GNNs.model_trainer import create_model, calc_dim
+from GNNs.data_processing import read_targets, load_data_from_sdf, mol_to_graph_data, get_model_dimensions, calc_dim
+from GNNs.model_trainer import create_model
 from ui.utils.constants import RESULTADOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, OTHER_EDGE_FEATURES, OTHER_NODE_FEATURES
 
 
@@ -52,8 +52,7 @@ def cargar_modelo(checkpoint_path):
 
     # Son porcentajes por los que se multiplican las dimensiones reales, 
     # de esta manera el usuario elige si quiere desde 1 dimension sola hasta el 100%
-    input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
-    edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
+    input_dim, edge_dim = get_model_dimensions()
 
     # Crear modelo con los parámetros guardados
     model = create_model(
@@ -587,8 +586,8 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
     
     # Rutas principales
-    MODELOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebaSoloSMILES"      # Donde están las carpetas split_0, split_1... con los .pt del modelo
-    RESULTADOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebaSoloSmiles"   # Donde se guardarán los CSV finales
+    MODELOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebaOneHot"      # Donde están las carpetas split_0, split_1... con los .pt del modelo
+    RESULTADOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebOneHot"   # Donde se guardarán los CSV finales
     
     print("🚀 Iniciando el testing masivo de todos los splits...")
     
