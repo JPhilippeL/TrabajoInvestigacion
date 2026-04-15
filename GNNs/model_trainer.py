@@ -39,8 +39,11 @@ from ui.utils.constants import (RESULTADOS_DIR,
                                 GNN_ARCHITECTURES )
 HEADS = 4  # Número de cabezas para GAT y GraphTransformer
 
-MODELOS = GNN_ARCHITECTURES
-CAPAS = [2,3,4,5]
+# MODELOS = GNN_ARCHITECTURES
+MODELOS = ("GraphTransformer",
+    "GINE",
+    "NNConv")
+CAPAS = [2,3,4]
 
 class EmbeddingEncoder(torch.nn.Module):
     def __init__(self, atom_emb_dim, hybrid_emb_dim, bond_emb_dim):
@@ -1012,9 +1015,10 @@ if __name__ == "__main__":
         patience=100,
         atom_emb_dim = ATOM_EMB_PR,
         hibrid_emb_dim = HYBRID_EMB_PR,
-        bond_emb_dim = BOND_EMB_PR,
+        bond_emb_dim = BOND_EMB_PR
     )
 
+    # Para los .pt
     # CARPETA_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/data_list_splits_by_folds"
     # train_all_splits_from_pt(
     #     mother_dir=CARPETA_MADRE,

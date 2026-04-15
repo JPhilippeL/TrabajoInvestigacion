@@ -76,7 +76,7 @@ def cargar_y_predecir(checkpoint_path, sdf_path):
     model, device, target_name = cargar_modelo(checkpoint_path)
 
     # Leer molécula del SDF
-    suppl = Chem.SDMolSupplier(sdf_path, removeHs=False)
+    suppl = Chem.SDMolSupplier(sdf_path, removeHs=True)
     mol = suppl[0]
     if mol is None:
         raise ValueError(f"No se pudo leer la molécula de {sdf_path}")
@@ -587,10 +587,10 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
     
     # Rutas principales
-    MODELOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebaSoloSMILES"      # Donde están las carpetas split_0, split_1... con los .pt
+    MODELOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebaNuevasFeatures2"      # Donde están las carpetas split_0, split_1... con los .pt
     DATOS_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/SplitsSMILES" # Donde están las carpetas de los splits con los SDF
     TARGETS = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits/pIC50.txt"
-    RESULTADOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebaSoloSmiles"   # Donde se guardarán los CSV finales
+    RESULTADOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Resultados/PruebasNuevasFeatures2"   # Donde se guardarán los CSV finales
     
     print("🚀 Iniciando el testing masivo de todos los splits...")
     

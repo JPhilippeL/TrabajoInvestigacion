@@ -262,7 +262,7 @@ def load_data_from_sdf(sdf_dir, target_dict):
             continue
 
         filepath = os.path.join(sdf_dir, filename)
-        suppl = Chem.SDMolSupplier(filepath, removeHs=False)
+        suppl = Chem.SDMolSupplier(filepath, removeHs=True)
         mol = next((m for m in suppl if m is not None), None)
 
         if mol is None:
