@@ -5,7 +5,7 @@ import numpy as np
 import logging
 from rdkit import Chem
 
-from torch_geometric.explain import Explainer, GNNExplainer
+from torch_geometric.explain import Explainer, CaptumExplainer
 from graph_managment.sdf_converter import parse_sdf
 
 # Tus módulos existentes
@@ -18,10 +18,20 @@ from GNNs.explainers.explanation_helper import (
 
 logger = logging.getLogger(__name__)
 
+# Añade esta importación al principio de tu archivo
+
+
 # ====================================================================
-# 3. FUNCIÓN PRINCIPAL (ENTRY POINT)
+# 3.1. FUNCIÓN PRINCIPAL PARA CAPTUM (Baseline basado en Gradientes/SHAP)
 # ====================================================================
-def obtener_GNN_Explainer(checkpoint_path, sdf_path, target_data_path=None, imagen = True):
+def obtener_Captum_Explainer(checkpoint_path, sdf_path, target_data_path=None, imagen=True, captum_method='IntegratedGradients'):
+    """
+    Ejecuta un explicador basado en la librería Captum.
+    Opciones recomendadas para captum_method: 
+    - 'IntegratedGradients' (Baseline sólido)
+    - 'InputXGradient' (Muy rápido)
+    - 'ShapleyValueSampling' (Aproximación SHAP)
+    """
     
     # --- 1. CARGA DE RECURSOS ---
     model, device, model_target_name = cargar_modelo(checkpoint_path)
@@ -40,41 +50,51 @@ def obtener_GNN_Explainer(checkpoint_path, sdf_path, target_data_path=None, imag
     data = mol_to_graph_data(mol, mode='embedding').to(device)
     batch = torch.zeros(data.x.shape[0], dtype=torch.long, device=device)
 
-    # --- 2. EJECUCIÓN GNNEXPLAINER ---
+    # --- 2. EJECUCIÓN CAPTUM EXPLAINER ---
     explainer = Explainer(
         model=model,
-        algorithm=GNNExplainer(epochs=200),
+        algorithm=CaptumExplainer(captum_method), # <--- CAMBIO PRINCIPAL AQUÍ
         explanation_type='model',
         node_mask_type='attributes',
         edge_mask_type='object',
         model_config=dict(mode='regression', task_level='graph', return_type='raw'),
     )
 
-    logger.info(f"Ejecutando GNNExplainer para {mol_name}...")
+    logger.info(f"Ejecutando CaptumExplainer ({captum_method}) para {mol_name}...")
+    
+    # NOTA CRÍTICA PARA CAPTUM: A diferencia de GNNExplainer, los métodos basados 
+    # en gradiente de Captum a veces necesitan saber el índice de la salida. 
+    # Si tu modelo devuelve un tensor de [1, 1], usa target=0. 
+    # Si falla, cámbialo a target=None como lo tenías.
+    target_idx = 0 
+    
     explanation = explainer(
         x=data.x, edge_index=data.edge_index, 
-        edge_attr=data.edge_attr, batch=batch, target=None
+        edge_attr=data.edge_attr, batch=batch, target=target_idx
     )
 
     # --- 3. EXTRACCIÓN Y GUARDADO DE PESOS ---
+    # Reutilizamos tu función helper exacta porque la API de PyG estandariza la salida
     alfa_raw, beta_raw, gamma_raw, delta_raw = extraer_pesos_torchexplainers(explanation)
     
     model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
+    algo_name_full = f"Captum_{captum_method}"
     
-    # Guardamos los tensores crudos (con el orden correcto)
+    # Guardamos los tensores crudos
     guardar_pesos(
         alfa=alfa_raw, beta=beta_raw, gamma=gamma_raw, delta=delta_raw,
         model_name=model_folder_name, mol_name=mol_name,
-        algo_name="GNNExplainer"
+        algo_name=algo_name_full
     )
 
-    if imagen == False:
+    if not imagen:
         logger.info("Pesos guardados, no se hizo imagen")
         return 1
 
     # --- 4. ANÁLISIS Y VISUALIZACIÓN ---
     pred_val = predecir_molecula(model, data, device)
 
+    # Reutilizamos tu pipeline de visualización tal cual
     plotfilename = pipeline_visualizacion_torchexplainers(
         alfa_raw=alfa_raw, beta_raw=beta_raw, 
         delta_raw=delta_raw, gamma_raw=gamma_raw,
@@ -83,7 +103,8 @@ def obtener_GNN_Explainer(checkpoint_path, sdf_path, target_data_path=None, imag
         model=model, data=data, device=device,
         mol_name=mol_name, target_name=target_name_str,
         real_val=real_val, pred_val=pred_val,
-        model_name=model_folder_name
+        model_name=model_folder_name,
+        algo_name=algo_name_full # Le pasamos el nombre específico para el dashboard
     )
     
     logger.info(f"Proceso finalizado. Gráfico en: {plotfilename}")
