@@ -5,7 +5,7 @@ import numpy as np
 import logging
 from rdkit import Chem
 
-from torch_geometric.explain import Explainer, GNNExplainer
+from torch_geometric.explain import Explainer, DummyExplainer
 
 # Tus módulos existentes
 from GNNs.model_tester import cargar_modelo, predecir_molecula
@@ -17,10 +17,7 @@ from GNNs.explainers.explanation_helper import (
 
 logger = logging.getLogger(__name__)
 
-# ====================================================================
-# 3. FUNCIÓN PRINCIPAL (ENTRY POINT)
-# ====================================================================
-def obtener_GNN_Explainer(checkpoint_path, sdf_path, target_data_path=None, imagen = True):
+def obtener_Dummy_Explainer(checkpoint_path, sdf_path, target_data_path=None, imagen=True):
     
     # --- 1. CARGA DE RECURSOS ---
     model, device, model_target_name = cargar_modelo(checkpoint_path)
@@ -30,48 +27,45 @@ def obtener_GNN_Explainer(checkpoint_path, sdf_path, target_data_path=None, imag
     mol_id = os.path.basename(sdf_path).split('.')[0]
     mol_name = mol.GetProp("_Name") if mol.HasProp("_Name") else mol_id
     
-    # Info Target
     target_name_str, real_val = obtener_info_real(target_data_path, mol_id)
     if target_name_str == "Unknown Target" and model_target_name != "Unknown":
         target_name_str = model_target_name
 
-    # Grafo
     data = mol_to_graph_data(mol, mode='embedding').to(device)
     batch = torch.zeros(data.x.shape[0], dtype=torch.long, device=device)
 
-    # --- 2. EJECUCIÓN GNNEXPLAINER ---
+    # --- 2. EJECUCIÓN DUMMY EXPLAINER ---
+    # Es la misma clase base, solo cambia el algoritmo
     explainer = Explainer(
         model=model,
-        algorithm=GNNExplainer(epochs=200),
+        algorithm=DummyExplainer(), # Genera ruido aleatorio
         explanation_type='model',
         node_mask_type='attributes',
         edge_mask_type='object',
         model_config=dict(mode='regression', task_level='graph', return_type='raw'),
     )
 
-    logger.info(f"Ejecutando GNNExplainer para {mol_name}...")
+    logger.info(f"Ejecutando DummyExplainer (Baseline Aleatorio) para {mol_name}...")
+    
     explanation = explainer(
         x=data.x, edge_index=data.edge_index, 
         edge_attr=data.edge_attr, batch=batch, target=None
     )
 
-    # --- 3. EXTRACCIÓN Y GUARDADO DE PESOS ---
+    # --- 3. EXTRACCIÓN Y GUARDADO ---
     alfa_raw, beta_raw, gamma_raw, delta_raw = extraer_pesos_torchexplainers(explanation)
-    
     model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
     
-    # Guardamos los tensores crudos (con el orden correcto)
     guardar_pesos(
         alfa=alfa_raw, beta=beta_raw, gamma=gamma_raw, delta=delta_raw,
         model_name=model_folder_name, mol_name=mol_name,
-        algo_name="GNNExplainer"
+        algo_name="DummyExplainer"
     )
 
-    if imagen == False:
-        logger.info("Pesos guardados, no se hizo imagen")
+    if not imagen:
         return 1
 
-    # --- 4. ANÁLISIS Y VISUALIZACIÓN ---
+    # --- 4. VISUALIZACIÓN ---
     pred_val = predecir_molecula(model, data, device)
 
     plotfilename = pipeline_visualizacion_torchexplainers(
@@ -82,8 +76,9 @@ def obtener_GNN_Explainer(checkpoint_path, sdf_path, target_data_path=None, imag
         model=model, data=data, device=device,
         mol_name=mol_name, target_name=target_name_str,
         real_val=real_val, pred_val=pred_val,
-        model_name=model_folder_name
+        model_name=model_folder_name,
+        algo_name="DummyExplainer"
     )
     
-    logger.info(f"Proceso finalizado. Gráfico en: {plotfilename}")
+    logger.info(f"Proceso finalizado. Gráfico Dummy en: {plotfilename}")
     return plotfilename

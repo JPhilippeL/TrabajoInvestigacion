@@ -15,6 +15,7 @@ from GNNs.model_tester import cargar_modelo
 from GNNs.explainers.graph_explainer_onehot import obtener_graph_explainer
 from GNNs.explainers.model_GNNExplainer import obtener_GNN_Explainer
 from GNNs.explainers.model_Captum_explainer import obtener_Captum_Explainer
+from GNNs.explainers.model_DummyExplainer import obtener_Dummy_Explainer
 from GNNs.explainers.explanation_fidelity import generar_comparativa_fidelity, obtener_aucs_directorio
 from GNNs.data_processing import read_targets, mol_to_graph_data
 
@@ -85,10 +86,10 @@ class MenuExplainerGNN(QMenu):
                         imagen=True, captum_method=captum_method
                     )
                     
-                elif explainer_name == "SubgraphXExplainer":
-                    logger.warning("SubgraphX aún no tiene su función de backend enlazada.")
-                    # plot_path = obtener_SubgraphX_Explainer(...)
-                    return
+                elif explainer_name == "DummyExplainer":
+                    plot_path = obtener_Dummy_Explainer(
+                        model_path, sdf_path, target_path
+                    )
 
                 else:
                     logger.error(f"Explicador no reconocido: {explainer_name}")

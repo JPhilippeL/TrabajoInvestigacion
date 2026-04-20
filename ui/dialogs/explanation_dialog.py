@@ -43,7 +43,7 @@ class ExplanationDialog(QDialog):
             "Captum_IntegratedGradients",
             "Captum_InputXGradient",
             "Captum_ShapleyValueSampling",
-            "SubgraphXExplainer"
+            "DummyExplainer"
         ]
         self.explainer_combo.addItems(explainers)
         
