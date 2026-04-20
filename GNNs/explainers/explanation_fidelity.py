@@ -6,7 +6,7 @@ import os
 import statistics  # <--- IMPORTANTE: Importar esto
 from rdkit import Chem
 from ui.utils.constants import (
-    RESULTADOS_DIR,
+    RESULTADOS_DIR, EXPLAINERS,
     EMBEDDING_INDICES, 
     EDGE_EMBEDDING_INDICES,
 )
@@ -440,16 +440,6 @@ def obtener_aucs_directorio(
         logger.error(f"No existe el directorio de pesos para el modo {mode}: {weights_mode_dir}")
         return
 
-    # --- LISTA MAESTRA PARA LIMPIEZA DE NOMBRES ---
-    KNOWN_EXPLAINERS = [
-        "GraphExplainer",
-        "GNNExplainer",
-        "Captum_IntegratedGradients",
-        "Captum_InputXGradient",
-        "Captum_ShapleyValueSampling",
-        "DummyExplainer"
-    ]
-
     results = [] 
     
     try:
@@ -477,7 +467,7 @@ def obtener_aucs_directorio(
             for w in all_weight_files:
                 if w.endswith(suffix):
                     clean_explainer_name = None
-                    for known in KNOWN_EXPLAINERS:
+                    for known in EXPLAINERS:
                         if known in w:
                             clean_explainer_name = known
                             break 

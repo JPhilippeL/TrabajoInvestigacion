@@ -4,6 +4,15 @@ from rdkit import Chem
 RESULTADOS_DIR = "Resultados"
 MODELOS_DIR = "Modelos"
 
+EXPLAINERS = [
+        "GraphExplainer",
+        "GNNExplainer",
+        "Captum_IntegratedGradients",
+        "Captum_InputXGradient",
+        "Captum_ShapleyValueSampling",
+        "DummyExplainer"
+    ]
+
 # Features Training
 periodic_elements = ['C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na','Ca', 'Fe',
                      'As', 'Al', 'I', 'B', 'V', 'K','Sb', 'Sn', 'Ag', 'Pd',

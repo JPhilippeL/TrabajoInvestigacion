@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QComboBox  # <-- Importamos QComboBox
 )
 from PySide6.QtCore import QSettings
-
+from ui.utils.constants import EXPLAINERS
 
 class ExplanationDialog(QDialog):
     def __init__(self, parent=None):
@@ -37,15 +37,7 @@ class ExplanationDialog(QDialog):
         self.explainer_combo = QComboBox()
         
         # Lista de todos los explicadores disponibles
-        explainers = [
-            "GraphExplainer",
-            "GNNExplainer",
-            "Captum_IntegratedGradients",
-            "Captum_InputXGradient",
-            "Captum_ShapleyValueSampling",
-            "DummyExplainer"
-        ]
-        self.explainer_combo.addItems(explainers)
+        self.explainer_combo.addItems(EXPLAINERS)
         
         # Restaurar la última selección si existe
         last_explainer = self.settings.value("modelTest/last_explainer", "GNNExplainer")
