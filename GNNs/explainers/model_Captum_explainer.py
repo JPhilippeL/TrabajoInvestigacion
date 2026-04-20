@@ -6,7 +6,6 @@ import logging
 from rdkit import Chem
 
 from torch_geometric.explain import Explainer, CaptumExplainer
-from graph_managment.sdf_converter import parse_sdf
 
 # Tus módulos existentes
 from GNNs.model_tester import cargar_modelo, predecir_molecula
@@ -17,9 +16,6 @@ from GNNs.explainers.explanation_helper import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Añade esta importación al principio de tu archivo
-
 
 # ====================================================================
 # 3.1. FUNCIÓN PRINCIPAL PARA CAPTUM (Baseline basado en Gradientes/SHAP)

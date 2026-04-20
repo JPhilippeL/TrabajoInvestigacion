@@ -14,6 +14,7 @@ from ui.dialogs.batch_explainer_comparer_dialog import BatchComparerDialog
 from GNNs.model_tester import cargar_modelo
 from GNNs.explainers.graph_explainer_onehot import obtener_graph_explainer
 from GNNs.explainers.model_GNNExplainer import obtener_GNN_Explainer
+from GNNs.explainers.model_Captum_explainer import obtener_Captum_Explainer
 from GNNs.explainers.explanation_fidelity import generar_comparativa_fidelity, obtener_aucs_directorio
 from GNNs.data_processing import read_targets, mol_to_graph_data
 
@@ -28,15 +29,10 @@ class MenuExplainerGNN(QMenu):
         self.init_actions()
 
     def init_actions(self):
-        # Graph_explainer
-        graph_explainer_action =QAction("Obtener GraphExplainer", self)
-        graph_explainer_action.triggered.connect(self.get_explanation_GraphExplainer)
-        self.addAction(graph_explainer_action)
-
-        # GNN Explainer
-        gnn_explainer_action = QAction("Obtener GNNExplainer", self)
-        gnn_explainer_action.triggered.connect(self.get_explanation_GNNExplainer)
-        self.addAction(gnn_explainer_action)
+        # Obtener explicador
+        explicador_action = QAction("Obtener Explicación", self)
+        explicador_action.triggered.connect(self.get_explanation)
+        self.addAction(explicador_action)
 
         # Batch Graph_explainer
         batch_graph_explainer_action =QAction("Obtener GraphExplainer de Directorio", self)
@@ -58,42 +54,58 @@ class MenuExplainerGNN(QMenu):
         batch_explanation_comparer_action.triggered.connect(self.get_batch_explanation_comparer)
         self.addAction(batch_explanation_comparer_action)
 
-    def get_explanation_GraphExplainer(self):
+    def get_explanation(self):
         dialog = ExplanationDialog(self.main_window)
         if dialog.exec():
-            model_path, sdf_path, target_path = dialog.get_paths()
+            # 1. Recuperamos las 4 variables del diálogo actualizado
+            model_path, sdf_path, target_path, explainer_name = dialog.get_paths()
+            
             try:
-                # Obtener explicación GraphExplanation
-                # feature_mask espera: [Atom, Degree, Arom, Hybrid, BondType, BondDist]
-                plot_path = obtener_graph_explainer(model_path, sdf_path, target_path, num_samples=1000, noise_level=0.01, device='cpu')
+                plot_path = None
+                logger.info(f"Iniciando flujo de explicación con: {explainer_name}")
 
-                # mostrar el sdf por pantalla
-                self.main_window.load_graph_from_file(sdf_path)
+                # 2. Enrutamiento según el explicador seleccionado
+                if explainer_name == "GraphExplainer":
+                    plot_path = obtener_graph_explainer(
+                        model_path, sdf_path, target_path, 
+                        num_samples=1000, noise_level=0.01, device='cpu'
+                    )
+                
+                elif explainer_name == "GNNExplainer":
+                    plot_path = obtener_GNN_Explainer(
+                        model_path, sdf_path, target_path
+                    )
+                
+                elif explainer_name.startswith("Captum_"):
+                    # Extraemos la segunda parte del string (ej: "IntegratedGradients")
+                    captum_method = explainer_name.split("_")[1]
+                    # Asume que importaste obtener_Captum_Explainer al inicio del archivo
+                    plot_path = obtener_Captum_Explainer(
+                        model_path, sdf_path, target_path, 
+                        imagen=True, captum_method=captum_method
+                    )
+                    
+                elif explainer_name == "SubgraphXExplainer":
+                    logger.warning("SubgraphX aún no tiene su función de backend enlazada.")
+                    # plot_path = obtener_SubgraphX_Explainer(...)
+                    return
 
-                # Mostrar la imagen en un diálogo
-                self.image_dialog = ImageDialog(plot_path, self.main_window)
-                self.image_dialog.show()
+                else:
+                    logger.error(f"Explicador no reconocido: {explainer_name}")
+                    return
+
+                # 3. Código común para la interfaz (solo si se generó el plot)
+                if plot_path:
+                    # Mostrar el sdf por pantalla
+                    self.main_window.load_graph_from_file(sdf_path)
+
+                    # Mostrar la imagen generada en un diálogo
+                    self.image_dialog = ImageDialog(plot_path, self.main_window)
+                    self.image_dialog.show()
 
             except Exception as e:
-                logger.error(f"Error en explicación GraphExplanation: {str(e)}", exc_info=True)
-    
-    def get_explanation_GNNExplainer(self):
-        dialog = ExplanationDialog(self.main_window)
-        if dialog.exec():
-            model_path, sdf_path, target_path = dialog.get_paths()
-            try:
-                # Obtener explicación Explain er
-                plot_path = obtener_GNN_Explainer(model_path, sdf_path, target_path)
-
-                # mostrar el sdf por pantalla
-                self.main_window.load_graph_from_file(sdf_path)
-
-                # Mostrar la imagen en un diálogo
-                self.image_dialog = ImageDialog(plot_path, self.main_window)
-                self.image_dialog.show()
-
-            except Exception as e:
-                logger.error(f"Error en explicación GNNExplainer: {str(e)}", exc_info=True)
+                # El log ahora registra dinámicamente en qué explicador falló
+                logger.error(f"Error en explicación con {explainer_name}: {str(e)}", exc_info=True)
 
     def get_batch_explanation_GraphExplainer(self):
         """
