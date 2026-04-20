@@ -335,9 +335,9 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     
     # ------------------- RUTAS DE CONFIGURACIÓN ------------------------------
-    MODELO_PT = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebaOneHot/split_0/best_model.pt" 
-    DATOS_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/SplitsSMILES/test" # Carpeta exacta donde están los .sdf a explicar
-    TARGETS = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits/pIC50.txt"
+    MODELO_PT = "Modelos/ZGINE_paper.pt" 
+    DATOS_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/AqSol_Test_2000" # Carpeta exacta donde están los .sdf a explicar
+    TARGETS = "/home/andromeda/Documentos/Philippe/Datos Philippe/AqSol_Test_2000/Solubility.txt"
     
     print("🚀 Iniciando la generación masiva de pesos de explicabilidad...")
     
