@@ -181,28 +181,62 @@ class MenuExplainerGNN(QMenu):
     def get_explanation_comparer(self):
         dialog = ExplainerComparerDialog(self.main_window)
         if dialog.exec():
-            # 1. Recuperar los 5 valores
-            model_path, sdf_path, graphexplanation_path, gnn_path_raw, mode, reg_fidelity_mas = dialog.get_inputs()
+            model_path, sdf_path, weights_root_dir, mode, reg_fidelity_mas = dialog.get_inputs()
             
-            # 2. Lógica para manejar GNNExplainer como opcional/None
-            # Si el string está vacío (usuario no seleccionó nada), pasamos None.
-            if not gnn_path_raw.strip():
-                gnnexplanation_path = None
-            else:
-                gnnexplanation_path = gnn_path_raw
-
             try:
-                # 3. Llamar a la función generadora pasando el MODO y el path (que puede ser None)
+                import os
+                
+                mol_name = os.path.splitext(os.path.basename(sdf_path))[0]
+                weights_mode_dir = os.path.join(weights_root_dir, mode)
+                
+                if not os.path.exists(weights_mode_dir):
+                    logger.error(f"El directorio de pesos no existe: {weights_mode_dir}")
+                    return
+                
+                # --- LISTA MAESTRA DE EXPLICADORES ---
+                # Usaremos esto para extraer el nombre limpio de los archivos
+                KNOWN_EXPLAINERS = [
+                    "GraphExplainer",
+                    "GNNExplainer",
+                    "Captum_IntegratedGradients",
+                    "Captum_InputXGradient",
+                    "Captum_ShapleyValueSampling",
+                    "DummyExplainer"
+                ]
+
+                weights_paths_dict = {}
+                suffix = f"_{mol_name}.pt"
+                
+                for w_file in os.listdir(weights_mode_dir):
+                    if w_file.endswith(suffix):
+                        # Buscar a qué explicador conocido pertenece este archivo
+                        clean_explainer_name = None
+                        for known in KNOWN_EXPLAINERS:
+                            if known in w_file:
+                                clean_explainer_name = known
+                                break # Encontrado, dejamos de buscar
+                        
+                        # Si lo reconoció, lo añade con la llave LIMPIA
+                        if clean_explainer_name:
+                            weights_paths_dict[clean_explainer_name] = os.path.join(weights_mode_dir, w_file)
+                        else:
+                            logger.warning(f"Archivo ignorado (explicador desconocido): {w_file}")
+                
+                if not weights_paths_dict:
+                    logger.warning(f"No se encontraron pesos válidos para la molécula '{mol_name}' en {weights_mode_dir}")
+                    return
+
+                logger.info(f"Comparando {len(weights_paths_dict)} explicadores: {list(weights_paths_dict.keys())}")
+
+                # Llamada a la función generadora
                 plot_path = generar_comparativa_fidelity(
                     model_path, 
                     sdf_path, 
-                    graphexplanation_path, 
-                    gnnexplanation_path, 
-                    mode=mode,  # <--- Pasamos el modo seleccionado
+                    weights_paths_dict, 
+                    mode=mode,
                     reg_fidelity_mas=reg_fidelity_mas
                 )
 
-                # 4. Mostrar resultado si se generó
                 if plot_path:
                     self.image_dialog = ImageDialog(plot_path, self.main_window)
                     self.image_dialog.show()
@@ -213,16 +247,9 @@ class MenuExplainerGNN(QMenu):
     def get_batch_explanation_comparer(self):
         """
         Calcula métricas de fidelidad para todo un directorio de SDFs comparando
-        GraphExplainer vs GNNExplainer (si existe), buscando los pesos automáticamente.
+        MÚLTIPLES explicadores de forma dinámica, buscando los pesos automáticamente.
         """
-        # Suponemos que este diálogo devuelve:
-        # model_path: Ruta al modelo .pt
-        # sdfs_dir: Ruta al directorio con los .sdf
-        # weights_root_dir: Ruta raíz de los pesos (dentro debe haber carpetas alpha, beta, etc.)
-        # mode: String 'alpha', 'beta', 'gamma' o 'delta'
         dialog = BatchComparerDialog(self.main_window)
-
-        UMBRAL_ERROR = 0.6767
         
         if dialog.exec():
             model_path, sdfs_dir, weights_root_dir, targets_path, mode, reg_fidelity_mas = dialog.get_inputs()
