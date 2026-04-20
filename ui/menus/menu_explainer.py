@@ -11,13 +11,9 @@ from ui.dialogs.explanation_dialog import ExplanationDialog
 from ui.dialogs.explainer_comparer_dialog import ExplainerComparerDialog
 from ui.dialogs.batch_explainer_comparer_dialog import BatchComparerDialog
 
-from GNNs.model_tester import cargar_modelo
 from GNNs.explainers.graph_explainer_onehot import obtener_graph_explainer
-from GNNs.explainers.model_GNNExplainer import obtener_GNN_Explainer
-from GNNs.explainers.model_Captum_explainer import obtener_Captum_Explainer
-from GNNs.explainers.model_DummyExplainer import obtener_Dummy_Explainer
+from GNNs.explainers.model_TorchExplainers import obtener_Dummy_Explainer, obtener_Captum_Explainer, obtener_GNN_Explainer
 from GNNs.explainers.explanation_fidelity import generar_comparativa_fidelity, obtener_aucs_directorio
-from GNNs.data_processing import read_targets, mol_to_graph_data
 
 logger = logging.getLogger(__name__)
 
