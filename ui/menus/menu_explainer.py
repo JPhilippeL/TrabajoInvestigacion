@@ -5,7 +5,7 @@ import os
 from rdkit import Chem
 import logging
 
-from ui.dialogs.batch_model_test_dialog import BatchModelTestDialog
+from ui.dialogs.batch_explanation_dialog import BatchExplanationDialog
 from ui.dialogs.image_dialog import ImageDialog
 from ui.dialogs.explanation_dialog import ExplanationDialog
 from ui.dialogs.explainer_comparer_dialog import ExplainerComparerDialog
@@ -32,14 +32,9 @@ class MenuExplainerGNN(QMenu):
         self.addAction(explicador_action)
 
         # Batch Graph_explainer
-        batch_graph_explainer_action =QAction("Obtener GraphExplainer de Directorio", self)
-        batch_graph_explainer_action.triggered.connect(self.get_batch_explanation_GraphExplainer)
-        self.addAction(batch_graph_explainer_action)
-
-        # Batch GNN Explainer
-        batch_gnn_explainer_action = QAction("Obtener GNNExplainer de Directorio", self)
-        batch_gnn_explainer_action.triggered.connect(self.get_batch_explanation_GNNExplainer)
-        self.addAction(batch_gnn_explainer_action)
+        batch_explainer_action =QAction("Obtener Explicacion de Directorio", self)
+        batch_explainer_action.triggered.connect(self.get_batch_explanation)
+        self.addAction(batch_explainer_action)
 
         # Comparador
         explanation_comparer_action = QAction("Comparar Explicadores", self)
@@ -104,14 +99,17 @@ class MenuExplainerGNN(QMenu):
                 # El log ahora registra dinámicamente en qué explicador falló
                 logger.error(f"Error en explicación con {explainer_name}: {str(e)}", exc_info=True)
 
-    def get_batch_explanation_GraphExplainer(self):
+    def get_batch_explanation(self):
         """
-        Procesa un directorio completo de archivos SDF usando GraphExplainer.
-        Reutiliza BatchModelTestDialog para seleccionar Modelo, Directorio y Targets.
+        Procesa un directorio completo de archivos SDF usando el explicador seleccionado.
+        Utiliza BatchExplanationDialog para seleccionar Modelo, Directorio, Targets y Explicador.
         """
-        dialog = BatchModelTestDialog(self.main_window)
+        # Asegúrate de haber importado BatchExplanationDialog al principio del archivo
+        dialog = BatchExplanationDialog(self.main_window)
         if dialog.exec():
-            model_path, directory_path, target_path = dialog.get_paths()
+            # Recuperamos las 4 variables del diálogo
+            model_path, directory_path, target_path, explainer_name = dialog.get_paths()
+            
             try:
                 # Filtrar archivos .sdf
                 sdf_files = [f for f in os.listdir(directory_path) if f.endswith('.sdf')]
@@ -120,60 +118,65 @@ class MenuExplainerGNN(QMenu):
                     logger.warning(f"No se encontraron archivos .sdf en {directory_path}")
                     return
 
-                logger.info(f"Iniciando procesamiento batch GraphExplainer para {len(sdf_files)} archivos.")
+                logger.info(f"Iniciando procesamiento batch con {explainer_name} para {len(sdf_files)} archivos.")
 
                 for sdf_file in sdf_files:
                     full_sdf_path = os.path.join(directory_path, sdf_file)
                     
-                    # Llamada a la función explicadora
-                    # Asumimos que esta función ya gestiona el guardado de la imagen internamente
-                    obtener_graph_explainer(
-                        model_path, 
-                        full_sdf_path, 
-                        target_path, 
-                        num_samples=1000, 
-                        noise_level=0.01, 
-                        device='cpu',
-                        imagen = False
-                    )
-                    logger.info(f"Procesado: {sdf_file}")
+                    # Try-except interno: Si una molécula falla, pasamos a la siguiente sin abortar el batch completo
+                    try:
+                        # Enrutamiento según el explicador seleccionado
+                        if explainer_name == "GraphExplainer":
+                            obtener_graph_explainer(
+                                model_path, 
+                                full_sdf_path, 
+                                target_path, 
+                                num_samples=1000, 
+                                noise_level=0.01, 
+                                device='cpu',
+                                imagen=False
+                            )
+                        
+                        elif explainer_name == "GNNExplainer":
+                            obtener_GNN_Explainer(
+                                model_path, 
+                                full_sdf_path, 
+                                target_path,
+                                imagen=False
+                            )
+                        
+                        elif explainer_name.startswith("Captum_"):
+                            captum_method = explainer_name.split("_")[1]
+                            obtener_Captum_Explainer(
+                                model_path, 
+                                full_sdf_path, 
+                                target_path, 
+                                imagen=False, 
+                                captum_method=captum_method
+                            )
+                            
+                        elif explainer_name == "DummyExplainer":
+                            obtener_Dummy_Explainer(
+                                model_path, 
+                                full_sdf_path, 
+                                target_path,
+                                imagen=False
+                            )
 
-                logger.info("Procesamiento batch GraphExplainer finalizado.")
+                        else:
+                            logger.error(f"Explicador no reconocido en batch: {explainer_name}")
+                            return
+
+                        logger.info(f"Procesado correctamente: {sdf_file}")
+
+                    except Exception as inner_e:
+                        logger.error(f"Error procesando {sdf_file} con {explainer_name}: {str(inner_e)}", exc_info=True)
+                        # El bucle continúa automáticamente con el siguiente archivo
+
+                logger.info(f"Procesamiento batch con {explainer_name} finalizado.")
 
             except Exception as e:
-                logger.error(f"Error en batch GraphExplainer: {str(e)}", exc_info=True)
-
-    def get_batch_explanation_GNNExplainer(self):
-        """
-        Procesa un directorio completo de archivos SDF usando GNNExplainer.
-        Reutiliza BatchModelTestDialog para seleccionar Modelo, Directorio y Targets.
-        """
-        dialog = BatchModelTestDialog(self.main_window)
-        if dialog.exec():
-            model_path, directory_path, target_path = dialog.get_paths()
-            try:
-                # Filtrar archivos .sdf
-                sdf_files = [f for f in os.listdir(directory_path) if f.endswith('.sdf')]
-
-                if not sdf_files:
-                    logger.warning(f"No se encontraron archivos .sdf en {directory_path}")
-                    return
-
-                logger.info(f"Iniciando procesamiento batch GNNExplainer para {len(sdf_files)} archivos.")
-
-                for sdf_file in sdf_files:
-                    full_sdf_path = os.path.join(directory_path, sdf_file)
-
-                    # Llamada a la función explicadora
-                    # Asumimos que esta función ya gestiona el guardado de la imagen internamente
-                    obtener_GNN_Explainer(model_path, full_sdf_path, target_path, imagen=False)
-                    
-                    logger.info(f"Procesado: {sdf_file}")
-
-                logger.info("Procesamiento batch GNNExplainer finalizado.")
-
-            except Exception as e:
-                logger.error(f"Error en batch GNNExplainer: {str(e)}", exc_info=True)
+                logger.error(f"Error crítico en el directorio de batch: {str(e)}", exc_info=True)
 
     def get_explanation_comparer(self):
         dialog = ExplainerComparerDialog(self.main_window)
