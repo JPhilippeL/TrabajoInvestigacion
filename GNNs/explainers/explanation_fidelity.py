@@ -25,12 +25,15 @@ PORCENTAJE_K = 0.25
 # === CONFIGURACIÓN DE ESTILOS PARA LA GRÁFICA ===
 # Asigna colores y marcadores únicos para identificar fácilmente a los 6 explicadores
 PLOT_STYLES = {
-    'GraphExplainer': {'color': '#1f77b4', 'marker': 'o', 'linestyle': '-'},
-    'GNNExplainer': {'color': '#ff7f0e', 'marker': 'x', 'linestyle': '--'},
-    'Captum_IntegratedGradients': {'color': '#2ca02c', 'marker': 's', 'linestyle': '-.'},
-    'Captum_InputXGradient': {'color': '#d62728', 'marker': '^', 'linestyle': ':'},
-    'Captum_ShapleyValueSampling': {'color': '#9467bd', 'marker': 'v', 'linestyle': '-'},
-    'DummyExplainer': {'color': '#7f7f7f', 'marker': 'D', 'linestyle': '--'},
+    'GraphExplainer': {'color': '#1f77b4', 'marker': 'o', 'linestyle': '-'},        # Azul
+    'GNNExplainer': {'color': '#ff7f0e', 'marker': 'x', 'linestyle': '--'},       # Naranja
+    'Captum_IntegratedGradients': {'color': '#2ca02c', 'marker': 's', 'linestyle': '-.'}, # Verde
+    'Captum_InputXGradient': {'color': '#d62728', 'marker': '^', 'linestyle': ':'},       # Rojo
+    'Captum_ShapleyValueSampling': {'color': '#9467bd', 'marker': 'v', 'linestyle': '-'}, # Morado
+    'Captum_Saliency': {'color': '#17becf', 'marker': 'p', 'linestyle': '--'},            # Cian (Pentágono)
+    'Captum_Deconvolution': {'color': '#8c564b', 'marker': 'h', 'linestyle': '-.'},       # Marrón (Hexágono)
+    'Captum_GuidedBackprop': {'color': '#bcbd22', 'marker': '*', 'linestyle': ':'},       # Verde Oliva (Estrella)
+    'DummyExplainer': {'color': '#7f7f7f', 'marker': 'D', 'linestyle': '--'},             # Gris
 }
 
 # FORMULA QUE HACE TODO PARA UN SOLO COMPONENTE

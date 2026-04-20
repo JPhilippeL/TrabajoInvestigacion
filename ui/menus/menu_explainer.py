@@ -14,6 +14,7 @@ from ui.dialogs.batch_explainer_comparer_dialog import BatchComparerDialog
 from GNNs.explainers.graph_explainer_onehot import obtener_graph_explainer
 from GNNs.explainers.model_TorchExplainers import obtener_Dummy_Explainer, obtener_Captum_Explainer, obtener_GNN_Explainer
 from GNNs.explainers.explanation_fidelity import generar_comparativa_fidelity, obtener_aucs_directorio
+from ui.utils.constants import EXPLAINERS
 
 logger = logging.getLogger(__name__)
 
@@ -192,17 +193,6 @@ class MenuExplainerGNN(QMenu):
                 if not os.path.exists(weights_mode_dir):
                     logger.error(f"El directorio de pesos no existe: {weights_mode_dir}")
                     return
-                
-                # --- LISTA MAESTRA DE EXPLICADORES ---
-                # Usaremos esto para extraer el nombre limpio de los archivos
-                KNOWN_EXPLAINERS = [
-                    "GraphExplainer",
-                    "GNNExplainer",
-                    "Captum_IntegratedGradients",
-                    "Captum_InputXGradient",
-                    "Captum_ShapleyValueSampling",
-                    "DummyExplainer"
-                ]
 
                 weights_paths_dict = {}
                 suffix = f"_{mol_name}.pt"
@@ -211,7 +201,7 @@ class MenuExplainerGNN(QMenu):
                     if w_file.endswith(suffix):
                         # Buscar a qué explicador conocido pertenece este archivo
                         clean_explainer_name = None
-                        for known in KNOWN_EXPLAINERS:
+                        for known in EXPLAINERS:
                             if known in w_file:
                                 clean_explainer_name = known
                                 break # Encontrado, dejamos de buscar
@@ -264,3 +254,97 @@ class MenuExplainerGNN(QMenu):
                 )
             except Exception as e:
                 logger.error(f"Error global en Batch Comparer: {str(e)}", exc_info=True)
+
+
+
+# ====================================================================
+# 2. FUNCIÓN ORQUESTADORA
+# ====================================================================
+def generar_todos_los_explainers_masivo(model_path, sdfs_dir, targets_path):
+    """
+    Toma un modelo, un directorio de SDFs y ejecuta los 6 explicadores
+    para cada molécula, guardando solo los tensores (.pt).
+    """
+    # 1. Filtrar los archivos SDF
+    sdf_files = [f for f in os.listdir(sdfs_dir) if f.endswith('.sdf')]
+    if not sdf_files:
+        logging.warning(f"No se encontraron archivos .sdf en {sdfs_dir}")
+        return
+
+    # 2. Lista de los explicadores a procesar
+
+    logging.info(f"Iniciando generación de pesos para {len(sdf_files)} moléculas con {len(EXPLAINERS)} explicadores.")
+
+    # 3. Doble bucle: Por cada explicador, procesamos todas las moléculas
+    for explainer_name in EXPLAINERS:
+        logging.info(f"==================================================")
+        logging.info(f"--- PROCESANDO LOTE: {explainer_name} ---")
+        logging.info(f"==================================================")
+        
+        for sdf_file in sdf_files:
+            full_sdf_path = os.path.join(sdfs_dir, sdf_file)
+            
+            try:
+                # Enrutador igual al de la interfaz, pero automático
+                if explainer_name == "GraphExplainer":
+                    obtener_graph_explainer(
+                        model_path, 
+                        full_sdf_path, 
+                        targets_path, 
+                        num_samples=1000, 
+                        noise_level=0.01, 
+                        device='cpu',
+                        imagen=False  # <-- MUY IMPORTANTE
+                    )
+                    
+                elif explainer_name == "GNNExplainer":
+                    obtener_GNN_Explainer(
+                        model_path, 
+                        full_sdf_path, 
+                        targets_path,
+                        imagen=False
+                    )
+                    
+                elif explainer_name.startswith("Captum_"):
+                    captum_method = explainer_name.split("_")[1]
+                    obtener_Captum_Explainer(
+                        model_path, 
+                        full_sdf_path, 
+                        targets_path, 
+                        imagen=False, 
+                        captum_method=captum_method
+                    )
+                    
+                elif explainer_name == "DummyExplainer":
+                    obtener_Dummy_Explainer(
+                        model_path, 
+                        full_sdf_path, 
+                        targets_path,
+                        imagen=False
+                    )
+
+            except Exception as e:
+                # Si falla una molécula, lo registra y pasa a la siguiente
+                logging.error(f"Error procesando {sdf_file} con {explainer_name}: {str(e)}")
+
+# ====================================================================
+# 3. BLOQUE PRINCIPAL DE EJECUCIÓN
+# ====================================================================
+if __name__ == "__main__":
+    # Configuración de logs
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    
+    # ------------------- RUTAS DE CONFIGURACIÓN ------------------------------
+    MODELO_PT = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebaOneHot/split_0/best_model.pt" 
+    DATOS_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/SplitsSMILES/test" # Carpeta exacta donde están los .sdf a explicar
+    TARGETS = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits/pIC50.txt"
+    
+    print("🚀 Iniciando la generación masiva de pesos de explicabilidad...")
+    
+    generar_todos_los_explainers_masivo(
+        model_path=MODELO_PT,
+        sdfs_dir=DATOS_MADRE,
+        targets_path=TARGETS
+    )
+
+    print("✅ ¡Generación de pesos finalizada! Ya puedes correr la comparativa AUC.")
