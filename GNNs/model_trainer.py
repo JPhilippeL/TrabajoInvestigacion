@@ -117,7 +117,7 @@ class GINENet(torch.nn.Module):
     def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout=0.2):
         super().__init__()
         
-        fc_hidden_dim = hidden_dim/2
+        fc_hidden_dim = hidden_dim//2
         
         self.dropout = dropout  # Guardamos la probabilidad de dropout
 
@@ -167,7 +167,7 @@ class GATNet(torch.nn.Module):
     def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout = 0.2):
         super().__init__()
 
-        fc_hidden_dim = hidden_dim/2
+        fc_hidden_dim = hidden_dim//2
 
         self.dropout = dropout  # Guardamos la probabilidad de dropout
 
@@ -212,7 +212,7 @@ class EGATNet(torch.nn.Module):
 
         self.dropout = dropout
 
-        fc_hidden_dim = hidden_dim/2
+        fc_hidden_dim = hidden_dim//2
 
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
@@ -261,7 +261,7 @@ class GraphTransformerNet(torch.nn.Module):
 
         self.dropout = dropout
 
-        fc_hidden_dim = hidden_dim/2
+        fc_hidden_dim = hidden_dim//2
 
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
@@ -311,7 +311,7 @@ class NNConvNet(torch.nn.Module):
 
         self.dropout = dropout
 
-        fc_hidden_dim = hidden_dim/2
+        fc_hidden_dim = hidden_dim//2
 
         # Instancia del encoder compartido
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim)
@@ -992,8 +992,8 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
     
     # Definir las rutas principales (¡Cámbialas por tus rutas reales!)
-    CARPETA_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits" 
-    ARCHIVO_TARGET = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits/pIC50.txt"
+    CARPETA_MADRE = "/home/philippe/Documents/Databases/URV_database_vNatalia/Splits" 
+    ARCHIVO_TARGET = "/home/philippe/Documents/Databases/URV_Database_2025_Octubre/pIC50.txt"
     
     print("🚀 Iniciando el pipeline de entrenamiento para todos los splits...")
     
