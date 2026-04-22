@@ -336,3 +336,72 @@ def test_all_models_in_directory(models_dir, sdf_dir, targets_file):
 
     return resumen_path  # <--- AGREGA ESTO AL FINAL
 
+def test_all_splits(
+    models_mother_dir, 
+    data_mother_dir, 
+    targets_file, 
+    base_results_dir = RESULTADOS_DIR,
+    test_folder_name="test" # Puede ser "validation" o "test", según cómo se llame tu carpeta de SDFs
+):
+    """
+    Explora la carpeta madre de modelos, busca los splits y los empareja con
+    los datos correspondientes en la carpeta madre de datos para testearlos.
+    """
+    # 1. Obtener las subcarpetas de los splits (ej: split_0, split_1...)
+    splits_modelos = [d for d in os.listdir(models_mother_dir) if os.path.isdir(os.path.join(models_mother_dir, d))]
+    
+    for split_folder in sorted(splits_modelos):
+        models_dir = os.path.join(models_mother_dir, split_folder)
+        
+        # 2. Buscar la carpeta de datos correspondiente
+        # Ej: datos_madre/split_0/test
+        sdf_dir = os.path.join(data_mother_dir, split_folder, test_folder_name)
+        
+        if not os.path.exists(sdf_dir):
+            logging.warning(f"Ignorando '{split_folder}': No se encontró la carpeta de datos en {sdf_dir}")
+            continue
+            
+        logging.info(f"\n{'='*50}\nIniciando Testing para: {split_folder}\n{'='*50}")
+        
+        # 3. Crear directorio de resultados para este split
+        split_results_dir = os.path.join(base_results_dir, split_folder)
+        os.makedirs(split_results_dir, exist_ok=True)
+        
+        # 4. Lanzar tu función de testeo
+        test_all_models_in_directory(
+            models_dir=models_dir,
+            sdf_dir=sdf_dir,
+            targets_file=targets_file,
+            output_dir=base_results_dir # <--- Pasamos la ruta de guardado
+        )
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
+    
+    # Rutas principales
+    MODELOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebaOneHot"      # Donde están las carpetas split_0, split_1... con los .pt del modelo
+    RESULTADOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebOneHot"   # Donde se guardarán los CSV finales
+    
+    print("🚀 Iniciando el testing masivo de todos los splits...")
+    
+    # -------------------TESTEO CON SDF ------------------------------
+    DATOS_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/SplitsSMILES" # Donde están las carpetas de los splits con los SDF
+    TARGETS = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits/pIC50.txt"
+    test_all_splits(
+        models_mother_dir=MODELOS_MADRE,
+        data_mother_dir=DATOS_MADRE,
+        targets_file=TARGETS,
+        base_results_dir=RESULTADOS_MADRE,
+        test_folder_name="test" # Cambia esto a "test" si tu carpeta de datos a probar se llama así
+    )
+
+    # -------------------TESTEO CON .PT ------------------------------
+    # DATOS_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/SplitsSMILES" # CARPETA DONDE ESTAN LOS .PT
+    # test_all_splits_pt(
+    #     models_mother_dir=MODELOS_MADRE,
+    #     data_mother_dir=DATOS_MADRE,
+    #     base_results_dir=RESULTADOS_MADRE
+    # )
+    
+    print("✅ ¡Testing finalizado!")
