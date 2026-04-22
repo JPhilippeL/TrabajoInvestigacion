@@ -1,9 +1,12 @@
 from PySide6.QtWidgets import QMenu
 from PySide6.QtGui import QAction
-import torch
+import sys
 import os
-from rdkit import Chem
 import logging
+
+dir_actual = os.path.dirname(os.path.abspath(__file__))
+dir_padre = os.path.abspath(os.path.join(dir_actual, "../.."))
+sys.path.insert(0, dir_padre)
 
 from ui.dialogs.batch_explanation_dialog import BatchExplanationDialog
 from ui.dialogs.image_dialog import ImageDialog
