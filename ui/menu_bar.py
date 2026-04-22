@@ -1,9 +1,12 @@
 from PySide6.QtWidgets import QMenuBar
 import logging
+
 from ui.menus import MenuMolecula, MenuExplainerGNN, MenuTestGNN, MenuTrainGNN, MenuTransferGNN
 from URVDEEPTAF.ui.menus import MenuURVDEEPTAF
+from GIGN_GUI.view.menus import MenuGIGN
 
 logger = logging.getLogger(__name__)
+
 
 class MenuBar(QMenuBar):
     def __init__(self, parent):
@@ -33,3 +36,7 @@ class MenuBar(QMenuBar):
         # Menu deeptaf
         self.menu_urvdeepdtaf = MenuURVDEEPTAF(self.parent)
         self.addMenu(self.menu_urvdeepdtaf)
+
+        # Menu GIGN
+        self.menu_gign = MenuGIGN(self.parent)
+        self.addMenu(self.menu_gign)
