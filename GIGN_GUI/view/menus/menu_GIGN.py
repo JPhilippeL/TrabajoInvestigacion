@@ -1,5 +1,21 @@
+import os
+
 from PySide6.QtWidgets import QMenu
 from PySide6.QtGui import QAction
+from pathlib import Path
+import logging
+
+from GIGN_GUI.view.dialogs.generate_db_dialog import DBGenerationDialog
+from GIGN_GUI.view.dialogs.predict_dialog import PredictDialog
+from GIGN_GUI.view.dialogs.train_dialog import TrainDialog
+from GIGN_GUI.workers import DBGenerationThread, TrainGIGNThread, PredictThread, HyperparameterTuningProcess
+from GIGN_GUI.view.dialogs.hyperparameter_tuning_dialog import HyperParameterTuningDialog
+
+logger = logging.getLogger(__name__)
+
+SCRIPT = SCRIPT = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "GIGN_GUI", "model",
+    "run_hp_tuning.py", )
 
 
 class MenuGIGN(QMenu):
@@ -15,52 +31,132 @@ class MenuGIGN(QMenu):
         gendata_action.triggered.connect(self.generate_db)
         self.addAction(gendata_action)
 
-        # 2. Train Model
-        train_action = QAction("Entrenar Modelo", self)
+        # 2. Train
+        train_action = QAction("Train", self)
         train_action.triggered.connect(self.train_gign)
         self.addAction(train_action)
 
-        # 4. Test Model
-        test_action = QAction("Predict Modelo", self)
-        test_action.triggered.connect(self.predict_gign)
-        self.addAction(test_action)
+        # 3. Predict
+        predict_action = QAction("Predict", self)
+        predict_action.triggered.connect(self.predict_gign)
+        self.addAction(predict_action)
 
-        hyperparameter_tuning_action = QAction("Hyperparameter Tuning", self)
-        hyperparameter_tuning_action.triggered.connect(self.hyperparameter_tuning)
-        self.addAction(hyperparameter_tuning_action)
+        # 4. Hyperparameter tuning
+        tuning_action = QAction("Hyperparameter Tuning", self)
+        tuning_action.triggered.connect(self.hptuning_gign)
+        self.addAction(tuning_action)
 
     def generate_db(self):
-        pass
+        dialog = DBGenerationDialog(self.main_window)
+
+        if dialog.exec():
+            params = dialog.get_inputs()
+
+            if not params["pic50_file"] or not params["lig_dir"] or not params["pdb_dir"]:
+                logger.error("Some required directories are missing for data generation.")
+                return
+
+            logger.info("Init DB generation...")
+            logger.info("Please wait...")
+
+            self.main_window.setEnabled(False)
+
+            self.db_thread = DBGenerationThread(params, self)
+            self.db_thread.finished_success.connect(self.on_db_generation_success)
+            self.db_thread.finished_error.connect(self.on_db_generation_error)
+            self.db_thread.start()
+
+    def on_db_generation_success(self):
+        logger.info("DB generation finished successfully.")
+        self.main_window.setEnabled(True)
+        self.db_thread = None
+
+    def on_db_generation_error(self, error_message):
+        logger.error(f"DB generation failed: {error_message}")
+        self.main_window.setEnabled(True)
+        self.db_thread = None
 
     def train_gign(self):
-        pass
+        dialog = TrainDialog(self.main_window)
+
+        if dialog.exec():
+            params = dialog.get_inputs()
+
+            logger.info("Init training...")
+            logger.info("Please wait...")
+
+            self.main_window.setEnabled(False)
+
+            self.train_thread = TrainGIGNThread(params, self)
+            self.train_thread.log_message.connect(logger.info)
+            self.train_thread.finished_success.connect(self.on_train_success)
+            self.train_thread.finished_error.connect(self.on_train_error)
+            self.train_thread.start()
+
+    def on_train_success(self):
+        logger.info("Training finished successfully.")
+        self.main_window.setEnabled(True)
+        self.train_thread = None
+
+    def on_train_error(self, error_message):
+        logger.error(f"Training failed: {error_message}")
+        self.main_window.setEnabled(True)
+        self.train_thread = None
 
     def predict_gign(self):
-        pass
+        dialog = PredictDialog(self.main_window)
 
-    def hyperparameter_tuning(self):
-        pass
+        if dialog.exec():
+            params = dialog.get_inputs()
 
-    def on_batch_test_model_success(self, model_name, metrics):
-        pass
+            logger.info("Init prediction...")
+            logger.info("Please wait...")
 
-    def on_batch_test_all_finished(self, csv_path):
-        pass
+            self.main_window.setEnabled(False)
 
-    def on_generation_success(self, results):
-        pass
+            self.predict_thread = PredictThread(params, self)
+            self.predict_thread.log_message.connect(logger.info)
+            self.predict_thread.finished_success.connect(self.on_predict_success)
+            self.predict_thread.finished_error.connect(self.on_predict_error)
+            self.predict_thread.start()
 
-    def on_train_success(self, run_dir):
-        pass
+    def on_predict_success(self):
+        logger.info("Prediction finished successfully.")
+        self.main_window.setEnabled(True)
+        self.predict_thread = None
 
-    def on_hyperparameter_tuning_success(self, hyperparameter_tuning):
-        pass
+    def on_predict_error(self, error_message):
+        logger.error(f"Prediction failed: {error_message}")
+        self.main_window.setEnabled(True)
+        self.predict_thread = None
 
-    def on_batch_model_success(self, model_name, run_dir):
-        pass
+    def hptuning_gign(self):
+        dialog = HyperParameterTuningDialog(self.main_window)
 
-    def on_batch_model_error(self, model_name, error_msg):
-        pass
+        if dialog.exec():
+            params = dialog.get_inputs()
 
-    def on_test_success(self, metrics):
-        pass
+            logger.info("Init Hyperparameter Tuning...")
+            logger.info("Please wait...")
+
+            self.main_window.setEnabled(False)
+
+            self.hptuning_process = HyperparameterTuningProcess(
+                params=params,
+                script_path=SCRIPT,
+                parent=self,
+            )
+            self.hptuning_process.log_message.connect(logger.info)
+            self.hptuning_process.finished_success.connect(self.on_hptuning_success)
+            self.hptuning_process.finished_error.connect(self.on_hptuning_error)
+            self.hptuning_process.start()
+
+    def on_hptuning_success(self):
+        logger.info("Hyperparameter tuning finished successfully.")
+        self.main_window.setEnabled(True)
+        self.hptuning_process = None
+
+    def on_hptuning_error(self, error_message):
+        logger.error(error_message)
+        self.main_window.setEnabled(True)
+        self.hptuning_process = None

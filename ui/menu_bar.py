@@ -3,7 +3,7 @@ import logging
 
 from ui.menus import MenuMolecula, MenuExplainerGNN, MenuTestGNN, MenuTrainGNN, MenuTransferGNN
 from URVDEEPTAF.ui.menus import MenuURVDEEPTAF
-from GIGN_GUI.view.menus import MenuGIGN
+from GIGN_GUI.view.menus.menu_GIGN import MenuGIGN
 
 logger = logging.getLogger(__name__)
 
