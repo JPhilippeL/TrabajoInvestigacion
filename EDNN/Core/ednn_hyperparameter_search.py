@@ -1,7 +1,7 @@
 """
-@file egnn_hyperparameter_search.py
+@file ednn_hyperparameter_search.py
 @author Mohamed EL BOUKHIARI
-@brief Hyperparameter search pipeline for the EGNN module.
+@brief Hyperparameter search pipeline for the EDNN module.
 """
 
 from __future__ import annotations
@@ -14,8 +14,8 @@ from typing import Any, Dict, Iterable, Optional, Tuple
 
 import yaml
 
-from EGNN.Core.egnn_tester import test_model
-from EGNN.Core.egnn_trainer import train
+from EDNN.Core.ednn_trainer import train
+from EDNN.Core.ednn_tester import test_model
 
 
 def ensure_trials_csv(csv_path: str) -> None:
@@ -69,25 +69,19 @@ def save_yaml(data: Dict[str, Any], yaml_path: str) -> None:
 
 def build_best_config_payload(
     trial_id: int,
-    trial_name: str,
     lr: float,
     hidden_dim: int,
     batch_size: int,
     metrics: Dict[str, Any],
-    model_dir: str,
-    result_dir: str,
 ) -> Dict[str, Any]:
     return {
-        "model_name": "EGNN",
+        "model_name": "EDNN",
         "status": "computed",
         "best_trial": {
             "trial_id": trial_id,
-            "trial_name": trial_name,
             "lr": lr,
             "hidden_dim": hidden_dim,
             "batch_size": batch_size,
-            "model_dir": model_dir,
-            "result_dir": result_dir,
         },
         "best_metrics": {
             "rmse_mean": metrics.get("RMSE"),
@@ -148,16 +142,12 @@ def run_hyperparameter_search(
     hidden_dim_values: list[int],
     batch_size_values: list[int],
 ) -> Dict[str, Any]:
-    """
-    @brief Run a grid search over EGNN hyperparameters.
-    @return Dictionary containing the best trial and output paths.
-    """
     os.makedirs(temp_runs_dir, exist_ok=True)
     os.makedirs(models_root, exist_ok=True)
     os.makedirs(results_root, exist_ok=True)
 
-    trials_csv_path = os.path.join(results_root, "egnn_hyperparameter_trials.csv")
-    best_config_yaml_path = os.path.join(results_root, "best_config_egnn.yaml")
+    trials_csv_path = os.path.join(results_root, "ednn_hyperparameter_trials.csv")
+    best_config_yaml_path = os.path.join(results_root, "best_config_ednn.yaml")
 
     ensure_trials_csv(trials_csv_path)
 
@@ -166,17 +156,17 @@ def run_hyperparameter_search(
     best_trial_name: str | None = None
 
     combinations = list(generate_trials(lr_values, hidden_dim_values, batch_size_values))
+
     print(f"Total trials to run: {len(combinations)}")
 
     for trial_index, (lr, hidden_dim, batch_size) in enumerate(combinations, start=1):
         trial_name = f"trial_{trial_index:03d}"
-        trial_models_dir = os.path.join(models_root, trial_name)
-        trial_results_dir = os.path.join(results_root, trial_name)
+        trial_root = os.path.join(temp_runs_dir, trial_name)
+        trial_models_dir = os.path.join(trial_root, "Models_EDNN")
+        trial_results_dir = os.path.join(trial_root, "Results_EDNN")
 
-        if os.path.exists(trial_models_dir):
-            shutil.rmtree(trial_models_dir)
-        if os.path.exists(trial_results_dir):
-            shutil.rmtree(trial_results_dir)
+        if os.path.exists(trial_root):
+            shutil.rmtree(trial_root)
 
         os.makedirs(trial_models_dir, exist_ok=True)
         os.makedirs(trial_results_dir, exist_ok=True)
@@ -229,15 +219,18 @@ def run_hyperparameter_search(
                 best_trial_name = trial_name
                 best_trial_payload = build_best_config_payload(
                     trial_id=trial_index,
-                    trial_name=trial_name,
                     lr=lr,
                     hidden_dim=hidden_dim,
                     batch_size=batch_size,
                     metrics=metrics,
-                    model_dir=trial_models_dir,
-                    result_dir=trial_results_dir,
                 )
                 save_yaml(best_trial_payload, best_config_yaml_path)
+
+                if os.path.exists(models_root):
+                    best_models_dir = os.path.join(models_root, "best_trial_models")
+                    if os.path.exists(best_models_dir):
+                        shutil.rmtree(best_models_dir)
+                    shutil.copytree(trial_models_dir, best_models_dir)
 
         except Exception as exc:
             append_trial_result(
@@ -254,7 +247,6 @@ def run_hyperparameter_search(
                     "error_message": str(exc)[:1000],
                 },
             )
-            print(f"[WARNING] {trial_name} failed: {exc}")
 
     if best_trial_payload is None:
         return {
@@ -271,4 +263,5 @@ def run_hyperparameter_search(
         "best_metrics": best_metrics,
         "trials_csv": trials_csv_path,
         "best_config_yaml": best_config_yaml_path,
+        "best_models_dir": os.path.join(models_root, "best_trial_models"),
     }

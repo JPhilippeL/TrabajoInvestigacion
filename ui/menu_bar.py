@@ -3,6 +3,7 @@ import logging
 from ui.menus import MenuMolecula, MenuExplainerGNN, MenuTestGNN, MenuTrainGNN, MenuTransferGNN
 from URVDEEPTAF.ui.menus import MenuURVDEEPTAF
 from EGNN.ui.menus.menu_EGNN import MenuEGNN
+from EDNN.ui.menus.menu_EDNN import MenuEDNN
 
 logger = logging.getLogger(__name__)
 
@@ -38,3 +39,7 @@ class MenuBar(QMenuBar):
         # Menu EGNN
         self.menu_EGNN = MenuEGNN(self.parent)
         self.addMenu(self.menu_EGNN)
+
+        # Menu EDNN
+        self.menu_EDNN = MenuEDNN(self.parent)
+        self.addMenu(self.menu_EDNN)

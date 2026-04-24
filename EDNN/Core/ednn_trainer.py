@@ -1,28 +1,29 @@
 """
-@file egnn_trainer.py
+@file ednn_trainer.py
 @author Mohamed EL BOUKHIARI
-@brief Training pipeline for the EGNN model.
+@brief Training pipeline for the EDNN model.
 @details
-This file is adapted from 04_c_Train_EGNN.py.
-It exposes a callable train(...) function so that the training process can be
-triggered from the GUI through workers.py.
+This file exposes a callable train(...) function so that the training process
+can be triggered from the GUI through workers.py.
 """
 
 from __future__ import annotations
 
-import ast
 import os
+import ast
 import random
-from typing import Any
-
 import numpy as np
 import torch
 import torch.nn as nn
 from torch_geometric.loader import DataLoader
 from torch.utils.data import Dataset
 
-from .egnn_model import EGNN
+from .ednn_model import EDNN
 
+
+# ============================================================
+# UTILS
+# ============================================================
 
 def load_split_txt(path: str):
     """
@@ -34,11 +35,11 @@ def load_split_txt(path: str):
         return ast.literal_eval(f.read())
 
 
-def seed_everything(seed: int) -> None:
+def seed_everything(seed: int):
     """
     @brief Set all random seeds for reproducibility.
     @param seed Random seed.
-    @return None.
+    @return None
     """
     random.seed(seed)
     np.random.seed(seed)
@@ -46,28 +47,9 @@ def seed_everything(seed: int) -> None:
     torch.cuda.manual_seed_all(seed)
 
 
-def resolve_device(device: str | None) -> str:
+def safe_torch_load(path: str):
     """
-    @brief Resolve the requested device into a valid torch device string.
-    @param device Requested device. Use None or "auto" for automatic selection.
-    @return Device string.
-    """
-    if device is None or device == "" or device == "auto":
-        return "cuda" if torch.cuda.is_available() else "cpu"
-
-    if device.startswith("cuda") and not torch.cuda.is_available():
-        print("[WARNING] CUDA was requested but is not available. Falling back to CPU.")
-        return "cpu"
-
-    return device
-
-
-def safe_torch_load(path: str) -> Any:
-    """
-    @brief Load PyTorch objects while remaining compatible with PyTorch versions
-           that introduced weights_only=True as a safer default.
-    @param path File path.
-    @return Loaded object.
+    @brief Load PyTorch objects while staying compatible with old/new torch versions.
     """
     try:
         return torch.load(path, weights_only=False)
@@ -75,17 +57,16 @@ def safe_torch_load(path: str) -> Any:
         return torch.load(path)
 
 
-def evaluate_regression(model: EGNN, dataloader: DataLoader, device: str) -> tuple[float, float]:
+def val(model, dataloader, device):
     """
-    @brief Evaluate RMSE and Pearson correlation on a dataloader.
-    @param model EGNN model.
-    @param dataloader Evaluation dataloader.
+    @brief Run validation.
+    @param model EDNN model.
+    @param dataloader Validation dataloader.
     @param device Computation device.
-    @return Tuple (RMSE, Pearson).
+    @return RMSE and Pearson correlation.
     """
     model.eval()
-    pred_list = []
-    label_list = []
+    pred_list, label_list = [], []
 
     with torch.no_grad():
         for data in dataloader:
@@ -93,41 +74,45 @@ def evaluate_regression(model: EGNN, dataloader: DataLoader, device: str) -> tup
             pred = model(data)
 
             pred_list.append(pred.cpu().numpy())
-            label_list.append(data.y.view(-1).cpu().numpy())
+            label_list.append(data.y.cpu().numpy())
 
-    if not pred_list:
-        model.train()
-        return float("nan"), float("nan")
+    pred = np.concatenate(pred_list)
+    label = np.concatenate(label_list)
 
-    preds = np.concatenate(pred_list)
-    labels = np.concatenate(label_list)
-
-    rmse = float(np.sqrt(((preds - labels) ** 2).mean()))
-    pearson = float(np.corrcoef(preds, labels)[0, 1]) if len(labels) > 1 else float("nan")
+    rmse = np.sqrt(((pred - label) ** 2).mean())
+    pearson = np.corrcoef(pred, label)[0, 1]
 
     model.train()
     return rmse, pearson
 
 
+# ============================================================
+# DATASET
+# ============================================================
+
 class URVGraphDataset(Dataset):
     """
-    @brief Dataset wrapper for generated EGNN graphs.
-    @param graphs_dir Directory containing graph files.
+    @brief Dataset wrapper for generated EDNN graphs.
+    @param graph_dir Directory containing graph files.
     @param pdb_ids List of graph identifiers.
     """
 
-    def __init__(self, graphs_dir: str, pdb_ids: list[str]):
-        self.graphs_dir = graphs_dir
+    def __init__(self, graph_dir, pdb_ids):
+        self.graph_dir = graph_dir
         self.pdb_ids = pdb_ids
 
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self.pdb_ids)
 
-    def __getitem__(self, idx: int):
+    def __getitem__(self, idx):
         pdb_id = self.pdb_ids[idx]
-        path = os.path.join(self.graphs_dir, f"{pdb_id}.pt")
+        path = os.path.join(self.graph_dir, f"{pdb_id}.pt")
         return safe_torch_load(path)
 
+
+# ============================================================
+# TRAIN
+# ============================================================
 
 def train(
     graphs_dir: str,
@@ -144,7 +129,7 @@ def train(
     seed: int = 42,
 ):
     """
-    @brief Train EGNN on predefined dataset splits.
+    @brief Train EDNN on the predefined dataset splits.
     @param graphs_dir Directory containing generated graphs.
     @param train_split_file Path to train_index_folder.txt.
     @param val_split_file Path to valid_index_folder.txt.
@@ -155,11 +140,12 @@ def train(
     @param patience Early stopping patience.
     @param lr Learning rate.
     @param hidden_dim Hidden dimension of the model.
-    @param device Device to use. Use "auto" for automatic selection.
+    @param device Device to use.
     @param seed Random seed.
     @return Directory containing the saved trained models.
     """
-    device = resolve_device(device)
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
 
     os.makedirs(output_base, exist_ok=True)
 
@@ -189,16 +175,15 @@ def train(
         print("Train samples:", len(train_set))
         print("Validation samples:", len(val_set))
         print("Test samples:", len(test_set))
-        print("Device:", device)
 
-        model = EGNN(hidden_dim=hidden_dim).to(device)
+        model = EDNN(hidden_dim=hidden_dim).to(device)
 
-        print("Trainable parameters:", sum(p.numel() for p in model.parameters() if p.requires_grad))
+        print("Trainable params:", sum(p.numel() for p in model.parameters() if p.requires_grad))
 
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
         criterion = nn.MSELoss()
 
-        best_val_rmse = float("inf")
+        best_rmse = float("inf")
         patience_counter = 0
 
         split_save_dir = os.path.join(output_base, f"split_{split_id:02d}")
@@ -207,7 +192,7 @@ def train(
         for epoch in range(epochs):
             model.train()
             epoch_loss = 0.0
-            sample_count = 0
+            n_samples = 0
 
             for data in train_loader:
                 data = data.to(device)
@@ -220,57 +205,52 @@ def train(
                 loss.backward()
                 optimizer.step()
 
-                batch_count = target.size(0)
-                epoch_loss += loss.item() * batch_count
-                sample_count += batch_count
+                batch_n = target.size(0)
+                epoch_loss += loss.item() * batch_n
+                n_samples += batch_n
 
-            train_rmse = float(np.sqrt(epoch_loss / sample_count)) if sample_count else float("nan")
-            val_rmse, _ = evaluate_regression(model, val_loader, device)
-            test_rmse, test_pearson = evaluate_regression(model, test_loader, device)
+            train_rmse = np.sqrt(epoch_loss / max(n_samples, 1))
+            val_rmse, _ = val(model, val_loader, device)
+            test_rmse, test_pr = val(model, test_loader, device)
 
             print(
                 f"Epoch {epoch:03d} | "
                 f"Train RMSE: {train_rmse:.4f} | "
-                f"Validation RMSE: {val_rmse:.4f} | "
+                f"Val RMSE: {val_rmse:.4f} | "
                 f"Test RMSE: {test_rmse:.4f} | "
-                f"Test Pearson: {test_pearson:.4f}"
+                f"Pearson: {test_pr:.4f}"
             )
 
-            if val_rmse < best_val_rmse:
-                best_val_rmse = val_rmse
+            if val_rmse < best_rmse:
+                best_rmse = val_rmse
                 patience_counter = 0
 
                 torch.save(
                     model.state_dict(),
                     os.path.join(split_save_dir, "best_model.pt"),
                 )
-                print(">>> New best model saved.")
+                print(">>> New best model saved")
             else:
                 patience_counter += 1
 
             if patience_counter >= patience:
-                print(">>> Early stopping triggered.")
+                print(">>> Early stopping activated")
                 break
 
-        print(f"Best validation RMSE for split {split_id:02d}: {best_val_rmse:.4f}")
+        print(f"Best RMSE split {split_id:02d}: {best_rmse:.4f}")
 
     print("\nTraining completed for all splits.")
     return output_base
 
 
 if __name__ == "__main__":
-    from EGNN.utils.constants import (
-        DEFAULT_GRAPHS_DIR,
-        DEFAULT_MODELS_DIR,
-        DEFAULT_TRAIN_SPLIT_FILE,
-        DEFAULT_VAL_SPLIT_FILE,
-        DEFAULT_TEST_SPLIT_FILE,
-    )
+    PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+    MODULE_ROOT = os.path.dirname(PROJECT_ROOT)
 
     train(
-        graphs_dir=DEFAULT_GRAPHS_DIR,
-        train_split_file=DEFAULT_TRAIN_SPLIT_FILE,
-        val_split_file=DEFAULT_VAL_SPLIT_FILE,
-        test_split_file=DEFAULT_TEST_SPLIT_FILE,
-        output_base=DEFAULT_MODELS_DIR,
+        graphs_dir=os.path.join(MODULE_ROOT, "Graphs_EDNN"),
+        train_split_file=os.path.join(MODULE_ROOT, "train_index_folder.txt"),
+        val_split_file=os.path.join(MODULE_ROOT, "valid_index_folder.txt"),
+        test_split_file=os.path.join(MODULE_ROOT, "test_index_folder.txt"),
+        output_base=os.path.join(MODULE_ROOT, "Models_EDNN"),
     )

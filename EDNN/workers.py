@@ -1,19 +1,16 @@
 """
 @file workers.py
 @author Mohamed EL BOUKHIARI
-@brief Background worker threads for the EGNN module.
+@brief Background worker threads for the EDNN module.
 """
 
-from __future__ import annotations
-
+from PySide6.QtCore import QThread, Signal
 import traceback
 
-from PySide6.QtCore import QThread, Signal
-
-from EGNN.Core.egnn_generate_data import generate_data
-from EGNN.Core.egnn_hyperparameter_search import run_hyperparameter_search
-from EGNN.Core.egnn_tester import test_all_models_in_folder, test_model
-from EGNN.Core.egnn_trainer import train
+from EDNN.Core.ednn_generate_data import generate_data
+from EDNN.Core.ednn_trainer import train
+from EDNN.Core.ednn_tester import test_model, test_all_models_in_folder
+from EDNN.Core.ednn_hyperparameter_search import run_hyperparameter_search
 
 
 class DBGenerationThread(QThread):

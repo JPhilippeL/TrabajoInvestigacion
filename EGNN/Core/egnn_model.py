@@ -1,3 +1,11 @@
+"""
+@file egnn_model.py
+@author Francesc Serratosa
+@brief EGNN model definition.
+"""
+
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -5,44 +13,51 @@ from torch_geometric.nn import global_mean_pool
 
 
 class EGNNLayer(nn.Module):
-    def __init__(self, feat_dim):
+    """
+    @brief Basic equivariant-style message passing layer.
+
+    The layer uses node features and squared inter-node distances to build
+    messages. Coordinates are used to compute distances but are not updated.
+    """
+
+    def __init__(self, feat_dim: int):
         super().__init__()
 
         self.edge_mlp = nn.Sequential(
             nn.Linear(feat_dim * 2 + 1, feat_dim),
             nn.ReLU(),
-            nn.Linear(feat_dim, feat_dim)
+            nn.Linear(feat_dim, feat_dim),
         )
 
         self.node_mlp = nn.Sequential(
             nn.Linear(feat_dim, feat_dim),
-            nn.ReLU()
+            nn.ReLU(),
         )
 
-    def forward(self, x, pos, edge_index):
+    def forward(self, x: torch.Tensor, pos: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+        if edge_index.numel() == 0:
+            return x
 
         row, col = edge_index
 
-        # distancia cuadrada
         diff = pos[row] - pos[col]
         dist2 = (diff ** 2).sum(dim=1, keepdim=True)
 
-        # mensaje
-        m_ij = torch.cat([x[row], x[col], dist2], dim=1)
-        m_ij = self.edge_mlp(m_ij)
+        messages = torch.cat([x[row], x[col], dist2], dim=1)
+        messages = self.edge_mlp(messages)
 
-        # agregación
-        agg = torch.zeros_like(x)
-        agg.index_add_(0, row, m_ij)
+        aggregated = torch.zeros_like(x)
+        aggregated.index_add_(0, row, messages)
 
-        # actualización nodo
-        x = x + self.node_mlp(agg)
-
-        return x
+        return x + self.node_mlp(aggregated)
 
 
 class EGNN(nn.Module):
-    def __init__(self, node_dim=12, hidden_dim=64):
+    """
+    @brief EGNN regression model for protein-ligand graphs.
+    """
+
+    def __init__(self, node_dim: int = 12, hidden_dim: int = 64):
         super().__init__()
 
         self.embed = nn.Linear(node_dim, hidden_dim)
@@ -54,10 +69,11 @@ class EGNN(nn.Module):
         self.lin1 = nn.Linear(hidden_dim, hidden_dim)
         self.lin2 = nn.Linear(hidden_dim, 1)
 
-    def forward(self, data):
-
-        x, pos, edge_index, batch = \
-            data.x, data.pos, data.edge_index, data.batch
+    def forward(self, data) -> torch.Tensor:
+        x = data.x
+        pos = data.pos
+        edge_index = data.edge_index
+        batch = data.batch
 
         x = self.embed(x)
 
@@ -66,7 +82,6 @@ class EGNN(nn.Module):
         x = F.relu(self.conv3(x, pos, edge_index))
 
         x = global_mean_pool(x, batch)
-
         x = F.relu(self.lin1(x))
 
         return self.lin2(x).view(-1)
