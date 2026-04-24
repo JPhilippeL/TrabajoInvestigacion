@@ -3,7 +3,6 @@ import pandas as pd
 import torch
 from rdkit import Chem
 from torch_geometric.data import Data
-from GNNs.model_trainer import create_model, calc_dim
 import os
 import re
 import matplotlib.pyplot as plt
@@ -16,6 +15,7 @@ dir_padre = os.path.abspath(os.path.join(dir_actual, ".."))
 sys.path.insert(0, dir_padre)
 
 from GNNs.data_processing import read_targets, load_data_from_sdf, mol_to_graph_data
+from GNNs.model_trainer import create_model, calc_dim
 import logging
 from ui.utils.constants import RESULTADOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, OTHER_EDGE_FEATURES, OTHER_NODE_FEATURES
 import csv
@@ -401,7 +401,7 @@ def test_all_models_in_directory(models_dir, sdf_dir, targets_file, output_dir=R
 
             # ATENCIÓN AQUÍ: Si test_model_on_directory guarda archivos, 
             # también deberías pasarle output_dir para que no mezcle los plots.
-            test_model_on_directory(model_path, sdf_dir, targets_file, output_dir) 
+            test_model_on_directory(model_path, sdf_dir, targets_file) 
 
             resultados.append((fname, f"{rmse:.4f}", f"{pearson_r:.4f}", f"{r2_val:.4f}"))
 
