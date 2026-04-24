@@ -12,8 +12,8 @@ from GIGN_GUI.workers import DBGenerationThread, TrainGIGNThread, PredictThread,
 from GIGN_GUI.view.dialogs.hyperparameter_tuning_dialog import HyperParameterTuningDialog
 
 logger = logging.getLogger(__name__)
-
-SCRIPT = SCRIPT = os.path.join(
+# this script will launch ray tune hyperparameter search separately.
+SCRIPT = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "GIGN_GUI", "model",
     "run_hp_tuning.py", )
 
@@ -46,6 +46,7 @@ class MenuGIGN(QMenu):
         tuning_action.triggered.connect(self.hptuning_gign)
         self.addAction(tuning_action)
 
+    # DB generation (function and slots)
     def generate_db(self):
         dialog = DBGenerationDialog(self.main_window)
 
@@ -76,6 +77,8 @@ class MenuGIGN(QMenu):
         self.main_window.setEnabled(True)
         self.db_thread = None
 
+    # train  (function and slots)
+
     def train_gign(self):
         dialog = TrainDialog(self.main_window)
 
@@ -102,6 +105,8 @@ class MenuGIGN(QMenu):
         logger.error(f"Training failed: {error_message}")
         self.main_window.setEnabled(True)
         self.train_thread = None
+
+    # predict
 
     def predict_gign(self):
         dialog = PredictDialog(self.main_window)
@@ -130,14 +135,16 @@ class MenuGIGN(QMenu):
         self.main_window.setEnabled(True)
         self.predict_thread = None
 
+    # Hyperparameter tuning (function + slots)
+
     def hptuning_gign(self):
         dialog = HyperParameterTuningDialog(self.main_window)
 
         if dialog.exec():
             params = dialog.get_inputs()
 
-            logger.info("Init Hyperparameter Tuning...")
-            logger.info("Please wait...")
+            logger.info("\t[INIT] Hyperparameter Tuning")
+            logger.info("\tPlease wait...")
 
             self.main_window.setEnabled(False)
 

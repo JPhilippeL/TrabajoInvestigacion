@@ -5,7 +5,6 @@ import sys
 from GIGN_GUI.model.db_generation import generate_all_graphs
 from GIGN_GUI.model.predict_gign import predict
 from GIGN_GUI.model.train_gign import train_gign
-from GIGN_GUI.model.GIGN_hyperparameter_tuning import HyperParameter_tuning
 
 
 class _ThreadLoggerProxy:
@@ -80,6 +79,12 @@ class PredictThread(QThread):
             self.finished_error.emit(str(e))
 
 
+"""
+Thread for hyperparameter tuning process, We use Ray Tune who is a framework who operate on top Ray.
+This worker will execute the script to run Ray properly.
+"""
+
+
 class HyperparameterTuningProcess(QObject):
     log_message = Signal(str)
     finished_success = Signal()
@@ -116,7 +121,8 @@ class HyperparameterTuningProcess(QObject):
         if exit_code == 0:
             self.finished_success.emit()
         else:
-            self.finished_error.emit(f"Hyperparameter tuning failed with exit code {exit_code}.")
+            self.finished_error.emit(
+                f"Hyperparameter tuning failed with exit code {exit_code} and code status {exit_status}.")
 
     def _on_error(self, process_error):
         self.finished_error.emit(f"QProcess error: {process_error}")

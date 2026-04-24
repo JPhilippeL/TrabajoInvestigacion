@@ -143,7 +143,7 @@ def build_graph_for_original(
         return None
 
     # -----------------------------------------------------
-    # 1️⃣ Filtrar proteína por proximidad al ligando
+    # Filtrar proteína por proximidad al ligando
     # -----------------------------------------------------
     prot_coords = filter_protein_atoms_by_distance(
         prot_coords, lig_coords, cutoff=cutoff_prot
@@ -154,7 +154,7 @@ def build_graph_for_original(
         return None
 
     # -----------------------------------------------------
-    # 2️⃣ Construcción de nodos
+    # Construcción de nodos
     # -----------------------------------------------------
     nodes = {}
     ligand_nodes, protein_nodes = set(), set()
@@ -171,7 +171,7 @@ def build_graph_for_original(
         i_counter += 1
 
     # -----------------------------------------------------
-    # 3️⃣ Posiciones y features base
+    # Posiciones y features base
     # -----------------------------------------------------
     pos_l_tensor = torch.stack([lig_coords[k] for k in lig_coords])
     pos_p_tensor = torch.stack([prot_coords[k] for k in prot_coords])
@@ -187,7 +187,7 @@ def build_graph_for_original(
     num_p = pos_p_tensor.shape[0]
 
     # -----------------------------------------------------
-    # 4️⃣ INTRA-LIGAND (enlaces químicos RDKit)
+    # INTRA-LIGAND (enlaces químicos RDKit)
     # -----------------------------------------------------
     edge_l = []
     for bond in lig_mol.GetBonds():
@@ -203,7 +203,7 @@ def build_graph_for_original(
     )
 
     # -----------------------------------------------------
-    # 5️⃣ INTRA-PROTEIN (por distancia)
+    # INTRA-PROTEIN (por distancia)
     # -----------------------------------------------------
     dist_pp = distance_matrix(pos_p_tensor.numpy(), pos_p_tensor.numpy())
 
@@ -220,14 +220,14 @@ def build_graph_for_original(
     )
 
     # -----------------------------------------------------
-    # 6️⃣ INTRA TOTAL
+    # INTRA TOTAL
     # -----------------------------------------------------
     edge_index_intra = torch.cat(
         [edge_index_intra_lig, edge_index_intra_pro], dim=1
     )
 
     # -----------------------------------------------------
-    # 7️⃣ INTER (ligando-proteína por distancia)
+    # INTER (ligando-proteína por distancia)
     # -----------------------------------------------------
     dist_lp = distance_matrix(pos_l_tensor.numpy(), pos_p_tensor.numpy())
 
@@ -245,12 +245,12 @@ def build_graph_for_original(
     )
 
     # -----------------------------------------------------
-    # 8️⃣ EDGE TOTAL
+    # EDGE TOTAL
     # -----------------------------------------------------
     edge_index_total = torch.cat([edge_index_intra, edge_index_inter], dim=1)
 
     # -----------------------------------------------------
-    # 9️⃣ Features geométricas (grado + distancia media)
+    # Features geométricas (grado + distancia media)
     # -----------------------------------------------------
     deg = (
         torch.bincount(edge_index_total[0], minlength=pos.shape[0])
@@ -267,25 +267,25 @@ def build_graph_for_original(
     x = torch.cat([x, deg, dist_feat], dim=1)
 
     # -----------------------------------------------------
-    # 🔟 Target
+    # Target
     # -----------------------------------------------------
     y = torch.tensor([pic50_dict[pdb_id]], dtype=torch.float32)
 
     # -----------------------------------------------------
-    # 1️⃣1️⃣ Split ligand/protein
+    # Split ligand/protein
     # -----------------------------------------------------
     split = torch.zeros(pos.shape[0], dtype=torch.long)
     split[:num_l] = 1  # ligand = 1, protein = 0
 
     # -----------------------------------------------------
-    # 1️⃣2️⃣ Edge attributes
+    # Edge attributes
     # -----------------------------------------------------
     edge_attr = torch.norm(
         pos[edge_index_total[0]] - pos[edge_index_total[1]], dim=1, keepdim=True
     )
 
     # -----------------------------------------------------
-    # 1️⃣3️⃣ Batch
+    # Batch
     # -----------------------------------------------------
     batch = torch.zeros(pos.shape[0], dtype=torch.long)
 

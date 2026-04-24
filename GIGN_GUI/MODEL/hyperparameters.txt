@@ -1,9 +1,0 @@
-Hyperparameters:
-epochs: 50
-node_dim: 14
-hidden_dim: 32
-drop_out: 0.1
-batch_size: 8
-lr: 0.001
-weight_decay: 1e-05
-patience: 15
