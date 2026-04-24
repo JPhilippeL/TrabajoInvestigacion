@@ -2,7 +2,7 @@ from PySide6.QtCore import QThread, Signal, QObject, QProcess
 import json
 import sys
 
-from GIGN_GUI.model.db_generation import generate_all_graphs
+from GIGN_GUI.model.graph_generation import generate_all_graphs
 from GIGN_GUI.model.predict_gign import predict
 from GIGN_GUI.model.train_gign import train_gign
 
@@ -81,7 +81,7 @@ class PredictThread(QThread):
 
 """
 Thread for hyperparameter tuning process, We use Ray Tune who is a framework who operate on top Ray.
-This worker will execute the script to run Ray properly.
+This worker will execute the script to run Ray properly. Ray Tune uses his own process management.
 """
 
 

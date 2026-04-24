@@ -5,7 +5,7 @@ from PySide6.QtGui import QAction
 from pathlib import Path
 import logging
 
-from GIGN_GUI.view.dialogs.generate_db_dialog import DBGenerationDialog
+from GIGN_GUI.view.dialogs.generate_graph_dialog import DBGenerationDialog
 from GIGN_GUI.view.dialogs.predict_dialog import PredictDialog
 from GIGN_GUI.view.dialogs.train_dialog import TrainDialog
 from GIGN_GUI.workers import DBGenerationThread, TrainGIGNThread, PredictThread, HyperparameterTuningProcess

@@ -102,7 +102,6 @@ def train_gign(train_file, test_file, val_file, epochs, seed, node_dim, hidden_d
         if log_callback:
             log_callback.info(f"SPLIT {split_id}")
 
-        # Reproducibilidad por split
         seed_everything(split_id + seed)
 
         train_ids = train_splits[split_id]
