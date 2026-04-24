@@ -334,7 +334,7 @@ def HyperParameter_tuning(
         run_config=ray.air.RunConfig(
             name="GIGN_hyperparameter_tuning",
             checkpoint_config=CheckpointConfig(
-                num_to_keep=0,
+                num_to_keep=1,
                 checkpoint_at_end=False,
             ),
         ),
