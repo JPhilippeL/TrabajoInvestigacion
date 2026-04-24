@@ -1,5 +1,7 @@
 import os
 import ast
+from pathlib import Path
+
 import torch
 import numpy as np
 import pandas as pd
@@ -14,12 +16,47 @@ from torch_geometric.nn import global_mean_pool
 from sklearn.metrics import mean_squared_error
 from scipy.stats import spearmanr
 import torch.nn as nn
+
 from GIGN_GUI.model.GIGN_model import GIGN
 
 # =========================================================
 # Utils
 # =========================================================
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def parse_parameter_file(file):
+    if not os.path.isfile(file):
+        raise FileNotFoundError(f"Parameter file not found: {file}")
+
+    params = dict.fromkeys(["node_dim", "hidden_dim", "drop_out", "batch_size"], None)
+
+    with open(file, "r") as f:
+        for line in f:
+            line = line.strip()
+
+            if not line:
+                continue
+
+            if ":" not in line:
+                continue
+
+            key, value = line.split(":", 1)
+            key = key.strip()
+            value = value.strip()
+
+            if key not in params:
+                continue
+
+            try:
+                value = ast.literal_eval(value)
+            except (ValueError, SyntaxError):
+                print("Error parsing value for key '{}': {}".format(key, value))
+                return None
+
+            params[key] = value
+
+    return params
 
 
 def escala_global(file_path):
@@ -165,9 +202,8 @@ def plot_global_scatter(
 # =========================================================
 # Main
 # =========================================================
-def predict(pic50_txt, batch_size, node_dim, hidden_dim, model_dir, drop_out, graph_dir, train_split_file,
-            test_split_file,
-            val_split_file, output_dir, log_callback):
+def predict(pic50_txt, model_dir, graph_dir, train_split_file, test_split_file, val_split_file, output_dir,
+            log_callback, parameter_file):
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     global_min, global_max = escala_global(pic50_txt)
 
@@ -178,15 +214,15 @@ def predict(pic50_txt, batch_size, node_dim, hidden_dim, model_dir, drop_out, gr
     all_results = []
     all_labels_global = []
     all_preds_global = []
-
+    parameter = parse_parameter_file(parameter_file)
     for split_idx in range(5):
         if log_callback: log_callback.info(f"\n===== SPLIT {split_idx:02d} =====")
 
         test_ids = test_splits[split_idx]
         test_set = URVGraphDataset(test_ids, graph_dir)
-        test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False)
+        test_loader = DataLoader(test_set, batch_size=parameter["batch_size"], shuffle=False)
 
-        model = GIGN(node_dim, hidden_dim, drop_out).to(DEVICE)
+        model = GIGN(parameter["node_dim"], parameter["hidden_dim"], parameter["drop_out"]).to(DEVICE)
 
         model_path = os.path.join(
             model_dir, f"split_{split_idx:02d}", "best_model.pt"

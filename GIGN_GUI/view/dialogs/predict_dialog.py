@@ -43,7 +43,7 @@ class PredictDialog(QDialog):
 
         self.pic50_file_input = QLineEdit()
         self.pic50_file_input.setPlaceholderText("File pic50.txt")
-        self.pic50_file_input.setText(self.settings.value("pic50.txt", ""))
+        self.pic50_file_input.setText(self.settings.value("predict/pic50_txt", ""))
         self.pic50_btn = QPushButton("Select...")
         self.pic50_btn.clicked.connect(self.browse_pic50_file)
         self.graph_dir_input = QLineEdit()
@@ -58,25 +58,11 @@ class PredictDialog(QDialog):
         self.output_dir_btn = QPushButton("Select...")
         self.output_dir_btn.clicked.connect(self.browse_output_dir)
 
-        self.batch_size_input = QSpinBox()
-        self.batch_size_input.setRange(1, 100000)
-        self.batch_size_input.setValue(int(self.settings.value("predict/batch_size", 32)))
-
-        self.node_dim_input = QSpinBox()
-        self.node_dim_input.setRange(14, 14)
-        self.node_dim_input.setValue(14)
-        self.node_dim_input.setReadOnly(True)
-        self.node_dim_input.setButtonSymbols(QSpinBox.NoButtons)
-
-        self.hidden_dim_input = QSpinBox()
-        self.hidden_dim_input.setRange(1, 100000)
-        self.hidden_dim_input.setValue(int(self.settings.value("predict/hidden_dim", 128)))
-
-        self.drop_out_input = QDoubleSpinBox()
-        self.drop_out_input.setDecimals(4)
-        self.drop_out_input.setRange(0.0, 1.0)
-        self.drop_out_input.setSingleStep(0.05)
-        self.drop_out_input.setValue(float(self.settings.value("predict/drop_out", 0.2)))
+        self.parameter_file_input = QLineEdit()
+        self.parameter_file_input.setPlaceholderText("File with hyparameters used for training")
+        self.parameter_file_input.setText(self.settings.value("predict/parameter_file", ""))
+        self.parameter_file_btn = QPushButton("Select...")
+        self.parameter_file_btn.clicked.connect(self.browse_parameter_file)
 
         form_layout = QFormLayout()
 
@@ -88,13 +74,7 @@ class PredictDialog(QDialog):
         form_layout.addRow("Graph dir:", self._with_button(self.graph_dir_input, self.graph_dir_btn))
         form_layout.addRow("Output dir:", self._with_button(self.output_dir_input, self.output_dir_btn))
         form_layout.addRow("Target file:", self._with_button(self.pic50_file_input, self.pic50_btn))
-
-        form_layout.addRow(QLabel("<b>Prediction parameters</b>"))
-        form_layout.addRow("Batch size:", self.batch_size_input)
-        form_layout.addRow("Node dim:", self.node_dim_input)
-        form_layout.addRow("Hidden dim:", self.hidden_dim_input)
-        form_layout.addRow("Drop out:", self.drop_out_input)
-
+        form_layout.addRow("Parameters file", self._with_button(self.parameter_file_input, self.parameter_file_btn))
         layout = QVBoxLayout()
         layout.addLayout(form_layout)
 
@@ -160,6 +140,12 @@ class PredictDialog(QDialog):
         if path:
             self.output_dir_input.setText(path)
 
+    def browse_parameter_file(self):
+        path = self._browse_txt_file("Select parameters file")
+
+        if path:
+            self.parameter_file_input.setText(path)
+
     def accept(self):
         if not self.train_split_input.text().strip():
             logger.warning("Missing input: please select the train split file.")
@@ -191,25 +177,18 @@ class PredictDialog(QDialog):
         self.settings.setValue("predict/last_model_dir", self.model_dir_input.text().strip())
         self.settings.setValue("predict/last_graph_dir", self.graph_dir_input.text().strip())
         self.settings.setValue("predict/last_output_dir", self.output_dir_input.text().strip())
-
-        self.settings.setValue("predict/batch_size", self.batch_size_input.value())
-        self.settings.setValue("predict/hidden_dim", self.hidden_dim_input.value())
-        self.settings.setValue("predict/drop_out", self.drop_out_input.value())
         self.settings.setValue("predict/pic50_txt", self.pic50_file_input.text().strip())
-
+        self.settings.setValue("predict/parameter_file", self.parameter_file_input.text().strip())
         super().accept()
 
     def get_inputs(self):
         return {
-            "batch_size": self.batch_size_input.value(),
-            "node_dim": self.node_dim_input.value(),
-            "hidden_dim": self.hidden_dim_input.value(),
             "model_dir": self.model_dir_input.text().strip(),
-            "drop_out": self.drop_out_input.value(),
             "graph_dir": self.graph_dir_input.text().strip(),
             "train_split_file": self.train_split_input.text().strip(),
             "test_split_file": self.test_split_input.text().strip(),
             "val_split_file": self.val_split_input.text().strip(),
             "output_dir": self.output_dir_input.text().strip(),
             "pic50_txt": self.pic50_file_input.text().strip(),
+            "parameter_file": self.parameter_file_input.text().strip(),
         }
