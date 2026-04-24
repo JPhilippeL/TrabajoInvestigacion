@@ -1002,8 +1002,8 @@ if __name__ == "__main__":
     print("🚀 Iniciando el pipeline de entrenamiento para todos los splits...")
     
     # Definir las rutas principales (¡Cámbialas por tus rutas reales!)
-    CARPETA_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/SplitsSMILES" 
-    ARCHIVO_TARGET = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits/pIC50.txt"
+    CARPETA_MADRE = "/home/philippe/Documents/Databases/URV_database_vNatalia/Splits" 
+    ARCHIVO_TARGET = "/home/philippe/Documents/Databases/URV_Database_2025_Octubre/pIC50.txt"
     train_all_splits(
         mother_dir=CARPETA_MADRE,
         target_file=ARCHIVO_TARGET,

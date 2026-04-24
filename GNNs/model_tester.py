@@ -587,14 +587,14 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
     
     # Rutas principales
-    MODELOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebaOneHot"      # Donde están las carpetas split_0, split_1... con los .pt del modelo
-    RESULTADOS_MADRE = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Modelos/PruebOneHot"   # Donde se guardarán los CSV finales
+    MODELOS_MADRE = "Modelos/NuevaPruebaNuevasFeatures"      # Donde están las carpetas split_0, split_1... con los .pt del modelo
+    RESULTADOS_MADRE = "Resultados/NuevaPruebaNuevasFeatures"   # Donde se guardarán los CSV finales
     
     print("🚀 Iniciando el testing masivo de todos los splits...")
     
     # -------------------TESTEO CON SDF ------------------------------
-    DATOS_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/SplitsSMILES" # Donde están las carpetas de los splits con los SDF
-    TARGETS = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits/pIC50.txt"
+    DATOS_MADRE = "/home/philippe/Documents/Databases/URV_database_vNatalia/Splits" # Donde están las carpetas de los splits con los SDF
+    TARGETS = "/home/philippe/Documents/Databases/URV_Database_2025_Octubre/pIC50.txt"
     test_all_splits(
         models_mother_dir=MODELOS_MADRE,
         data_mother_dir=DATOS_MADRE,
