@@ -148,10 +148,10 @@ def train(config, sdf_dir, target_file, model_type, valid_split, model_name):
 
 if __name__ == "__main__":
     ray.shutdown()
-    ray.init(num_cpus=12, ignore_reinit_error=True, include_dashboard=False)
+    ray.init(num_cpus=20, ignore_reinit_error=True, include_dashboard=False)
 
-    sdf_dir = "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/Ligand/Ligand_SDF"
-    target_file = "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/pIC50.txt"
+    sdf_dir = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/Ligand/Ligand_SDF"
+    target_file = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/pIC50.txt"
     model_type = "GAT"
     model_name = "GAThp"
     valid_split = 0.2
@@ -182,8 +182,8 @@ if __name__ == "__main__":
     )
 
     cpu_per_trials = 6
-    gpu_per_trials = 0
-    num_trials = 20
+    gpu_per_trials = 1
+    num_trials = 60
 
     tuner = tune.Tuner(
         tune.with_resources(

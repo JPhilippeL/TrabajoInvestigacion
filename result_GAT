@@ -1,0 +1,51 @@
+model = GAT
+config = {
+	
+        
+        "batch_size": tune.choice([4, 8, 16]),
+        
+        "atom_emb_dim": tune.choice([0.2, 0.3, 0.4]),
+        
+        "hibrid_emb_dim": tune.choice([0.3, 0.4, 0.5]),
+        
+        "bond_emb_dim": tune.choice([0.5, 1.0]),
+        
+        "hidden_dim": tune.choice([32, 64, 128, 256]),
+        
+        "num_layers": tune.choice([1, 2, 3]),
+        
+        "fc_hidden_dim": tune.choice([32, 64, 128, 256]),
+        
+        "drop_out": tune.choice([0.0, 0.05, 0.1]),
+        
+        "lr": tune.loguniform(1e-4, 1e-3),
+        
+        "patience": 15,
+        
+        
+        "EPOCHS": 50,
+    }
+    
+// BEST CONFIG
+    
+{
+  "EPOCHS": 50,
+  "atom_emb_dim": 0.3,
+  "batch_size": 8,
+  "bond_emb_dim": 0.5,
+  "drop_out": 0.1,
+  "fc_hidden_dim": 64,
+  "hibrid_emb_dim": 0.4,
+  "hidden_dim": 128,
+  "lr": 0.0009854386876978882,
+  "num_layers": 2,
+  "patience": 15
+}
+
+// Results
+{"epoch": 45, "train_loss": 0.8582734149812863, "val_loss": 0.8469464590674952, "best_val_loss": 0.5052099557299363, "lr": 0.0004927193438489441, "timestamp": 1777273343, "checkpoint_dir_name": null, "done": false, "training_iteration": 45, "trial_id": "6f1ed_00012", "date": "2026-04-27_09-02-23", "time_this_iter_s": 0.26369500160217285, "time_total_s": 12.791278600692749, "pid": 1158684, "hostname": "andromeda-System-Product-Name", "node_ip": "10.112.78.183", "config": {"batch_size": 8, "atom_emb_dim": 0.3, "hibrid_emb_dim": 0.4, "bond_emb_dim": 0.5, "hidden_dim": 128, "num_layers": 2, "fc_hidden_dim": 64, "drop_out": 0.1, "lr": 0.0009854386876978882, "patience": 15, "EPOCHS": 50}, "time_since_restore": 12.791278600692749, "iterations_since_restore": 45}
+
+
+// metrics
+  metrics={'epoch': 45, 'train_loss': 0.8582734149812863, 'val_loss': 0.8469464590674952, 'best_val_loss': 0.5052099557299363, 'lr': 0.0004927193438489441},
+
