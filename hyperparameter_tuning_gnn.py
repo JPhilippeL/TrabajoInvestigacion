@@ -1,71 +1,116 @@
 import logging
 import os
 import shutil
+import tempfile
+
+import ray
+import torch
+from ray import tune
+from ray.air import CheckpointConfig, RunConfig
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from GNNs.data_processing import prepare_sdf_training_data
-from GNNs.model_trainer import GINNet, GINENet, GATNet, EGATNet, GraphTransformerNet, create_model, calc_dim, \
-    get_unique_name
-import torch
-import tempfile
-from torch.optim.lr_scheduler import ReduceLROnPlateau
-import ray
-from ray import tune
-from ray.train import Checkpoint
-from ray.air import RunConfig, CheckpointConfig
+from GNNs.model_trainer import (
+    calc_dim,
+    create_model,
+)
+from ui.utils.constants import (
+    N_BOND_TYPES,
+    OTHER_EDGE_FEATURES,
+    OTHER_NODE_FEATURES,
+    hybridization_types,
+    periodic_elements,
+)
 
-from ui.utils.constants import periodic_elements, hybridization_types, N_BOND_TYPES, OTHER_NODE_FEATURES, \
-    OTHER_EDGE_FEATURES, MODELOS_DIR
+"""
+This script performs hyperparameter tuning on the GNNs models using Ray Tune.
+We define a training function that trains the model and reports the training and validation losses to Ray Tune.
+The hyperparameters scale are in the search_space_dictionary dictionary.
+
+By the way, I only used the train function already written in the model_trainer.py in GNNs. I added ray tune configurations
+and removed some unused features (Thanks for that clean code and easy to understand).
+
+All my work and experiments are based on the PyTorch tutorial for hyperparameter tuning with Ray Tune, which can be found at the following link:
+@reference: https://docs.pytorch.org/tutorials/beginner/hyperparameter_tuning_tutorial.html
+@reference: https://docs.ray.io/en/latest/tune/key-concepts.html
+"""
 
 
-def train(config, sdf_dir, target_file, model_type, valid_split, model_name):
+def train(
+        search_space_dictionary,
+        sdf_directory,
+        target_file,
+        gnn_model_name,
+        valid_split,
+        gnn_model_pseudo,
+):
     best_model_tmp_path = os.path.join(
         tempfile.gettempdir(),
-        f"{model_name}_{os.getpid()}_best_model_tmp.pt"
+        f"{gnn_model_pseudo}_{os.getpid()}_best_model_tmp.pt",
     )
 
-    calc_atom_emb_dim = calc_dim(len(periodic_elements) * config["atom_emb_dim"])
-    calc_hibrid_emb_dim = calc_dim(len(hybridization_types) * config["hibrid_emb_dim"])
-    calc_bond_emb_dim = calc_dim(N_BOND_TYPES * config["bond_emb_dim"])
+    calc_atom_emb_dim = calc_dim(
+        len(periodic_elements) * search_space_dictionary["atom_emb_dim"]
+    )
+
+    calc_hibrid_emb_dim = calc_dim(
+        len(hybridization_types) * search_space_dictionary["hibrid_emb_dim"]
+    )
+
+    calc_bond_emb_dim = calc_dim(
+        N_BOND_TYPES * search_space_dictionary["bond_emb_dim"]
+    )
+
     input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
+
     edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
 
-    train_loader, val_loader, device, targetname = prepare_sdf_training_data(
-        sdf_dir,
+    train_loader, val_loader, device, _ = prepare_sdf_training_data(
+        sdf_directory,
         target_file,
-        batch_size=config["batch_size"],
-        valid_split=valid_split
+        batch_size=search_space_dictionary["batch_size"],
+        valid_split=valid_split,
     )
 
     model = create_model(
-        model_type,
+        gnn_model_name,
         input_dim,
         calc_atom_emb_dim,
         calc_hibrid_emb_dim,
         calc_bond_emb_dim,
-        hidden_dim=config["hidden_dim"],
-        num_layers=config["num_layers"],
+        hidden_dim=search_space_dictionary["hidden_dim"],
+        num_layers=search_space_dictionary["num_layers"],
         edge_dim=edge_dim,
     )
 
     model.to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"])
 
-    patience_scheduler = max(10, config["patience"] // 4) if config["patience"] > 0 else 15
-    scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=patience_scheduler)
+    optimizer = torch.optim.Adam(
+        model.parameters(), lr=search_space_dictionary["lr"]
+    )
+
+    patience_scheduler = (
+        max(10, search_space_dictionary["patience"] // 4)
+        if search_space_dictionary["patience"] > 0
+        else 15
+    )
+
+    scheduler = ReduceLROnPlateau(
+        optimizer, mode="min", factor=0.5, patience=patience_scheduler
+    )
 
     criterion = torch.nn.MSELoss()
 
     best_val_loss = float("inf")
     patience_counter = 0
-    best_epoch = config["EPOCHS"]
+    best_epoch = search_space_dictionary["EPOCHS"]
     avg_train_loss_saved = None
 
-    for epoch in range(1, config["EPOCHS"] + 1):
+    for epoch in range(1, search_space_dictionary["EPOCHS"] + 1):
         model.train()
         total_loss = 0.0
         avg_val_loss = None
         current_lr = optimizer.param_groups[0]["lr"]
-        checkpoint = None
 
         for batch in train_loader:
             batch = batch.to(device)
@@ -85,7 +130,9 @@ def train(config, sdf_dir, target_file, model_type, valid_split, model_name):
             with torch.no_grad():
                 for batch in val_loader:
                     batch = batch.to(device)
-                    out = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
+                    out = model(
+                        batch.x, batch.edge_index, batch.edge_attr, batch.batch
+                    )
                     loss = criterion(out, batch.y)
                     val_loss += loss.item() * batch.num_graphs
 
@@ -100,28 +147,31 @@ def train(config, sdf_dir, target_file, model_type, valid_split, model_name):
                 best_epoch = epoch
                 avg_train_loss_saved = avg_train_loss
                 torch.save(model.state_dict(), best_model_tmp_path)
-
+                # Move the best model checkpoint to a temporary directory to ensure it is saved even if the trial is stopped
                 with tempfile.TemporaryDirectory() as tmp_dir:
                     checkpoint_path = os.path.join(tmp_dir, "best_model.pt")
                     shutil.copy(best_model_tmp_path, checkpoint_path)
-                    checkpoint = Checkpoint.from_directory(tmp_dir)
             else:
-                if config["patience"] > 0:
+                if search_space_dictionary["patience"] > 0:
                     patience_counter += 1
-
+            #
+            # Report the training and validation losses to Ray Tune
             tune.report(
-                {"epoch": epoch,
-                 "train_loss": avg_train_loss,
-                 "val_loss": avg_val_loss,
-                 "best_val_loss": best_val_loss,
-                 "lr": current_lr, }
+                {
+                    "epoch": epoch,
+                    "train_loss": avg_train_loss,
+                    "val_loss": avg_val_loss,
+                    "best_val_loss": best_val_loss,
+                    "lr": current_lr,
+                }
             )
 
-            if 0 < config["patience"] <= patience_counter:
+            if 0 < search_space_dictionary["patience"] <= patience_counter:
                 logging.info(f"Early stopping on epoch {epoch}")
                 break
         else:
-            train.report(
+            # Report only the training loss to Ray Tune if no validation set is used
+            tune.report(
                 {
                     "epoch": epoch,
                     "train_loss": avg_train_loss,
@@ -132,80 +182,118 @@ def train(config, sdf_dir, target_file, model_type, valid_split, model_name):
         if avg_val_loss is not None:
             logging.info(
                 f"Epoch {epoch:03d} | LR: {current_lr:.6f} | "
-                f"Train MSE: {avg_train_loss:.4f} | Validation MSE: {avg_val_loss:.4f}"
+                f"Train MSE: {avg_train_loss:.4f} | \
+                Validation MSE: {avg_val_loss:.4f}"
             )
         else:
             logging.info(f"Epoch {epoch:03d} | Train MSE: {avg_train_loss:.4f}")
 
     if os.path.exists(best_model_tmp_path):
-        model.load_state_dict(torch.load(best_model_tmp_path, map_location=device))
+        model.load_state_dict(
+            torch.load(best_model_tmp_path, map_location=device)
+        )
         os.remove(best_model_tmp_path)
         logging.info(
             f"Best model saved at epoch {best_epoch} | "
-            f"Train MSE: {avg_train_loss_saved:.4f} | Validation MSE: {best_val_loss:.4f}"
+            f"Train MSE: {avg_train_loss_saved:.4f} | \
+            Validation MSE: {best_val_loss:.4f}"
         )
 
 
+def write_results_to_file(model_name, best_results, hyperparemeters, output_file):
+    with open(output_file, "a") as f:
+        f.write(f"Model: {model_name}\n")
+        f.write(f"Best Validation Loss: {best_results['best_val_loss']:.4f}\n")
+        f.write("Best Hyperparameters:\n")
+        for param, value in hyperparemeters.items():
+            f.write(f"  {param}: {value}\n")
+        f.write("\n")
+
+
 if __name__ == "__main__":
-    ray.shutdown()
-    ray.init(num_cpus=20, ignore_reinit_error=True, include_dashboard=False)
 
-    sdf_dir = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/Ligand/Ligand_SDF"
-    target_file = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/pIC50.txt"
-    model_type = "GAT"
-    model_name = "GAThp"
-    valid_split = 0.2
+    models = ["GAT", "GINE", "GraphTransformer", "EGAT", "GIN"]
+    for model in models:
+        logging.info("Starting hyperparameter tuning for model: {}".format(model))
+        ray.shutdown()
+        # we can limit the number cpus in order to avoid overloading the cpus by num_cpus passed to ray.init
+        # ignore_reinit_error=True allows us to call ray.init multiple times without getting an error, which is useful when running multiple trials in parallel
+        # include_dashboard=False disables the Ray dashboard, which is not needed for this script and can save resources
+        ray.init(ignore_reinit_error=True, include_dashboard=False)
 
-    config = {
-        "batch_size": tune.choice([4, 8, 16]),
-        "atom_emb_dim": tune.choice([0.2, 0.3, 0.4]),
-        "hibrid_emb_dim": tune.choice([0.3, 0.4, 0.5]),
-        "bond_emb_dim": tune.choice([0.5, 1.0]),
-        "hidden_dim": tune.choice([32, 64, 128, 256]),
-        "num_layers": tune.choice([1, 2, 3]),
-        "fc_hidden_dim": tune.choice([32, 64, 128, 256]),
-        "drop_out": tune.choice([0.0, 0.05, 0.1]),
-        "lr": tune.loguniform(1e-4, 1e-3),
-        "patience": 15,
-        "EPOCHS": 50,
-    }
+        sdf_dir = "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/Ligand/Ligand_SDF"
+        target_file = (
+            "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/pIC50.txt"
+        )
 
-    final_model_name = get_unique_name(model_name, MODELOS_DIR, extension=".pt")
+        model_name = "prueba_gnn_" + model + "_hyperparameter_tuning"
 
-    trainable = tune.with_parameters(
-        train,
-        sdf_dir=sdf_dir,
-        target_file=target_file,
-        model_type=model_type,
-        valid_split=valid_split,
-        model_name=final_model_name,
-    )
+        valid_split = 0.2
 
-    cpu_per_trials = 6
-    gpu_per_trials = 1
-    num_trials = 60
+        if not os.path.exists(sdf_dir):
+            raise FileNotFoundError(f"SDF directory not found: {sdf_dir}")
+        if not os.path.exists(target_file):
+            raise FileNotFoundError(f"Target file not found: {target_file}")
 
-    tuner = tune.Tuner(
-        tune.with_resources(
-            trainable,
-            resources={"cpu": cpu_per_trials, "gpu": gpu_per_trials},
-        ),
-        tune_config=tune.TuneConfig(
-            metric="best_val_loss",
-            mode="min",
-            num_samples=num_trials,
-        ),
-        param_space=config,
-        run_config=RunConfig(
-            name="hyperparameter_tuning_GNN",
-            checkpoint_config=CheckpointConfig(
-                num_to_keep=1,
-                checkpoint_at_end=False,
+        if len(model) == 0:
+            raise ValueError("Model type must be specified ('GAT', 'GIN',...)")
+
+        # Define the hyperparameter search space for Ray Tune
+        """ Note that some parameters are not changeable via the gui so we have to change them from the file GNNs/model_trainer.py.
+            such as drop_out.
+            """
+        # Please check the range of values for each hyperparameter (specially the embedding dimensions) and the patience value
+        config = {
+            "batch_size": tune.choice([4, 8, 16]),
+            "atom_emb_dim": tune.choice([0.2, 0.3, 0.4]),
+            "hibrid_emb_dim": tune.choice([0.3, 0.4, 0.5]),
+            "bond_emb_dim": tune.choice([0.5, 1.0]),
+            "hidden_dim": tune.choice([32, 64, 128, 256]),
+            "num_layers": tune.choice([1, 2, 3]),
+            "fc_hidden_dim": tune.choice([32, 64, 128, 256]),
+            "drop_out": tune.choice([0.0, 0.05, 0.1]),
+            "lr": tune.loguniform(1e-4, 1e-3),
+            "patience": 15,
+            "EPOCHS": 50,
+        }
+
+        trainable = tune.with_parameters(
+            train,
+            sdf_directory=sdf_dir,
+            target_file=target_file,
+            gnn_model_name=model,
+            valid_split=valid_split,
+            gnn_model_pseudo=model_name,
+        )
+        # to parallelize the trials, we need to specify the number of cpus and gpus to use for each trial.
+        cpu_per_trials = 6
+        gpu_per_trials = 0
+        # number of combinations of hyperparameters to try.
+        num_trials = 10
+
+        # Tuner object to run and report the results
+        tuner = tune.Tuner(
+            tune.with_resources(
+                trainable,
+                resources={"cpu": cpu_per_trials, "gpu": gpu_per_trials},
             ),
-        ),
-    )
+            tune_config=tune.TuneConfig(
+                metric="best_val_loss",
+                mode="min",
+                num_samples=num_trials,
+            ),
+            param_space=config,
+            run_config=RunConfig(
+                name="hyperparameter_tuning_" + model,
+                checkpoint_config=CheckpointConfig(
+                    num_to_keep=1,
+                    checkpoint_at_end=False,
+                ),
+                storage_path="/tmp/ray_results",
+            ),
+        )
 
-    results = tuner.fit()
+        results = tuner.fit()
 
-    best_result = results.get_best_result(metric="best_val_loss", mode="min")
-    logging.info(f"best_result: {best_result}")
+        best_result = results.get_best_result(metric="best_val_loss", mode="min")
+        write_results_to_file(model, best_result.metrics, best_result.config, "hyperparameter_tuning_results.txt")

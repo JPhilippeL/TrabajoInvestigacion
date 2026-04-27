@@ -401,4 +401,6 @@ dependencies:
       - tqdm==4.67.1
       - xxhash==3.6.0
       - yarl==1.22.0
+  - ray
+  - torch
 prefix: /home/philippe/miniconda3/envs/Philippe_v2
