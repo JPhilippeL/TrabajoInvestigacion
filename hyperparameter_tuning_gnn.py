@@ -221,9 +221,9 @@ if __name__ == "__main__":
         # include_dashboard=False disables the Ray dashboard, which is not needed for this script and can save resources
         ray.init(ignore_reinit_error=True, include_dashboard=False)
 
-        sdf_dir = "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/Ligand/Ligand_SDF"
+        sdf_dir = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/Ligand/Ligand_SDF"
         target_file = (
-            "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/pIC50.txt"
+            "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/pIC50.txt"
         )
 
         model_name = "prueba_gnn_" + model + "_hyperparameter_tuning"
@@ -269,7 +269,7 @@ if __name__ == "__main__":
         cpu_per_trials = 6
         gpu_per_trials = 0
         # number of combinations of hyperparameters to try.
-        num_trials = 10
+        num_trials = 40
 
         # Tuner object to run and report the results
         tuner = tune.Tuner(

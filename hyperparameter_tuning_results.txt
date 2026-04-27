@@ -1,0 +1,75 @@
+Model: GAT
+Best Validation Loss: 0.6032
+Best Hyperparameters:
+  batch_size: 4
+  atom_emb_dim: 0.3
+  hibrid_emb_dim: 0.5
+  bond_emb_dim: 1.0
+  hidden_dim: 64
+  num_layers: 1
+  fc_hidden_dim: 256
+  drop_out: 0.0
+  lr: 0.00024551108187889056
+  patience: 15
+  EPOCHS: 50
+
+Model: GINE
+Best Validation Loss: 0.5491
+Best Hyperparameters:
+  batch_size: 4
+  atom_emb_dim: 0.2
+  hibrid_emb_dim: 0.3
+  bond_emb_dim: 1.0
+  hidden_dim: 256
+  num_layers: 1
+  fc_hidden_dim: 32
+  drop_out: 0.1
+  lr: 0.00044626535083921954
+  patience: 15
+  EPOCHS: 50
+
+Model: GraphTransformer
+Best Validation Loss: 0.5923
+Best Hyperparameters:
+  batch_size: 16
+  atom_emb_dim: 0.2
+  hibrid_emb_dim: 0.5
+  bond_emb_dim: 0.5
+  hidden_dim: 64
+  num_layers: 3
+  fc_hidden_dim: 256
+  drop_out: 0.05
+  lr: 0.0008067346911292698
+  patience: 15
+  EPOCHS: 50
+
+Model: EGAT
+Best Validation Loss: 0.6004
+Best Hyperparameters:
+  batch_size: 8
+  atom_emb_dim: 0.4
+  hibrid_emb_dim: 0.4
+  bond_emb_dim: 0.5
+  hidden_dim: 64
+  num_layers: 3
+  fc_hidden_dim: 256
+  drop_out: 0.1
+  lr: 0.0005583602428174858
+  patience: 15
+  EPOCHS: 50
+
+Model: GIN
+Best Validation Loss: 0.4831
+Best Hyperparameters:
+  batch_size: 8
+  atom_emb_dim: 0.3
+  hibrid_emb_dim: 0.4
+  bond_emb_dim: 1.0
+  hidden_dim: 32
+  num_layers: 1
+  fc_hidden_dim: 128
+  drop_out: 0.0
+  lr: 0.000924360227417143
+  patience: 15
+  EPOCHS: 50
+
