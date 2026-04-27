@@ -1,5 +1,6 @@
 #model_tester.py
 import pandas as pd
+import numpy as np
 import torch
 from rdkit import Chem
 import os
@@ -172,24 +173,9 @@ def test_model_on_directory(checkpoint_path, sdf_dir, targets_file):
             logger.info("Pearson coefficient: No se puede calcular con un solo punto.")
 
         # Scatter plot
-        plt.figure(figsize=(6, 6))
-        plt.scatter(y_true, y_pred, alpha=0.7)
-        plt.plot([min(y_true), max(y_true)], [min(y_true), max(y_true)], color='red', linestyle='--')
-        plt.xlabel("Real Solubility", fontsize = 20)
-        plt.ylabel("Predicted Solubility", fontsize = 20)
-        plt.tick_params(axis='both', which='major', labelsize=16)
-        plt.grid(True)
-        plt.tight_layout()
-
-        # Guardar imagen
-        plot_filename = os.path.join(
-            model_results_dir,
-            f"scatter_plot_{model_name_no_ext}_{folder_name}.png"
+        plot_filename = generar_scatter_plot(
+            y_true, y_pred, model_results_dir, model_name_no_ext, folder_name
         )
-        plt.savefig(plot_filename)
-        plt.close()
-
-        logger.info(f"Scatter plot guardado en: {plot_filename}")
 
         return plot_filename
 
@@ -263,29 +249,64 @@ def test_model_on_directory_pt(checkpoint_path, pt_file):
             logger.info("Pearson coefficient: No se puede calcular con un solo punto.")
 
         # Scatter plot
-        plt.figure(figsize=(6, 6))
-        plt.scatter(y_true, y_pred, alpha=0.7)
-        plt.plot([min(y_true), max(y_true)], [min(y_true), max(y_true)], color='red', linestyle='--')
-        plt.xlabel("Real Solubility", fontsize = 20)
-        plt.ylabel("Predicted Solubility", fontsize = 20)
-        plt.tick_params(axis='both', which='major', labelsize=16)
-        plt.grid(True)
-        plt.tight_layout()
-
-        # Guardar imagen
-        plot_filename = os.path.join(
-            model_results_dir,
-            f"scatter_plot_{model_name_no_ext}_{folder_name}.png"
+        plot_filename = generar_scatter_plot(
+            y_true, y_pred, model_results_dir, model_name_no_ext, folder_name
         )
-        plt.savefig(plot_filename)
-        plt.close()
-
-        logger.info(f"Scatter plot guardado en: {plot_filename}")
 
         return plot_filename
 
     except Exception as e:
         raise ValueError(e)
+    
+def generar_scatter_plot(y_true, y_pred, model_results_dir, model_name_no_ext, folder_name, tolerance=1.0):
+    """
+    Genera el scatter plot con zona de tolerancia, sin leyenda y con la diagonal punteada.
+    """
+    plt.figure(figsize=(6, 6))
+    
+    # Dibujar los puntos
+    plt.scatter(y_true, y_pred, alpha=0.7)
+    
+    # Rango para la diagonal
+    x_min, x_max = min(y_true), max(y_true)
+    x_range = np.array([x_min, x_max])
+    
+    # Línea diagonal central (AHORA PUNTEADA Y SIN LABEL)
+    plt.plot(x_range, x_range, color='red', linestyle='--', linewidth=2)
+    
+    # Zona de tolerancia sombreada
+    plt.fill_between(
+        x_range, 
+        x_range - tolerance, 
+        x_range + tolerance, 
+        color='gray', 
+        alpha=0.2
+    )
+    
+    # Líneas de umbral (bordes del sombreado)
+    plt.plot(x_range, x_range + tolerance, color='gray', linestyle=':', linewidth=1, alpha=0.4)
+    plt.plot(x_range, x_range - tolerance, color='gray', linestyle=':', linewidth=1, alpha=0.4)
+
+    # Estética
+    plt.xlabel("Real Solubility", fontsize=20)
+    plt.ylabel("Predicted Solubility", fontsize=20)
+    plt.tick_params(axis='both', which='major', labelsize=16)
+    plt.grid(True, linestyle=':', alpha=0.6)
+    
+    # Eliminamos plt.legend() para que no aparezca la guía
+    
+    plt.tight_layout()
+
+    # Ruta de guardado
+    plot_filename = os.path.join(
+        model_results_dir,
+        f"scatter_plot_{model_name_no_ext}_{folder_name}.png"
+    )
+    plt.savefig(plot_filename)
+    plt.close()
+
+    logger.info(f"Scatter plot guardado en: {plot_filename}")
+    return plot_filename
     
 def guardar_predicciones_csv(ruta_salida, nombres, y_real, y_pred):
     """
@@ -346,9 +367,6 @@ def obtener_info_checkpoint(model_path):
         error_msg = f"Error al consultar parámetros del modelo: {str(e)}"
         logger.error(error_msg)
         return error_msg
-
-
-logger = logging.getLogger(__name__)
 
 def test_all_models_in_directory(models_dir, sdf_dir, targets_file, output_dir=RESULTADOS_DIR): # <--- NUEVO PARÁMETRO
     """
@@ -587,8 +605,8 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
     
     # Rutas principales
-    MODELOS_MADRE = "Modelos/NuevaPruebaNuevasFeatures"      # Donde están las carpetas split_0, split_1... con los .pt del modelo
-    RESULTADOS_MADRE = "Resultados/NuevaPruebaNuevasFeatures"   # Donde se guardarán los CSV finales
+    MODELOS_MADRE = "Modelos/PruebaSmilesNuevasFeatures"      # Donde están las carpetas split_0, split_1... con los .pt del modelo
+    RESULTADOS_MADRE = "Resultados/PruebaSmilesNuevasFeatures"   # Donde se guardarán los CSV finales
     
     print("🚀 Iniciando el testing masivo de todos los splits...")
     
