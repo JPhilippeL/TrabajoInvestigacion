@@ -1,7 +1,9 @@
+import datetime
 import logging
 import os
 import shutil
 import tempfile
+from time import time
 
 import ray
 import torch
@@ -53,15 +55,15 @@ def train(
         len(periodic_elements) * search_space_dictionary["atom_emb_dim"]
     )
 
-    calc_hibrid_emb_dim = calc_dim(
-        len(hybridization_types) * search_space_dictionary["hibrid_emb_dim"]
+    calc_hybrid_emb_dim = calc_dim(
+        len(hybridization_types) * search_space_dictionary["hybrid_emb_dim"]
     )
 
     calc_bond_emb_dim = calc_dim(
         N_BOND_TYPES * search_space_dictionary["bond_emb_dim"]
     )
 
-    input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
+    input_dim = calc_atom_emb_dim + calc_hybrid_emb_dim + OTHER_NODE_FEATURES
 
     edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
 
@@ -76,7 +78,7 @@ def train(
         gnn_model_name,
         input_dim,
         calc_atom_emb_dim,
-        calc_hibrid_emb_dim,
+        calc_hybrid_emb_dim,
         calc_bond_emb_dim,
         hidden_dim=search_space_dictionary["hidden_dim"],
         num_layers=search_space_dictionary["num_layers"],
@@ -203,7 +205,7 @@ def train(
 def write_results_to_file(model_name, best_results, hyperparemeters, output_file):
     with open(output_file, "a") as f:
         f.write(f"Model: {model_name}\n")
-        f.write(f"Best Validation Loss: {best_results['best_val_loss']:.4f}\n")
+        f.write(f"Best Validation Loss (MSE): {best_results['best_val_loss']:.4f}\n")
         f.write("Best Hyperparameters:\n")
         for param, value in hyperparemeters.items():
             f.write(f"  {param}: {value}\n")
@@ -211,20 +213,16 @@ def write_results_to_file(model_name, best_results, hyperparemeters, output_file
 
 
 if __name__ == "__main__":
-
+    debut_tuning = time()
     models = ["GAT", "GINE", "GraphTransformer", "EGAT", "GIN"]
     for model in models:
         logging.info("Starting hyperparameter tuning for model: {}".format(model))
         ray.shutdown()
         # we can limit the number cpus in order to avoid overloading the cpus by num_cpus passed to ray.init
-        # ignore_reinit_error=True allows us to call ray.init multiple times without getting an error, which is useful when running multiple trials in parallel
-        # include_dashboard=False disables the Ray dashboard, which is not needed for this script and can save resources
         ray.init(ignore_reinit_error=True, include_dashboard=False)
 
-        sdf_dir = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/Ligand/Ligand_SDF"
-        target_file = (
-            "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/pIC50.txt"
-        )
+        sdf_dir = "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/Ligand/Ligand_SDF"
+        target_file = "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/pIC50.txt"
 
         model_name = "prueba_gnn_" + model + "_hyperparameter_tuning"
 
@@ -235,18 +233,15 @@ if __name__ == "__main__":
         if not os.path.exists(target_file):
             raise FileNotFoundError(f"Target file not found: {target_file}")
 
-        if len(model) == 0:
-            raise ValueError("Model type must be specified ('GAT', 'GIN',...)")
-
         # Define the hyperparameter search space for Ray Tune
         """ Note that some parameters are not changeable via the gui so we have to change them from the file GNNs/model_trainer.py.
             such as drop_out.
-            """
+        """
         # Please check the range of values for each hyperparameter (specially the embedding dimensions) and the patience value
         config = {
             "batch_size": tune.choice([4, 8, 16]),
             "atom_emb_dim": tune.choice([0.2, 0.3, 0.4]),
-            "hibrid_emb_dim": tune.choice([0.3, 0.4, 0.5]),
+            "hybrid_emb_dim": tune.choice([0.3, 0.4, 0.5]),
             "bond_emb_dim": tune.choice([0.5, 1.0]),
             "hidden_dim": tune.choice([32, 64, 128, 256]),
             "num_layers": tune.choice([1, 2, 3]),
@@ -265,11 +260,10 @@ if __name__ == "__main__":
             valid_split=valid_split,
             gnn_model_pseudo=model_name,
         )
-        # to parallelize the trials, we need to specify the number of cpus and gpus to use for each trial.
         cpu_per_trials = 6
         gpu_per_trials = 0
         # number of combinations of hyperparameters to try.
-        num_trials = 40
+        num_trials = 20
 
         # Tuner object to run and report the results
         tuner = tune.Tuner(
@@ -297,3 +291,10 @@ if __name__ == "__main__":
 
         best_result = results.get_best_result(metric="best_val_loss", mode="min")
         write_results_to_file(model, best_result.metrics, best_result.config, "hyperparameter_tuning_results.txt")
+    end_tuning = time()
+    elapsed_time = end_tuning - debut_tuning
+    with open("hyperparameter_tuning_results.txt", "a") as f:
+        f.write(f"Tuning time: {elapsed_time}\n")
+        f.write(f"---\tend\t---{datetime.now()}\n")
+
+    logging.info(f"it took {elapsed_time} to tune hyperparameter for all GNNs models")
