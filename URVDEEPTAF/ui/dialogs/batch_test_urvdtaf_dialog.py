@@ -8,7 +8,7 @@ from PySide6.QtCore import QSettings
 class BatchTestDialog(QDialog): # Le cambié el nombre a BatchTestDialog para diferenciarlo
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Configuración de Evaluación Múltiple (Batch Test)")
+        self.setWindowTitle("Multiple Evaluation Configuration (Batch Test)")
         self.resize(600, 500)
 
         # ---------- QSettings ----------
@@ -18,21 +18,21 @@ class BatchTestDialog(QDialog): # Le cambié el nombre a BatchTestDialog para di
         
         # CAMBIO 1: Ahora pedimos un directorio de modelos, no un archivo .pt
         self.models_dir_input = QLineEdit()
-        self.models_dir_input.setPlaceholderText("Carpeta madre con los modelos entrenados...")
+        self.models_dir_input.setPlaceholderText("Parent folder containing trained models...")
         self.models_dir_input.setText(self.settings.value("test/last_models_dir", ""))
-        self.models_btn = QPushButton("Seleccionar...")
+        self.models_btn = QPushButton("Select...")
         self.models_btn.clicked.connect(self.browse_models_dir)
 
         self.data_path_input = QLineEdit()
-        self.data_path_input.setPlaceholderText("Directorio de datos (train/val/test)...")
+        self.data_path_input.setPlaceholderText("Data directory (train/val/test)...")
         self.data_path_input.setText(self.settings.value("test/last_data_path", ""))
-        self.data_btn = QPushButton("Seleccionar...")
+        self.data_btn = QPushButton("Select...")
         self.data_btn.clicked.connect(self.browse_data)
 
         self.output_base_input = QLineEdit()
-        self.output_base_input.setPlaceholderText("Carpeta base (Default: visuals/saved)")
+        self.output_base_input.setPlaceholderText("Base folder (default: visuals/saved)")
         self.output_base_input.setText(self.settings.value("test/last_output_base", "visuals/saved"))
-        self.output_btn = QPushButton("Seleccionar...")
+        self.output_btn = QPushButton("Select...")
         self.output_btn.clicked.connect(self.browse_output)
 
         # ================= SECCIÓN 2: HARDWARE Y BATCH =================
@@ -59,10 +59,10 @@ class BatchTestDialog(QDialog): # Le cambié el nombre a BatchTestDialog para di
         self.smi_len_spin.setValue(int(self.settings.value("test/max_smi_len", 150)))
 
         # ================= SECCIÓN 4: OPCIONES DE SALIDA =================
-        self.plots_check = QCheckBox("Generar gráficos de diagnóstico (Residuales, etc.)")
+        self.plots_check = QCheckBox("Generate diagnostic plots (residuals, etc.)")
         self.plots_check.setChecked(self.settings.value("test/generate_plots", "true") == "true")
 
-        self.predictions_check = QCheckBox("Guardar predicciones en CSV (test_predictions.csv)")
+        self.predictions_check = QCheckBox("Save predicciones en CSV (test_predictions.csv)")
         self.predictions_check.setChecked(self.settings.value("test/predictions", "false") == "true")
 
 
@@ -75,16 +75,16 @@ class BatchTestDialog(QDialog): # Le cambié el nombre a BatchTestDialog para di
         form_layout.addRow("Data Path:", self._with_button(self.data_path_input, self.data_btn))
         form_layout.addRow("Output Base:", self._with_button(self.output_base_input, self.output_btn))
         
-        form_layout.addRow(QLabel("<br><b>2. Configuración de Inferencia</b>"))
-        form_layout.addRow("Dispositivo:", self.device_combo)
+        form_layout.addRow(QLabel("<br><b>2. Inference configuration</b>"))
+        form_layout.addRow("Device:", self.device_combo)
         form_layout.addRow("Batch Size:", self.batch_spin)
 
-        form_layout.addRow(QLabel("<br><b>3. Límites de Longitud (Padding)</b>"))
+        form_layout.addRow(QLabel("<br><b>3. Length limits (padding)</b>"))
         form_layout.addRow("Max Seq Length:", self.seq_len_spin)
         form_layout.addRow("Max Pocket Length:", self.pkt_len_spin)
         form_layout.addRow("Max SMI Length:", self.smi_len_spin)
         
-        form_layout.addRow(QLabel("<br><b>4. Resultados</b>"))
+        form_layout.addRow(QLabel("<br><b>4. Results</b>"))
         form_layout.addRow(self.plots_check)
         form_layout.addRow(self.predictions_check)
 
@@ -122,7 +122,7 @@ class BatchTestDialog(QDialog): # Le cambié el nombre a BatchTestDialog para di
         path = QFileDialog.getExistingDirectory(self, "Seleccionar Carpeta de Salida")
         if path: self.output_base_input.setText(path)
 
-    # ---------- Guardar Configuración (Accept) ----------
+    # ---------- Save Configuración (Accept) ----------
     def accept(self):
         self.settings.setValue("test/last_models_dir", self.models_dir_input.text())
         self.settings.setValue("test/last_data_path", self.data_path_input.text())

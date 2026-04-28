@@ -29,32 +29,32 @@ class MenuExplainerGNN(QMenu):
 
     def init_actions(self):
         # Graph_explainer
-        graph_explainer_action =QAction("Obtener GraphExplainer", self)
+        graph_explainer_action =QAction("Run GraphExplainer", self)
         graph_explainer_action.triggered.connect(self.get_explanation_GraphExplainer)
         self.addAction(graph_explainer_action)
 
         # GNN Explainer
-        gnn_explainer_action = QAction("Obtener GNNExplainer", self)
+        gnn_explainer_action = QAction("Run GNNExplainer", self)
         gnn_explainer_action.triggered.connect(self.get_explanation_GNNExplainer)
         self.addAction(gnn_explainer_action)
 
         # Batch Graph_explainer
-        batch_graph_explainer_action =QAction("Obtener GraphExplainer de Directorio", self)
+        batch_graph_explainer_action =QAction("Run GraphExplainer on Directory", self)
         batch_graph_explainer_action.triggered.connect(self.get_batch_explanation_GraphExplainer)
         self.addAction(batch_graph_explainer_action)
 
         # Batch GNN Explainer
-        batch_gnn_explainer_action = QAction("Obtener GNNExplainer de Directorio", self)
+        batch_gnn_explainer_action = QAction("Run GNNExplainer on Directory", self)
         batch_gnn_explainer_action.triggered.connect(self.get_batch_explanation_GNNExplainer)
         self.addAction(batch_gnn_explainer_action)
 
         # Comparador
-        explanation_comparer_action = QAction("Comparar Explicadores", self)
+        explanation_comparer_action = QAction("Compare Explainers", self)
         explanation_comparer_action.triggered.connect(self.get_explanation_comparer)
         self.addAction(explanation_comparer_action)
 
         # batch_Comparador
-        batch_explanation_comparer_action = QAction("Comparar Explicadores Batch", self)
+        batch_explanation_comparer_action = QAction("Compare Explainers Batch", self)
         batch_explanation_comparer_action.triggered.connect(self.get_batch_explanation_comparer)
         self.addAction(batch_explanation_comparer_action)
 

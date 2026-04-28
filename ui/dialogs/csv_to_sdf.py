@@ -13,7 +13,7 @@ class CSVtoSDFDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Convertir CSV (SMILES) a SDFs individuales")
+        self.setWindowTitle("Convert CSV (SMILES) to Individual SDFs")
         self.settings = QSettings("Investigacion", "Analisis Molecular")
 
         layout = QVBoxLayout()
@@ -22,22 +22,22 @@ class CSVtoSDFDialog(QDialog):
         # ---------- CSV file ----------
         self.csv_file_input = QLineEdit()
         self.csv_file_input.setText(self.settings.value("csv2sdf/csv_file", ""))
-        self.csv_file_button = QPushButton("Elegir CSV...")
+        self.csv_file_button = QPushButton("Choose CSV...")
         self.csv_file_button.clicked.connect(self.select_csv_file)
         csv_layout = QHBoxLayout()
         csv_layout.addWidget(self.csv_file_input)
         csv_layout.addWidget(self.csv_file_button)
-        form_layout.addRow("Archivo CSV:", csv_layout)
+        form_layout.addRow("CSV File:", csv_layout)
 
         # ---------- Output directory ----------
         self.output_dir_input = QLineEdit()
         self.output_dir_input.setText(self.settings.value("csv2sdf/output_dir", ""))
-        self.output_dir_button = QPushButton("Elegir carpeta...")
+        self.output_dir_button = QPushButton("Choose folder...")
         self.output_dir_button.clicked.connect(self.select_output_dir)
         output_layout = QHBoxLayout()
         output_layout.addWidget(self.output_dir_input)
         output_layout.addWidget(self.output_dir_button)
-        form_layout.addRow("Directorio de salida:", output_layout)
+        form_layout.addRow("Output Directory:", output_layout)
 
         layout.addLayout(form_layout)
 
@@ -66,13 +66,13 @@ class CSVtoSDFDialog(QDialog):
         output_dir = self.output_dir_input.text().strip()
 
         if not os.path.isfile(csv_file):
-            QMessageBox.warning(self, "Error", "Debes seleccionar un archivo CSV válido.")
+            QMessageBox.warning(self, "Error", "You must select a valid CSV file.")
             return
         if not output_dir:
-            QMessageBox.warning(self, "Error", "Debes seleccionar un directorio de salida.")
+            QMessageBox.warning(self, "Error", "You must select an output directory.")
             return
 
-        # Guardar configuraciones
+        # Save configuraciones
         self.settings.setValue("csv2sdf/csv_file", csv_file)
         self.settings.setValue("csv2sdf/output_dir", output_dir)
 

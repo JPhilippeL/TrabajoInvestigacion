@@ -1,0 +1,28 @@
+status: success
+trial_uid: 88a5350e1f24
+trial_index: 98
+trial_name: trial_0098_GraphTransformer
+model_type: GraphTransformer
+checkpoint_path: /home/mohamed/Studies/stage/TrabajoInvestigacion/hyperparameter_Search/runs/trial_0098_GraphTransformer/Modelos/trial_0098_GraphTransformer.pt
+objective_metric: RMSE
+objective_mode: min
+metrics:
+  MSE: 0.464874206005291
+  RMSE: 0.6818168419783212
+  MAE: 0.5341224867724867
+  Pearson: 0.7585500106832875
+  Spearman: 0.7684523025607537
+  R2: 0.5125953656115401
+hyperparameters:
+  lr: 0.001
+  batch_size: 16
+  hidden_dim: 64
+  num_layers: 3
+  atom_emb_dim: 0.4
+  hibrid_emb_dim: 0.5
+  bond_emb_dim: 1
+epochs: 50
+patience: 10
+valid_split: 0.2
+seed: 42
+run_dir: /home/mohamed/Studies/stage/TrabajoInvestigacion/hyperparameter_Search/runs/trial_0098_GraphTransformer

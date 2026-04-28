@@ -8,7 +8,7 @@ from PySide6.QtCore import QSettings
 class BatchAllModelsTestDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Testear TODOS los modelos en un directorio")
+        self.setWindowTitle("Test ALL Models in a Directory")
 
         # ---------- QSettings ----------
         self.settings = QSettings("Investigacion", "Analisis Molecular")
@@ -16,24 +16,24 @@ class BatchAllModelsTestDialog(QDialog):
         # Inputs
         self.models_dir_input = QLineEdit()
         self.models_dir_input.setText(self.settings.value("batchAllTest/models_dir", ""))
-        self.models_browse_btn = QPushButton("Seleccionar...")
+        self.models_browse_btn = QPushButton("Select...")
         self.models_browse_btn.clicked.connect(self.browse_models_dir)
 
         self.sdf_dir_input = QLineEdit()
         self.sdf_dir_input.setText(self.settings.value("batchAllTest/sdf_dir", ""))
-        self.sdf_browse_btn = QPushButton("Seleccionar...")
+        self.sdf_browse_btn = QPushButton("Select...")
         self.sdf_browse_btn.clicked.connect(self.browse_sdf_dir)
 
         self.targets_file_input = QLineEdit()
         self.targets_file_input.setText(self.settings.value("batchAllTest/targets_file", ""))
-        self.targets_browse_btn = QPushButton("Seleccionar...")
+        self.targets_browse_btn = QPushButton("Select...")
         self.targets_browse_btn.clicked.connect(self.browse_targets_file)
 
         # Form layout
         form_layout = QFormLayout()
-        form_layout.addRow("Directorio de modelos:", self._with_button(self.models_dir_input, self.models_browse_btn))
-        form_layout.addRow("Directorio de SDFs:", self._with_button(self.sdf_dir_input, self.sdf_browse_btn))
-        form_layout.addRow("Archivo de targets (.txt):", self._with_button(self.targets_file_input, self.targets_browse_btn))
+        form_layout.addRow("Models Directory:", self._with_button(self.models_dir_input, self.models_browse_btn))
+        form_layout.addRow("SDF Directory:", self._with_button(self.sdf_dir_input, self.sdf_browse_btn))
+        form_layout.addRow("Target File (.txt):", self._with_button(self.targets_file_input, self.targets_browse_btn))
 
         # Main layout
         layout = QVBoxLayout()
@@ -70,7 +70,7 @@ class BatchAllModelsTestDialog(QDialog):
             self.targets_file_input.setText(path)
 
     def accept(self):
-        # Guardar en QSettings
+        # Save en QSettings
         self.settings.setValue("batchAllTest/models_dir", self.models_dir_input.text())
         self.settings.setValue("batchAllTest/sdf_dir", self.sdf_dir_input.text())
         self.settings.setValue("batchAllTest/targets_file", self.targets_file_input.text())

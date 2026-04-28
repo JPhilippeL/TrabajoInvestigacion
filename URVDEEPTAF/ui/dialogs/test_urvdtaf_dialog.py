@@ -8,7 +8,7 @@ from PySide6.QtCore import QSettings
 class TestDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Configuración de Evaluación (Test)")
+        self.setWindowTitle("Evaluation Configuration (Test)")
         self.resize(600, 500) # Un poco más pequeño que el de Train
 
         # ---------- QSettings ----------
@@ -16,21 +16,21 @@ class TestDialog(QDialog):
 
         # ================= SECCIÓN 1: RUTAS DE ARCHIVOS =================
         self.model_path_input = QLineEdit()
-        self.model_path_input.setPlaceholderText("Archivo de pesos (.pt)...")
+        self.model_path_input.setPlaceholderText("Weights file (.pt)...")
         self.model_path_input.setText(self.settings.value("test/last_model_path", ""))
-        self.model_btn = QPushButton("Seleccionar...")
+        self.model_btn = QPushButton("Select...")
         self.model_btn.clicked.connect(self.browse_model)
 
         self.data_path_input = QLineEdit()
-        self.data_path_input.setPlaceholderText("Directorio de datos (train/val/test)...")
+        self.data_path_input.setPlaceholderText("Data directory (train/val/test)...")
         self.data_path_input.setText(self.settings.value("test/last_data_path", ""))
-        self.data_btn = QPushButton("Seleccionar...")
+        self.data_btn = QPushButton("Select...")
         self.data_btn.clicked.connect(self.browse_data)
 
         self.output_base_input = QLineEdit()
-        self.output_base_input.setPlaceholderText("Carpeta base (Default: visuals/saved)")
+        self.output_base_input.setPlaceholderText("Base folder (default: visuals/saved)")
         self.output_base_input.setText(self.settings.value("test/last_output_base", "visuals/saved"))
-        self.output_btn = QPushButton("Seleccionar...")
+        self.output_btn = QPushButton("Select...")
         self.output_btn.clicked.connect(self.browse_output)
 
         # ================= SECCIÓN 2: HARDWARE Y BATCH =================
@@ -57,31 +57,31 @@ class TestDialog(QDialog):
         self.smi_len_spin.setValue(int(self.settings.value("test/max_smi_len", 150)))
 
         # ================= SECCIÓN 4: OPCIONES DE SALIDA =================
-        self.plots_check = QCheckBox("Generar gráficos de diagnóstico (Residuales, etc.)")
+        self.plots_check = QCheckBox("Generate diagnostic plots (residuals, etc.)")
         self.plots_check.setChecked(self.settings.value("test/generate_plots", "true") == "true")
 
-        self.predictions_check = QCheckBox("Guardar predicciones en CSV (test_predictions.csv)")
+        self.predictions_check = QCheckBox("Save predicciones en CSV (test_predictions.csv)")
         self.predictions_check.setChecked(self.settings.value("test/predictions", "false") == "true")
 
 
         # ---------- Layout Principal ----------
         form_layout = QFormLayout()
         
-        form_layout.addRow(QLabel("<b>1. Modelo y Datos</b>"))
+        form_layout.addRow(QLabel("<b>1. Model and data</b>"))
         form_layout.addRow("Weights Path (.pt):", self._with_button(self.model_path_input, self.model_btn))
         form_layout.addRow("Data Path:", self._with_button(self.data_path_input, self.data_btn))
         form_layout.addRow("Output Base:", self._with_button(self.output_base_input, self.output_btn))
         
-        form_layout.addRow(QLabel("<br><b>2. Configuración de Inferencia</b>"))
-        form_layout.addRow("Dispositivo:", self.device_combo)
+        form_layout.addRow(QLabel("<br><b>2. Inference configuration</b>"))
+        form_layout.addRow("Device:", self.device_combo)
         form_layout.addRow("Batch Size:", self.batch_spin)
 
-        form_layout.addRow(QLabel("<br><b>3. Límites de Longitud (Padding)</b>"))
+        form_layout.addRow(QLabel("<br><b>3. Length limits (padding)</b>"))
         form_layout.addRow("Max Seq Length:", self.seq_len_spin)
         form_layout.addRow("Max Pocket Length:", self.pkt_len_spin)
         form_layout.addRow("Max SMI Length:", self.smi_len_spin)
         
-        form_layout.addRow(QLabel("<br><b>4. Resultados</b>"))
+        form_layout.addRow(QLabel("<br><b>4. Results</b>"))
         form_layout.addRow(self.plots_check)
         form_layout.addRow(self.predictions_check)
 
@@ -118,7 +118,7 @@ class TestDialog(QDialog):
         path = QFileDialog.getExistingDirectory(self, "Seleccionar Carpeta de Salida")
         if path: self.output_base_input.setText(path)
 
-    # ---------- Guardar Configuración (Accept) ----------
+    # ---------- Save Configuración (Accept) ----------
     def accept(self):
         self.settings.setValue("test/last_model_path", self.model_path_input.text())
         self.settings.setValue("test/last_data_path", self.data_path_input.text())

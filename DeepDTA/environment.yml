@@ -1,0 +1,22 @@
+name: deepdta
+
+channels:
+  - conda-forge
+  - pytorch
+  - defaults
+
+dependencies:
+  - python=3.10
+  - pip
+
+  # Calcul scientifique / data
+  - numpy
+  - pandas
+  - scikit-learn
+
+  # Métriques utilisées dans predict.py
+  - lifelines
+
+  # Deep learning
+  - pytorch
+  - cpuonly

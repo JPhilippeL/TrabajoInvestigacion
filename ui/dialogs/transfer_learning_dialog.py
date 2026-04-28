@@ -14,7 +14,7 @@ class TransferLearningDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Configuración de Transfer Learning")
+        self.setWindowTitle("Transfer Learning Configuration")
 
         layout = QVBoxLayout()
         form_layout = QFormLayout()
@@ -25,39 +25,39 @@ class TransferLearningDialog(QDialog):
         # ---------- SDF directory ----------
         self.sdf_path_input = QLineEdit()
         self.sdf_path_input.setText(self.settings.value("transferL/sdf_dir", ""))
-        self.sdf_path_button = QPushButton("Elegir carpeta...")
+        self.sdf_path_button = QPushButton("Choose folder...")
         self.sdf_path_button.clicked.connect(self.select_sdf_folder)
         sdf_layout = QHBoxLayout()
         sdf_layout.addWidget(self.sdf_path_input)
         sdf_layout.addWidget(self.sdf_path_button)
-        form_layout.addRow("Directorio de SDFs:", sdf_layout)
+        form_layout.addRow("SDF Directory:", sdf_layout)
 
         # ---------- Target file ----------
         self.target_file_input = QLineEdit()
         self.target_file_input.setText(self.settings.value("transferL/target_file", ""))
-        self.target_file_button = QPushButton("Elegir archivo...")
+        self.target_file_button = QPushButton("Choose file...")
         self.target_file_button.clicked.connect(self.select_target_file)
         target_layout = QHBoxLayout()
         target_layout.addWidget(self.target_file_input)
         target_layout.addWidget(self.target_file_button)
-        form_layout.addRow("Archivo de targets (.txt):", target_layout)
+        form_layout.addRow("Target File (.txt):", target_layout)
 
         # ---------- Pretrained model ----------
         self.pretrained_model_input = QLineEdit()
         self.pretrained_model_input.setText(self.settings.value("transferL/pretrained_model_path", ""))
-        self.pretrained_model_button = QPushButton("Elegir modelo preentrenado...")
+        self.pretrained_model_button = QPushButton("Choose pretrained model...")
         self.pretrained_model_button.clicked.connect(self.select_pretrained_model)
         pretrained_layout = QHBoxLayout()
         pretrained_layout.addWidget(self.pretrained_model_input)
         pretrained_layout.addWidget(self.pretrained_model_button)
-        form_layout.addRow("Modelo preentrenado (.pt):", pretrained_layout)
+        form_layout.addRow("Pretrained Model (.pt):", pretrained_layout)
 
         # ---------- Transfer mode ----------
         self.transfer_mode_select = QComboBox()
         self.transfer_mode_select.addItems(["Fine Tuning", "Feature Extraction"])
         self.transfer_mode_select.setCurrentText(self.settings.value("transferL/transfer_mode", "Fine Tuning"))
         self.transfer_mode_select.currentTextChanged.connect(self.update_save_name)
-        form_layout.addRow("Modo Transfer Learning:", self.transfer_mode_select)
+        form_layout.addRow("Transfer Learning Mode:", self.transfer_mode_select)
 
         # ---------- Otros parámetros ----------
         self.epochs_input = QSpinBox()
@@ -87,12 +87,12 @@ class TransferLearningDialog(QDialog):
         self.save_name_input = QLineEdit()
         self.save_name_input.setText(self.settings.value("transferL/save_name", ""))
 
-        form_layout.addRow("Épocas:", self.epochs_input)
-        form_layout.addRow("Porcentaje validación:", self.valid_split_input)
-        form_layout.addRow("Paciencia Early Stopping (0 desactiva):", self.early_stopping_patience_input)
+        form_layout.addRow("Epochs:", self.epochs_input)
+        form_layout.addRow("Validation Split:", self.valid_split_input)
+        form_layout.addRow("Early Stopping Patience (0 disables):", self.early_stopping_patience_input)
         form_layout.addRow("Batch size:", self.batch_input)
         form_layout.addRow("Learning rate:", self.lr_input)
-        form_layout.addRow("Nombre del modelo final:", self.save_name_input)
+        form_layout.addRow("Final Model Name:", self.save_name_input)
 
         layout.addLayout(form_layout)
 
@@ -132,7 +132,7 @@ class TransferLearningDialog(QDialog):
 
     # ---------- Accept ----------
     def accept(self):
-        # Guardar configuraciones con prefijo transferL/
+        # Save configuraciones con prefijo transferL/
         self.settings.setValue("transferL/sdf_dir", self.sdf_path_input.text())
         self.settings.setValue("transferL/target_file", self.target_file_input.text())
         self.settings.setValue("transferL/pretrained_model_path", self.pretrained_model_input.text())

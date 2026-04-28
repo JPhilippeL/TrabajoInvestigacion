@@ -40,7 +40,7 @@ class MenuEDNN(QMenu):
         train_action.triggered.connect(self.train_model_ednn)
         self.addAction(train_action)
 
-        batch_train_action = QAction("Train All Models", self)
+        batch_train_action = QAction("Hyperparameter Search", self)
         batch_train_action.triggered.connect(self.train_all_models_ednn)
         self.addAction(batch_train_action)
 
@@ -48,7 +48,7 @@ class MenuEDNN(QMenu):
         test_action.triggered.connect(self.test_model_ednn)
         self.addAction(test_action)
 
-        batch_test_action = QAction("Evaluate All Models (Folder)", self)
+        batch_test_action = QAction("Evaluate All Models", self)
         batch_test_action.triggered.connect(self.test_multiple_models_ednn)
         self.addAction(batch_test_action)
 

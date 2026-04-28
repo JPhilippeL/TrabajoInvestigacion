@@ -22,26 +22,26 @@ class MenuURVDEEPTAF(QMenu):
 
     def init_actions(self):
         # 1. Generate Data
-        gendata_action = QAction("Generar Data", self)
+        gendata_action = QAction("Generate Data", self)
         gendata_action.triggered.connect(self.generar_data_urvdeepdtaf)
         self.addAction(gendata_action)
 
         # 2. Train Model 
-        train_action = QAction("Entrenar Modelo", self)
+        train_action = QAction("Train Model", self)
         train_action.triggered.connect(self.entrenar_modelo_urvdeepdtaf)
         self.addAction(train_action)
 
         # 3. Batch Train Model (CORRECCIÓN: Añadido al menú)
-        batch_train_action = QAction("Entrenar Todos los Modelos", self)
+        batch_train_action = QAction("Train All Models", self)
         batch_train_action.triggered.connect(self.entrenar_muchos_modelos_urvdeepdtaf)
         self.addAction(batch_train_action)
 
         # 4. Test Model 
-        test_action = QAction("Evaluar Modelo", self)
+        test_action = QAction("Evaluate Model", self)
         test_action.triggered.connect(self.testear_modelo_urvdeepdtaf)
         self.addAction(test_action)
 
-        batch_test_action = QAction("Evaluar Todos los Modelos (Carpeta)", self)
+        batch_test_action = QAction("Evaluate All Models (Folder)", self)
         batch_test_action.triggered.connect(self.testear_multiples_modelos_urvdeepdtaf)
         self.addAction(batch_test_action)
 
@@ -171,12 +171,12 @@ class MenuURVDEEPTAF(QMenu):
 
     def on_train_success(self, run_dir):
         self.main_window.setEnabled(True)
-        logger.info(f"Entrenamiento completado exitosamente. Resultados en: {run_dir}")
+        logger.info(f"Entrenamiento completado exitosamente. Results en: {run_dir}")
 
     # --- NUEVOS SLOTS PARA EL BATCH TRAIN ---
     def on_batch_model_success(self, model_name, run_dir):
         # NOTA: Aquí NO hacemos setEnabled(True) porque faltan modelos
-        logger.info(f"[Batch] Modelo {model_name} entrenado. Resultados en: {run_dir}")
+        logger.info(f"[Batch] Modelo {model_name} entrenado. Results en: {run_dir}")
 
     def on_batch_model_error(self, model_name, error_msg):
         # Tampoco desbloqueamos aquí, dejamos que el hilo intente con el siguiente modelo

@@ -8,7 +8,7 @@ from PySide6.QtCore import QSettings
 class ExplanationDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Seleccionar modelo, molécula y targets")
+        self.setWindowTitle("Select Model, Molecule and Targets")
         self.resize(500, 200) # Un poco más grande para que quepa todo bien
 
         # ---------- QSettings ----------
@@ -17,25 +17,25 @@ class ExplanationDialog(QDialog):
         # ---------- Model path ----------
         self.model_path_input = QLineEdit()
         self.model_path_input.setText(self.settings.value("modelTest/last_model_path", ""))
-        self.model_browse_btn = QPushButton("Seleccionar...")
+        self.model_browse_btn = QPushButton("Select...")
         self.model_browse_btn.clicked.connect(self.browse_model)
 
         # ---------- SDF path ----------
         self.sdf_path_input = QLineEdit()
         self.sdf_path_input.setText(self.settings.value("modelTest/last_sdf_path", ""))
-        self.sdf_browse_btn = QPushButton("Seleccionar...")
+        self.sdf_browse_btn = QPushButton("Select...")
         self.sdf_browse_btn.clicked.connect(self.browse_sdf)
 
         # ---------- Target (TXT) path ----------
         self.target_path_input = QLineEdit()
         self.target_path_input.setText(self.settings.value("modelTest/last_target_path", ""))
-        self.target_browse_btn = QPushButton("Seleccionar...")
+        self.target_browse_btn = QPushButton("Select...")
         self.target_browse_btn.clicked.connect(self.browse_target)
 
         # ---------- Layout ----------
         form_layout = QFormLayout()
-        form_layout.addRow("Modelo (.pt):", self._with_button(self.model_path_input, self.model_browse_btn))
-        form_layout.addRow("Molécula (.sdf):", self._with_button(self.sdf_path_input, self.sdf_browse_btn))
+        form_layout.addRow("Model (.pt):", self._with_button(self.model_path_input, self.model_browse_btn))
+        form_layout.addRow("Molecule (.sdf):", self._with_button(self.sdf_path_input, self.sdf_browse_btn))
         form_layout.addRow("Targets (.txt):", self._with_button(self.target_path_input, self.target_browse_btn))
 
         layout = QVBoxLayout()
@@ -64,7 +64,7 @@ class ExplanationDialog(QDialog):
             self.model_path_input.setText(path)
 
     def browse_sdf(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Seleccionar molécula", "", "Moléculas (*.sdf)")
+        path, _ = QFileDialog.getOpenFileName(self, "Select Molecule", "", "Molecules (*.sdf)")
         if path:
             self.sdf_path_input.setText(path)
 
@@ -75,7 +75,7 @@ class ExplanationDialog(QDialog):
 
     # ---------- Accept ----------
     def accept(self):
-        # Guardar rutas en QSettings para recordarlas la próxima vez
+        # Save rutas en QSettings para recordarlas la próxima vez
         self.settings.setValue("modelTest/last_model_path", self.model_path_input.text())
         self.settings.setValue("modelTest/last_sdf_path", self.sdf_path_input.text())
         self.settings.setValue("modelTest/last_target_path", self.target_path_input.text())

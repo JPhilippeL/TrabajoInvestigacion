@@ -8,7 +8,7 @@ from PySide6.QtCore import QSettings
 class ExplainerComparerDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Comparar Explainers")
+        self.setWindowTitle("Compare Explainers")
         self.resize(550, 300) 
 
         # ---------- QSettings ----------
@@ -36,35 +36,35 @@ class ExplainerComparerDialog(QDialog):
         # 1. ---------- Model path ----------
         self.model_path_input = QLineEdit()
         self.model_path_input.setText(self.settings.value("explainerComparer/last_model_path", ""))
-        self.model_browse_btn = QPushButton("Seleccionar...")
+        self.model_browse_btn = QPushButton("Select...")
         self.model_browse_btn.clicked.connect(self.browse_model)
 
         # 2. ---------- GraphExplainer path ----------
         self.graph_exp_input = QLineEdit()
-        self.graph_exp_input.setPlaceholderText("Tus pesos (.pt)")
+        self.graph_exp_input.setPlaceholderText("Your weights (.pt)")
         self.graph_exp_input.setText(self.settings.value("explainerComparer/last_graph_exp_path", ""))
-        self.graph_exp_btn = QPushButton("Seleccionar...")
+        self.graph_exp_btn = QPushButton("Select...")
         self.graph_exp_btn.clicked.connect(self.browse_graph_exp)
 
         # 3. ---------- GNNExplainer path ----------
         self.gnn_exp_input = QLineEdit()
-        self.gnn_exp_input.setPlaceholderText("Opcional para Gamma (.pt)")
+        self.gnn_exp_input.setPlaceholderText("Optional for Gamma (.pt)")
         self.gnn_exp_input.setText(self.settings.value("explainerComparer/last_gnn_exp_path", ""))
-        self.gnn_exp_btn = QPushButton("Seleccionar...")
+        self.gnn_exp_btn = QPushButton("Select...")
         self.gnn_exp_btn.clicked.connect(self.browse_gnn_exp)
 
         # 4. ---------- SDF path ----------
         self.sdf_path_input = QLineEdit()
         self.sdf_path_input.setText(self.settings.value("explainerComparer/last_sdf_path", ""))
-        self.sdf_browse_btn = QPushButton("Seleccionar...")
+        self.sdf_browse_btn = QPushButton("Select...")
         self.sdf_browse_btn.clicked.connect(self.browse_sdf)
 
         # ---------- Layout ----------
         form_layout = QFormLayout()
-        form_layout.addRow("Modo de Análisis:", self.mode_combo) # <--- Nuevo campo
-        form_layout.addRow("Tipo de Métrica:", self.fidelity_check) # <--- ### NUEVO ###
-        form_layout.addRow("Modelo Base (.pt):", self._with_button(self.model_path_input, self.model_browse_btn))
-        form_layout.addRow("Molécula (.sdf):", self._with_button(self.sdf_path_input, self.sdf_browse_btn))
+        form_layout.addRow("Analysis Mode:", self.mode_combo) # <--- Nuevo campo
+        form_layout.addRow("Metric Type:", self.fidelity_check) # <--- ### NUEVO ###
+        form_layout.addRow("Base Model (.pt):", self._with_button(self.model_path_input, self.model_browse_btn))
+        form_layout.addRow("Molecule (.sdf):", self._with_button(self.sdf_path_input, self.sdf_browse_btn))
         form_layout.addRow("GraphExplainer (.pt):", self._with_button(self.graph_exp_input, self.graph_exp_btn))
         form_layout.addRow("GNNExplainer (.pt):", self._with_button(self.gnn_exp_input, self.gnn_exp_btn))
 
@@ -93,9 +93,9 @@ class ExplainerComparerDialog(QDialog):
     def on_mode_changed(self, text):
         """Cambia el placeholder para avisar al usuario sobre Gamma"""
         if text == "gamma":
-            self.gnn_exp_input.setPlaceholderText("Generalmente no disponible (Dejar vacío)")
+            self.gnn_exp_input.setPlaceholderText("Usually not available (leave empty)")
         else:
-            self.gnn_exp_input.setPlaceholderText("Pesos de GNNExplainer (.pt)")
+            self.gnn_exp_input.setPlaceholderText("GNNExplainer weights (.pt)")
 
     # ---------- Browse Methods ----------
     def browse_model(self):
@@ -111,14 +111,14 @@ class ExplainerComparerDialog(QDialog):
         if path: self.gnn_exp_input.setText(path)
 
     def browse_sdf(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Seleccionar Molécula", "", "Moléculas (*.sdf)")
+        path, _ = QFileDialog.getOpenFileName(self, "Select Molecule", "", "Molecules (*.sdf)")
         if path: self.sdf_path_input.setText(path)
 
     # ---------- Accept ----------
     def accept(self):
-        # Guardar settings
+        # Save settings
         self.settings.setValue("explainerComparer/last_mode", self.mode_combo.currentText())
-         # Guardar estado del checkbox ### NUEVO ###
+         # Save estado del checkbox ### NUEVO ###
         self.settings.setValue("explainerComparer/reg_fidelity_mas", self.fidelity_check.isChecked()) 
         self.settings.setValue("explainerComparer/last_model_path", self.model_path_input.text())
         self.settings.setValue("explainerComparer/last_graph_exp_path", self.graph_exp_input.text())

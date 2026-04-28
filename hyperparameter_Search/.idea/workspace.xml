@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="850489ef-1be8-4f18-b4c7-5649ce323d26" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/../DeepDTA/data.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../DeepDTA/davis/Y" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../DeepDTA/davis/ligands_can.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../DeepDTA/davis/proteins.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../DeepDTA/deep.pt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../DeepDTA/environment.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../DeepDTA/kiba/Y" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../DeepDTA/kiba/ligands_can.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../DeepDTA/kiba/proteins.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../DeepDTA/model.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../DeepDTA/predict.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../DeepDTA/train.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../GNNs/hyperparameter_search.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../GNNs/test_hypersearch.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/best_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/best_config.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0001_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0002_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0003_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0004_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0005_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0006_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0007_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0008_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0009_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0010_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0011_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0012_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0013_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0014_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0015_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0016_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0017_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0018_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0019_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0020_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0021_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0022_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0023_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0024_GIN/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0025_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0026_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0027_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0028_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0029_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0030_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0031_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0032_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0033_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0034_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0035_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0036_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0037_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0038_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0039_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0040_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0041_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0042_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0043_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0044_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0045_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0046_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0047_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0048_GINE/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0049_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0050_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0051_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0052_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0053_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0054_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0055_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0056_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0057_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0058_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0059_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0060_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0061_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0062_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0063_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0064_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0065_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0066_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0067_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0068_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0069_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0070_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0071_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0072_GAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0073_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0074_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0075_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0076_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0077_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0078_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0079_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0080_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0081_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0082_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0083_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0084_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0085_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0086_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0087_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0088_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0089_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0090_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0091_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0092_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0093_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0094_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0095_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0096_EGAT/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0097_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0098_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0099_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0100_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0101_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0102_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0103_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0104_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0105_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0106_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0107_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0108_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0109_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0110_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0111_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0112_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0113_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0114_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0115_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0116_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0117_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0118_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0119_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/runs/trial_0120_GraphTransformer/trial_config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/trials.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ui/menu_bar.py" beforeDir="false" afterPath="$PROJECT_DIR$/../ui/menu_bar.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "customColor": "",
+  "associatedIndex": 3
+}]]></component>
+  <component name="ProjectId" id="3D04rBtnXy9HXNxbzWHtTOp7tBc" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "mohamed",
+    "last_opened_file_path": "/home/mohamed/Studies/stage/TrabajoInvestigacion",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-python-sdk-b63d5a1f7c97-b61e75351b1f-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-261.22158.340" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="850489ef-1be8-4f18-b4c7-5649ce323d26" name="Changes" comment="" />
+      <created>1777405853518</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1777405853518</updated>
+      <workItem from="1777405853521" duration="38000" />
+    </task>
+    <servers />
+  </component>
+</project>

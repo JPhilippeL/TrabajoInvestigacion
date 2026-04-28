@@ -12,7 +12,7 @@ class TrainConfigDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Configuración de entrenamiento")
+        self.setWindowTitle("Training Configuration")
         self.settings = QSettings("Investigacion", "Analisis Molecular")
 
         layout = QVBoxLayout()
@@ -21,22 +21,22 @@ class TrainConfigDialog(QDialog):
         # ---------- SDF directory ----------
         self.sdf_path_input = QLineEdit()
         self.sdf_path_input.setText(self.settings.value("train/sdf_dir", ""))
-        self.sdf_path_button = QPushButton("Elegir carpeta...")
+        self.sdf_path_button = QPushButton("Choose folder...")
         self.sdf_path_button.clicked.connect(self.select_sdf_folder)
         sdf_layout = QHBoxLayout()
         sdf_layout.addWidget(self.sdf_path_input)
         sdf_layout.addWidget(self.sdf_path_button)
-        form_layout.addRow("Directorio de SDFs:", sdf_layout)
+        form_layout.addRow("SDF Directory:", sdf_layout)
 
         # ---------- Target file ----------
         self.target_file_input = QLineEdit()
         self.target_file_input.setText(self.settings.value("train/target_file", ""))
-        self.target_file_button = QPushButton("Elegir archivo...")
+        self.target_file_button = QPushButton("Choose file...")
         self.target_file_button.clicked.connect(self.select_target_file)
         target_layout = QHBoxLayout()
         target_layout.addWidget(self.target_file_input)
         target_layout.addWidget(self.target_file_button)
-        form_layout.addRow("Archivo de targets (.txt):", target_layout)
+        form_layout.addRow("Target File (.txt):", target_layout)
 
         # ---------- Modelo y configuraciones ----------
         self.model_select = QComboBox()
@@ -98,15 +98,15 @@ class TrainConfigDialog(QDialog):
         self.bond_emb_pr_input.setValue(float(self.settings.value("train/bond_emb_pr", BOND_EMB_PR)))
 
         # ---------- Añadir al formulario ----------
-        form_layout.addRow("Modelo:", self.model_select)
-        form_layout.addRow("Épocas:", self.epochs_input)
-        form_layout.addRow("Porcentaje validación:", self.valid_split_input)
-        form_layout.addRow("Paciencia Early Stopping:", self.early_stopping_patience_input)
+        form_layout.addRow("Model:", self.model_select)
+        form_layout.addRow("Epochs:", self.epochs_input)
+        form_layout.addRow("Validation Split:", self.valid_split_input)
+        form_layout.addRow("Early Stopping Patience:", self.early_stopping_patience_input)
         form_layout.addRow("Batch size:", self.batch_input)
         form_layout.addRow("Learning rate:", self.lr_input)
         form_layout.addRow("Hidden dim:", self.hidden_dim_input)
-        form_layout.addRow("Número de capas:", self.num_layers_input)
-        form_layout.addRow("Nombre del modelo:", self.save_name_input)
+        form_layout.addRow("Number of Layers:", self.num_layers_input)
+        form_layout.addRow("Model Name:", self.save_name_input)
 
         # ---- NUEVOS ----
         form_layout.addRow("Atom Embedding %:", self.atom_emb_pr_input)
@@ -138,7 +138,7 @@ class TrainConfigDialog(QDialog):
             self.target_file_input.setText(file)
 
     # --------------------
-    # Guardar configuraciones
+    # Save configuraciones
     # --------------------
 
     def accept(self):

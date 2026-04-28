@@ -23,22 +23,22 @@ class MenuTestGNN(QMenu):
     def init_actions(self):
 
         # Testeo de IA con un solo SDF
-        testeo_action = QAction("Predecir SDF", self)
+        testeo_action = QAction("Predict SDF", self)
         testeo_action.triggered.connect(self.testear_modelo)
         self.addAction(testeo_action)
 
         # Testeo de IA con múltiples SDF
-        testeo_batch_action = QAction("Testear modelo", self)
+        testeo_batch_action = QAction("Test Model", self)
         testeo_batch_action.triggered.connect(self.testear_modelo_en_batch)
         self.addAction(testeo_batch_action)
 
         # Testeo de TODOS los modelos en un directorio
-        testeo_all_models_action = QAction("Testear todos los modelos", self)
+        testeo_all_models_action = QAction("Test All Models", self)
         testeo_all_models_action.triggered.connect(self.testear_directorio_modelos)
         self.addAction(testeo_all_models_action)
 
         # Consultar parámetros modelo
-        consultar_params_action = QAction("Consultar modelo", self)
+        consultar_params_action = QAction("Inspect Model", self)
         consultar_params_action.triggered.connect(self.consultar_parametros_modelo)
         self.addAction(consultar_params_action)
 

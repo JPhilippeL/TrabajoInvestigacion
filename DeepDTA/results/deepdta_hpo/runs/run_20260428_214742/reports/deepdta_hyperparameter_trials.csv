@@ -1,0 +1,3 @@
+trial_id,dataset,lr,batch_size,epochs,train_rmse,train_pearson,val_rmse,val_pearson,test_rmse,test_pearson,checkpoint_path,duration_seconds,status,error_message
+trial_001,davis,0.003,4,1,8875.056631802663,-0.04066736655338933,8696.303788253277,-0.06457801137270913,8867.352690581312,0.05800730957587038,/home/mohamed/Studies/stage/TrabajoInvestigacion/DeepDTA/results/deepdta_hpo/runs/run_20260428_214742/models/trial_001/deepdta_best.pt,1.629,success,
+trial_002,davis,0.004,4,1,8872.647018730222,-0.04023651879000103,8693.93801151645,-0.06461751544282857,8864.948497434501,0.05853978703093794,/home/mohamed/Studies/stage/TrabajoInvestigacion/DeepDTA/results/deepdta_hpo/runs/run_20260428_214742/models/trial_002/deepdta_best.pt,1.277,success,

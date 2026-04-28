@@ -11,7 +11,7 @@ from URVDEEPTAF.Core.urvdtaf_model import MODEL_DICT
 class TrainDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Configuración de Entrenamiento")
+        self.setWindowTitle("Training Configuration")
         self.resize(650, 600)
 
         # Obtenemos la lista de modelos dinámicamente
@@ -22,15 +22,15 @@ class TrainDialog(QDialog):
 
         # ================= SECCIÓN 1: RUTAS =================
         self.data_path_input = QLineEdit()
-        self.data_path_input.setPlaceholderText("Directorio de datos procesados...")
+        self.data_path_input.setPlaceholderText("Processed data directory...")
         self.data_path_input.setText(self.settings.value("train/last_data_path", ""))
-        self.data_btn = QPushButton("Seleccionar...")
+        self.data_btn = QPushButton("Select...")
         self.data_btn.clicked.connect(self.browse_data)
 
         self.output_base_input = QLineEdit()
-        self.output_base_input.setPlaceholderText("Carpeta base de salida (Default: runs)")
+        self.output_base_input.setPlaceholderText("Base output folder (default: runs)")
         self.output_base_input.setText(self.settings.value("train/last_output_base", "runs"))
-        self.output_btn = QPushButton("Seleccionar...")
+        self.output_btn = QPushButton("Select...")
         self.output_btn.clicked.connect(self.browse_output)
 
         # ================= SECCIÓN 2: MODELO Y HARDWARE =================
@@ -87,7 +87,7 @@ class TrainDialog(QDialog):
         self.smi_len_spin.setRange(10, 5000)
         self.smi_len_spin.setValue(int(self.settings.value("train/max_smi_len", 150)))
 
-        self.plots_check = QCheckBox("Generar y guardar gráficos")
+        self.plots_check = QCheckBox("Generate and save plots")
         is_checked = self.settings.value("train/generate_plots", "true") == "true"
         self.plots_check.setChecked(is_checked)
 
@@ -95,29 +95,29 @@ class TrainDialog(QDialog):
         # ---------- Layout Principal ----------
         form_layout = QFormLayout()
         
-        form_layout.addRow(QLabel("<b>1. Rutas del Sistema</b>"))
+        form_layout.addRow(QLabel("<b>1. System paths</b>"))
         form_layout.addRow("Data Path:", self._with_button(self.data_path_input, self.data_btn))
         form_layout.addRow("Output Base:", self._with_button(self.output_base_input, self.output_btn))
         
-        form_layout.addRow(QLabel("<br><b>2. Configuración General</b>"))
-        form_layout.addRow("Modelo:", self.model_combo)
-        form_layout.addRow("Dispositivo:", self.device_combo)
-        form_layout.addRow("Semilla Aleatoria:", self.seed_spin)
+        form_layout.addRow(QLabel("<br><b>2. General configuration</b>"))
+        form_layout.addRow("Model:", self.model_combo)
+        form_layout.addRow("Device:", self.device_combo)
+        form_layout.addRow("Random Seed:", self.seed_spin)
         form_layout.addRow("Workers (CPU):", self.workers_spin)
 
-        form_layout.addRow(QLabel("<br><b>3. Hiperparámetros de Entrenamiento</b>"))
+        form_layout.addRow(QLabel("<br><b>3. Training hyperparameters</b>"))
         form_layout.addRow("Learning Rate:", self.lr_spin)
         form_layout.addRow("Batch Size:", self.batch_spin)
         form_layout.addRow("Total Epochs:", self.epochs_spin)
         form_layout.addRow("Save Best After Epoch:", self.best_epoch_spin)
 
-        form_layout.addRow(QLabel("<br><b>4. Límites de Longitud (Padding)</b>"))
+        form_layout.addRow(QLabel("<br><b>4. Length limits (padding)</b>"))
         form_layout.addRow("Max Seq Length:", self.seq_len_spin)
         form_layout.addRow("Max Pocket Length:", self.pkt_len_spin)
         form_layout.addRow("Max SMILES Length:", self.smi_len_spin)
         
         form_layout.addRow(QLabel("")) # Espaciador
-        form_layout.addRow("Visualización:", self.plots_check)
+        form_layout.addRow("Visualization:", self.plots_check)
 
         layout = QVBoxLayout()
         layout.addLayout(form_layout)

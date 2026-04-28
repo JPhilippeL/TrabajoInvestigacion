@@ -1,0 +1,24 @@
+model_name: DeepDTA
+status: computed
+best_trial:
+  trial_id: 2
+  trial_name: trial_002
+  dataset: davis
+  lr: 0.004
+  batch_size: 4
+  epochs: 1
+  model_dir: /home/mohamed/Studies/stage/TrabajoInvestigacion/DeepDTA/results/deepdta_hpo/runs/run_20260428_214742/models/trial_002
+  reports_dir: /home/mohamed/Studies/stage/TrabajoInvestigacion/DeepDTA/results/deepdta_hpo/runs/run_20260428_214742/reports
+  checkpoint_path: /home/mohamed/Studies/stage/TrabajoInvestigacion/DeepDTA/results/deepdta_hpo/runs/run_20260428_214742/models/trial_002/deepdta_best.pt
+best_metrics:
+  train_rmse: 8872.647018730222
+  train_pearson: -0.04023651879000103
+  val_rmse: 8693.93801151645
+  val_pearson: -0.06461751544282857
+  test_rmse: 8864.948497434501
+  test_pearson: 0.05853978703093794
+selection_rule:
+  primary_metric: val_rmse
+  primary_goal: min
+  secondary_metric: val_pearson
+  secondary_goal: max

@@ -16,7 +16,7 @@ from GNNs.controllers.testing_controller_process import TestingControllerProcess
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Sistema de Análisis Molecular")
+        self.setWindowTitle("Molecular Analysis System")
         self.resize(900, 600)
 
         # Contenedor central permanente
@@ -40,7 +40,7 @@ class MainWindow(QMainWindow):
         # Área de log 
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
-        self.log_output.setPlaceholderText("Mensajes del sistema...")
+        self.log_output.setPlaceholderText("System messages...")
         self.splitter.addWidget(self.log_output)
 
         # Ajustar proporciones: 75% para el contenido, 25% para el log
@@ -85,7 +85,7 @@ class MainWindow(QMainWindow):
         try:
             graph = parse_sdf(file_path)
         except Exception as e:
-            QMessageBox.critical(self, "Error al cargar", f"No se pudo cargar el archivo:\n{str(e)}")
+            QMessageBox.critical(self, "Loading error", f"Could not load the file:\n{str(e)}")
             return
 
         new_graph_view = MoleculeGraphView(graph)

@@ -12,7 +12,7 @@ class SDFSplitDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Dividir SDF en moléculas individuales")
+        self.setWindowTitle("Split SDF en moléculas individuales")
         self.settings = QSettings("Investigacion", "Analisis Molecular")
 
         layout = QVBoxLayout()
@@ -21,22 +21,22 @@ class SDFSplitDialog(QDialog):
         # ---------- SDF file ----------
         self.sdf_file_input = QLineEdit()
         self.sdf_file_input.setText(self.settings.value("split/sdf_file", ""))
-        self.sdf_file_button = QPushButton("Elegir SDF...")
+        self.sdf_file_button = QPushButton("Choose SDF...")
         self.sdf_file_button.clicked.connect(self.select_sdf_file)
         sdf_layout = QHBoxLayout()
         sdf_layout.addWidget(self.sdf_file_input)
         sdf_layout.addWidget(self.sdf_file_button)
-        form_layout.addRow("Archivo SDF:", sdf_layout)
+        form_layout.addRow("SDF File:", sdf_layout)
 
         # ---------- Output directory ----------
         self.output_dir_input = QLineEdit()
         self.output_dir_input.setText(self.settings.value("split/output_dir", ""))
-        self.output_dir_button = QPushButton("Elegir carpeta...")
+        self.output_dir_button = QPushButton("Choose folder...")
         self.output_dir_button.clicked.connect(self.select_output_dir)
         output_layout = QHBoxLayout()
         output_layout.addWidget(self.output_dir_input)
         output_layout.addWidget(self.output_dir_button)
-        form_layout.addRow("Directorio de salida:", output_layout)
+        form_layout.addRow("Output Directory:", output_layout)
 
         layout.addLayout(form_layout)
 
@@ -59,7 +59,7 @@ class SDFSplitDialog(QDialog):
             self.output_dir_input.setText(folder)
 
     def accept(self):
-        # Guardar configuraciones
+        # Save configuraciones
         self.settings.setValue("split/sdf_file", self.sdf_file_input.text())
         self.settings.setValue("split/output_dir", self.output_dir_input.text())
         super().accept()
