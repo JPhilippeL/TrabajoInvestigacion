@@ -53,7 +53,7 @@ class MenuGIGN(QMenu):
             self.main_window.setEnabled(False)
 
             self.db_thread = DBGenerationThread(params, self)
-            self.train_thread.log_message.connect(logger.info)
+            self.db_thread.log_message.connect(logger.info)
 
             self.db_thread.finished_success.connect(
                 self.on_db_generation_success
