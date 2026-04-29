@@ -153,7 +153,7 @@ class DBGenerationDialog(QDialog):
 
         return {
             "pic50_file": self.pic50_file_input.text().strip(),
-            "lig_dir": self.ligand_dir_input.text().strip(),
-            "pdb_dir": self.pdb_dir_input.text().strip(),
+            "ligand_sdf_dir": self.ligand_dir_input.text().strip(),
+            "proteine_pdb_dir": self.pdb_dir_input.text().strip(),
             "out_dir": out_dir,
         }
