@@ -10,6 +10,7 @@ import csv
 import itertools
 import os
 import shutil
+import time
 from typing import Any, Dict, Iterable, Optional, Tuple
 
 import yaml
@@ -61,10 +62,47 @@ def append_trial_result(csv_path: str, row: Dict[str, Any]) -> None:
         writer.writerow(ordered_row)
 
 
+def to_python_builtin(value):
+    """
+    Convert NumPy / Torch scalar types into standard Python types
+    so they can be safely written to YAML.
+    """
+    import numpy as np
+    import torch
+
+    if isinstance(value, dict):
+        return {k: to_python_builtin(v) for k, v in value.items()}
+
+    if isinstance(value, list):
+        return [to_python_builtin(v) for v in value]
+
+    if isinstance(value, tuple):
+        return tuple(to_python_builtin(v) for v in value)
+
+    if isinstance(value, np.integer):
+        return int(value)
+
+    if isinstance(value, np.floating):
+        return float(value)
+
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+
+    if isinstance(value, torch.Tensor):
+        if value.numel() == 1:
+            return value.item()
+        return value.detach().cpu().tolist()
+
+    return value
+
+
 def save_yaml(data: Dict[str, Any], yaml_path: str) -> None:
     os.makedirs(os.path.dirname(yaml_path), exist_ok=True)
+
+    clean_data = to_python_builtin(data)
+
     with open(yaml_path, "w", encoding="utf-8") as f:
-        yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
+        yaml.safe_dump(clean_data, f, sort_keys=False, allow_unicode=True)
 
 
 def build_best_config_payload(
@@ -78,15 +116,15 @@ def build_best_config_payload(
         "model_name": "EDNN",
         "status": "computed",
         "best_trial": {
-            "trial_id": trial_id,
-            "lr": lr,
-            "hidden_dim": hidden_dim,
-            "batch_size": batch_size,
+            "trial_id": int(trial_id),
+            "lr": float(lr),
+            "hidden_dim": int(hidden_dim),
+            "batch_size": int(batch_size),
         },
         "best_metrics": {
-            "rmse_mean": metrics.get("RMSE"),
-            "pearson_mean": metrics.get("Pearson"),
-            "spearman_mean": metrics.get("Spearman"),
+            "rmse_mean": float(metrics.get("RMSE")),
+            "pearson_mean": float(metrics.get("Pearson")),
+            "spearman_mean": float(metrics.get("Spearman")),
         },
         "selection_rule": {
             "primary_metric": "RMSE",
@@ -142,6 +180,7 @@ def run_hyperparameter_search(
     hidden_dim_values: list[int],
     batch_size_values: list[int],
 ) -> Dict[str, Any]:
+    search_start_time = time.time()
     os.makedirs(temp_runs_dir, exist_ok=True)
     os.makedirs(models_root, exist_ok=True)
     os.makedirs(results_root, exist_ok=True)
@@ -248,20 +287,45 @@ def run_hyperparameter_search(
                 },
             )
 
+        search_elapsed_seconds = time.time() - search_start_time
+
     if best_trial_payload is None:
         return {
             "status": "failed",
             "message": "No valid configuration found.",
             "trials_csv": trials_csv_path,
             "best_config_yaml": best_config_yaml_path,
+            "search_time": {
+                "seconds": round(search_elapsed_seconds, 3),
+                "minutes": round(search_elapsed_seconds / 60, 3),
+                "hours": round(search_elapsed_seconds / 3600, 3),
+            },
         }
+
+    best_trial_payload["hyperparameter_search_time"] = {
+        "seconds": round(search_elapsed_seconds, 3),
+        "minutes": round(search_elapsed_seconds / 60, 3),
+        "hours": round(search_elapsed_seconds / 3600, 3),
+    }
+
+    best_trial_payload["artifacts"] = {
+        "trials_csv": trials_csv_path,
+        "best_models_dir": os.path.join(models_root, "best_trial_models"),
+    }
+
+    save_yaml(best_trial_payload, best_config_yaml_path)
 
     return {
         "status": "success",
         "message": "Hyperparameter search completed successfully.",
         "best_trial": best_trial_name,
-        "best_metrics": best_metrics,
+        "best_metrics": to_python_builtin(best_metrics),
         "trials_csv": trials_csv_path,
         "best_config_yaml": best_config_yaml_path,
         "best_models_dir": os.path.join(models_root, "best_trial_models"),
+        "search_time": {
+            "seconds": round(search_elapsed_seconds, 3),
+            "minutes": round(search_elapsed_seconds / 60, 3),
+            "hours": round(search_elapsed_seconds / 3600, 3),
+        },
     }

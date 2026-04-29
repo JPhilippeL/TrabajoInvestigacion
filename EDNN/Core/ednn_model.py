@@ -1,18 +1,7 @@
 """
 @file ednn_model.py
-@author Mohamed EL BOUKHIARI
+@author Francesc Serratosa
 @brief EDNN model definition.
-@details
-This file provides a runnable EDNN-compatible skeleton with the required
-signature:
-
-    class EDNN(nn.Module):
-        def __init__(self, node_dim=12, edge_dim=1, hidden_dim=64)
-        def forward(self, data)
-
-Replace the internals of EDNN with the professor's original EDNN model if
-needed. The rest of the GUI/training/testing pipeline only depends on this
-class signature.
 """
 
 from __future__ import annotations
@@ -20,7 +9,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import global_mean_pool
+from torch_geometric.nn import global_mean_pool, NNConv
 
 
 class EDNNLayer(nn.Module):
@@ -67,15 +56,15 @@ class EDNN(nn.Module):
     def __init__(self, node_dim=12, edge_dim=1, hidden_dim=64):
         super().__init__()
 
-        nn_edge = Sequential(
-            Linear(edge_dim, hidden_dim * node_dim),
-            ReLU(),
-            Linear(hidden_dim * node_dim, hidden_dim * node_dim),
+        nn_edge = nn.Sequential(
+            nn.Linear(edge_dim, hidden_dim * node_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim * node_dim, hidden_dim * node_dim),
         )
 
         self.conv1 = NNConv(node_dim, hidden_dim, nn_edge, aggr="mean")
-        self.lin1 = Linear(hidden_dim, hidden_dim)
-        self.lin2 = Linear(hidden_dim, 1)
+        self.lin1 = nn.Linear(hidden_dim, hidden_dim)
+        self.lin2 = nn.Linear(hidden_dim, 1)
 
     def _get_edge_attr(self, data):
         """
