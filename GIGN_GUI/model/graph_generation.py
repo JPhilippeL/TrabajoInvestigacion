@@ -1,4 +1,3 @@
-import logging
 import os
 from time import time
 
@@ -331,4 +330,5 @@ def generate_all_graphs(
         torch.save(g, os.path.join(out_dir, f"{pdb_id}.pt"))
     end_generation = time()
     if log_callback:
-        logging.info(f"generation total time: {end_generation - debut_generation:.2f} seconds")
+        log_callback.info(f"Graph generation took {end_generation - debut_generation:.2f} seconds.")
+        log_callback.info(f"Graph generation completed. Graphs saved in: {out_dir}")
