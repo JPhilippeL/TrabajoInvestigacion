@@ -304,7 +304,7 @@ def build_graph_for_original(ligand_sdf_dir, proteine_pdb_dir, pdb_id, pic50_dic
 
 def generate_all_graphs(pic50_file, out_dir, ligand_sdf_dir, log_callback, proteine_pdb_dir, dis_threshold=5.0,
                         cutoff_prot=6.0):
-    os.mkdir(out_dir, exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
     debut_generation = time()
     pic50_dict = load_pic50(pic50_file)
     for pdb_id in tqdm(pic50_dict.keys(), desc="Graph Generation CheapNet"):
