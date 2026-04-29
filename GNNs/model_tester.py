@@ -182,18 +182,19 @@ def test_model_on_directory(checkpoint_path, sdf_dir, targets_file, output_dir=R
         raise ValueError(e)
     
 
-def test_model_on_directory_pt(checkpoint_path, pt_file):
+def test_model_on_directory_pt(checkpoint_path, pt_file, output_dir=RESULTADOS_DIR):
+    """
+    Testea un ÚNICO modelo en un archivo de datos .pt específico.
+    Calcula métricas, guarda predicciones en CSV y genera el scatter plot.
+    """
     try:
         model, device, target_name = cargar_modelo(checkpoint_path)
 
-        # Crear carpeta de resultados si no existe
-        os.makedirs(RESULTADOS_DIR, exist_ok=True)
-
-        # Crear carpeta específica para este modelo
+        # Crear carpetas para los resultados de este modelo
         model_filename = os.path.basename(checkpoint_path)
         model_name_no_ext = os.path.splitext(model_filename)[0]
-
-        model_results_dir = os.path.join(RESULTADOS_DIR, model_name_no_ext)
+        
+        model_results_dir = os.path.join(output_dir, model_name_no_ext)
         os.makedirs(model_results_dir, exist_ok=True)
 
         # Leer datos
@@ -204,6 +205,7 @@ def test_model_on_directory_pt(checkpoint_path, pt_file):
 
         y_true, y_pred, filenames = [], [], []
 
+        # Inferencia
         for data in data_list:
             data = data.to(device)
             batch = torch.zeros(data.num_nodes, dtype=torch.long, device=device)
@@ -216,45 +218,42 @@ def test_model_on_directory_pt(checkpoint_path, pt_file):
             y_true.append(data.y.item())
             filenames.append(data.name if hasattr(data, 'name') else 'unknown')
 
-        # Nombre base de archivos (carpeta de origen)
-        folder_name = os.path.basename(pt_file.rstrip(os.sep))
+        # Nombre base para identificar el set de datos (sin extensión .pt)
+        folder_name = os.path.splitext(os.path.basename(pt_file))[0]
 
-        # --- CAMBIO AQUÍ: Definir ruta CSV y llamar a la función auxiliar ---
+        # Guardar predicciones en CSV
         output_csv_path = os.path.join(
             model_results_dir,
             f"predicciones_{model_name_no_ext}_{folder_name}.csv"
         )
-        
-        # Llamamos a la función auxiliar que definimos arriba
         guardar_predicciones_csv(output_csv_path, filenames, y_true, y_pred)
-        
-        logger.info(f"Predicciones guardadas en CSV: {output_csv_path}")
-        # -------------------------------------------------------------------
+        logging.info(f"Predicciones guardadas en CSV: {output_csv_path}")
 
-        # RMSE
+        # Calcular e imprimir métricas
         rmse = sqrt(mean_squared_error(y_true, y_pred))
-        logger.info(f"RMSE: {rmse:.4f}")
+        logging.info(f"RMSE: {rmse:.4f}")
 
-        # R2 score
-        r2 = r2_score(y_true, y_pred)
-        logger.info(f"R2 score: {r2:.4f}")
-
-        # Pearson coefficient
         if len(y_true) > 1:
+            r2 = r2_score(y_true, y_pred)
             pearson_r, _ = pearsonr(y_true, y_pred)
-            logger.info(f"Pearson coefficient: {pearson_r:.4f}")
+            logging.info(f"R2 score: {r2:.4f} | Pearson: {pearson_r:.4f}")
         else:
-            pearson_r = float("nan")
-            logger.info("Pearson coefficient: No se puede calcular con un solo punto.")
+            logging.info("R2/Pearson: No se pueden calcular con un solo punto.")
 
-        # Scatter plot
+        # --- Generar el scatter plot ---
+        # Llamamos a la función genérica pasando los argumentos de forma explícita
         plot_filename = generar_scatter_plot(
-            y_true, y_pred, model_results_dir, model_name_no_ext, folder_name
+            y_true=y_true, 
+            y_pred=y_pred, 
+            model_results_dir=model_results_dir, 
+            model_name_no_ext=model_name_no_ext, 
+            folder_name=folder_name
         )
 
         return plot_filename
 
     except Exception as e:
+        logging.error(f"Error testeando el modelo {checkpoint_path}: {e}")
         raise ValueError(e)
     
 def generar_scatter_plot(y_true, y_pred, model_results_dir, model_name_no_ext, folder_name, tolerance=1.0):
@@ -446,39 +445,46 @@ def test_all_models_in_directory(models_dir, sdf_dir, targets_file, output_dir =
 
     logging.info(f"Resumen CSV guardado en: {resumen_path}")
 
-def test_all_models_in_directory_pt(models_dir, pt_file, output_dir=RESULTADOS_DIR): # <--- NUEVO PARÁMETRO
+def test_all_models_in_directory_pt(models_dir, pt_file, output_dir=None, acumulador=None):
     """
-    Testea todos los modelos de un directorio con un conjunto de moléculas desde un archivo .pt.
-    Genera resultados individuales y un archivo resumen CSV.
+    Testea los modelos de un directorio usando datos de un archivo .pt.
+    Guarda un CSV de resumen de métricas, un CSV de predicciones por modelo, 
+    y alimenta el acumulador global (opcional).
     """
-    # Usamos output_dir en lugar de RESULTADOS_DIR global
-    resumen_file_name = f"resumen_metrics_{os.path.basename(models_dir)}.csv"
-    resumen_path = os.path.join(output_dir, resumen_file_name) 
+    basename = f"{os.path.basename(models_dir)}"
+    resumen_file_name = f"resumen_metrics_{basename}.csv"
+
+    # Esto es para que si es un split me ponga los csv fuera de la carpeta, sino dentro :p
+    if output_dir is None:
+        os.makedirs(RESULTADOS_DIR, exist_ok=True)
+        output_dir = os.path.join(RESULTADOS_DIR, basename)
+        os.makedirs(output_dir, exist_ok=True)
+        resumen_path = os.path.join(output_dir, resumen_file_name) 
+    else:
+        parent_dir = os.path.dirname(os.path.abspath(output_dir))
+        resumen_path = os.path.join(parent_dir, resumen_file_name)
     
-    # 1. Cargar la lista de moléculas directamente
+    # 1. Cargar la lista de moléculas directamente desde .pt
     data_list = torch.load(pt_file)
 
     if not data_list or not isinstance(data_list, list):
         raise ValueError("El archivo .pt está vacío o no contiene una lista válida.")
 
-    resultados = []
+    resultados_resumen = []
 
     for fname in os.listdir(models_dir):
         model_path = os.path.join(models_dir, fname)
 
-        if not os.path.isfile(model_path):
-            continue
-        if not fname.endswith((".pt", ".pth")):
+        if not os.path.isfile(model_path) or not fname.endswith((".pt", ".pth")):
             continue  
 
         try:
             # Cargar modelo
             model, device, target_name = cargar_modelo(model_path)
 
-            y_true, y_pred = [], []
+            y_true, y_pred, filenames = [], [], []
             for data in data_list:
                 data = data.to(device)
-                
                 batch = torch.zeros(data.num_nodes, dtype=torch.long, device=device)
                 
                 with torch.no_grad():
@@ -487,39 +493,41 @@ def test_all_models_in_directory_pt(models_dir, pt_file, output_dir=RESULTADOS_D
                 
                 y_pred.append(pred)
                 y_true.append(data.y.item())
+                filenames.append(data.name if hasattr(data, 'name') else 'unknown')
 
-            # CÁLCULO DE MÉTRICAS
+            # 1. Calcular Métricas
             rmse = sqrt(mean_squared_error(y_true, y_pred))
-
             if len(y_true) > 1:
                 pearson_r, _ = pearsonr(y_true, y_pred)
                 r2_val = r2_score(y_true, y_pred)
             else:
-                pearson_r = float("nan")
-                r2_val = float("nan")
+                pearson_r, r2_val = float("nan"), float("nan")
 
-            # ATENCIÓN: Pasa output_dir a esta función interna también
-            test_model_on_directory_pt(model_path, pt_file, output_dir) 
+            resultados_resumen.append((fname, f"{rmse:.4f}", f"{pearson_r:.4f}", f"{r2_val:.4f}"))
 
-            resultados.append((fname, f"{rmse:.4f}", f"{pearson_r:.4f}", f"{r2_val:.4f}"))
+            # 2. Guardar CSV de predicciones
+            model_name_no_ext = os.path.splitext(fname)[0]
+            output_csv_path = os.path.join(output_dir, f"predicciones_{model_name_no_ext}_{basename}.csv")
+            guardar_predicciones_csv(output_csv_path, filenames, y_true, y_pred)
+
+            # 3. ALIMENTAR EL ACUMULADOR GLOBAL (Solo si se proporcionó uno)
+            if acumulador is not None:
+                acumulador[fname]["y_true"].extend(y_true)
+                acumulador[fname]["y_pred"].extend(y_pred)
 
         except Exception as e:
             logging.exception(f"Error con el modelo {fname}: {e}")
-            resultados.append((fname, f"ERROR ({str(e)})", "ERROR", "ERROR"))
+            resultados_resumen.append((fname, f"ERROR ({str(e)})", "ERROR", "ERROR"))
 
-    # Ordenar alfabéticamente
-    resultados.sort(key=lambda x: x[0].lower())
-
-    # Guardar CSV
+    # Guardar CSV Resumen
+    resultados_resumen.sort(key=lambda x: x[0].lower())
     with open(resumen_path, mode="w", newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(["Modelo", "RMSE", "Pearson", "R2"]) 
-        for row in resultados:
+        for row in resultados_resumen:
             writer.writerow(row)
 
     logging.info(f"Resumen CSV guardado en: {resumen_path}")
-
-    return resumen_path
 
 def test_all_splits(
     models_mother_dir, 
@@ -585,15 +593,19 @@ def test_all_splits(
 def test_all_splits_pt(
     models_mother_dir, 
     data_mother_dir, 
-    base_results_dir,
-    test_file_prefix="pocket_BD_test_" # Prefijo de tus archivos .pt de testing
+    base_results_dir=RESULTADOS_DIR,
+    test_file_prefix="pocket_BD_test_" 
 ):
     """
     Explora la carpeta madre de modelos, identifica los splits, busca el archivo 
-    .pt de testeo correspondiente y lanza la evaluación.
+    .pt de testeo correspondiente, lanza la evaluación y genera un gráfico consolidado.
     """
     # 1. Obtener las subcarpetas de los splits de modelos (ej: split_0, split_1...)
     splits_modelos = [d for d in os.listdir(models_mother_dir) if os.path.isdir(os.path.join(models_mother_dir, d))]
+    
+    # --- NUEVO: ACUMULADOR GLOBAL ---
+    # Diccionario con formato: { "nombre_modelo.pt": {"y_true": [], "y_pred": []} }
+    predicciones_globales = defaultdict(lambda: {"y_true": [], "y_pred": []})
     
     for split_folder in sorted(splits_modelos):
         models_dir = os.path.join(models_mother_dir, split_folder)
@@ -620,11 +632,34 @@ def test_all_splits_pt(
         split_results_dir = os.path.join(base_results_dir, split_folder)
         os.makedirs(split_results_dir, exist_ok=True)
         
-        # 5. Lanzar tu función de testeo
+        # 5. Lanzar tu función de testeo pasando el acumulador global
         test_all_models_in_directory_pt(
             models_dir=models_dir,
             pt_file=pt_file_path,
-            output_dir=split_results_dir # <--- Pasamos la ruta de guardado
+            output_dir=split_results_dir,
+            acumulador=predicciones_globales # <--- Pasamos el diccionario
+        )
+
+    # --- NUEVO: GENERAR GRÁFICOS CONSOLIDADOS AL FINAL ---
+    logging.info(f"\n{'='*50}\nGenerando Gráficos Consolidados\n{'='*50}")
+    
+    # Creamos una carpeta para los plots globales
+    plots_dir = os.path.join(base_results_dir, "plots_globales")
+    os.makedirs(plots_dir, exist_ok=True)
+
+    for model_filename, datos in predicciones_globales.items():
+        if not datos["y_true"]: # Si por alguna razón está vacío, saltar
+            continue
+            
+        model_name_no_ext = os.path.splitext(model_filename)[0]
+        
+        # Llamamos a tu función de ploteo pasando TODOS los datos acumulados
+        generar_scatter_plot(
+            y_true=datos["y_true"],
+            y_pred=datos["y_pred"],
+            model_results_dir=plots_dir,
+            model_name_no_ext=model_name_no_ext,
+            folder_name="todos_los_splits"
         )
 
 
