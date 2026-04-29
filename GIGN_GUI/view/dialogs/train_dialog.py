@@ -1,10 +1,20 @@
-from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLineEdit,
-    QPushButton, QFileDialog, QDialogButtonBox, QWidget,
-    QHBoxLayout, QLabel, QSpinBox, QDoubleSpinBox
-)
-from PySide6.QtCore import QSettings
 import logging
+
+from PySide6.QtCore import QSettings
+from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFileDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,31 +29,45 @@ class TrainDialog(QDialog):
 
         self.train_file_input = QLineEdit()
         self.train_file_input.setPlaceholderText("Train split file (.txt)")
-        self.train_file_input.setText(self.settings.value("train/last_train_file", ""))
+        self.train_file_input.setText(
+            self.settings.value("train/last_train_file", "")
+        )
         self.train_file_btn = QPushButton("Select...")
         self.train_file_btn.clicked.connect(self.browse_train_file)
 
         self.test_file_input = QLineEdit()
         self.test_file_input.setPlaceholderText("Test split file (.txt)")
-        self.test_file_input.setText(self.settings.value("train/last_test_file", ""))
+        self.test_file_input.setText(
+            self.settings.value("train/last_test_file", "")
+        )
         self.test_file_btn = QPushButton("Select...")
         self.test_file_btn.clicked.connect(self.browse_test_file)
 
         self.val_file_input = QLineEdit()
         self.val_file_input.setPlaceholderText("Validation split file (.txt)")
-        self.val_file_input.setText(self.settings.value("train/last_val_file", ""))
+        self.val_file_input.setText(
+            self.settings.value("train/last_val_file", "")
+        )
         self.val_file_btn = QPushButton("Select...")
         self.val_file_btn.clicked.connect(self.browse_val_file)
 
         self.graph_dir_input = QLineEdit()
-        self.graph_dir_input.setPlaceholderText("Directory containing graph .pt files")
-        self.graph_dir_input.setText(self.settings.value("train/last_graph_dir", ""))
+        self.graph_dir_input.setPlaceholderText(
+            "Directory containing graph .pt files"
+        )
+        self.graph_dir_input.setText(
+            self.settings.value("train/last_graph_dir", "")
+        )
         self.graph_dir_btn = QPushButton("Select...")
         self.graph_dir_btn.clicked.connect(self.browse_graph_dir)
 
         self.save_dir_input = QLineEdit()
-        self.save_dir_input.setPlaceholderText("Directory to save trained models")
-        self.save_dir_input.setText(self.settings.value("train/last_save_dir", ""))
+        self.save_dir_input.setPlaceholderText(
+            "Directory to save trained models"
+        )
+        self.save_dir_input.setText(
+            self.settings.value("train/last_save_dir", "")
+        )
         self.save_dir_btn = QPushButton("Select...")
         self.save_dir_btn.clicked.connect(self.browse_save_dir)
 
@@ -59,40 +83,69 @@ class TrainDialog(QDialog):
 
         self.hidden_dim_input = QSpinBox()
         self.hidden_dim_input.setRange(1, 100000)
-        self.hidden_dim_input.setValue(int(self.settings.value("train/hidden_dim", 128)))
+        self.hidden_dim_input.setValue(
+            int(self.settings.value("train/hidden_dim", 128))
+        )
 
         self.batch_size_input = QSpinBox()
         self.batch_size_input.setRange(1, 100000)
-        self.batch_size_input.setValue(int(self.settings.value("train/batch_size", 32)))
+        self.batch_size_input.setValue(
+            int(self.settings.value("train/batch_size", 32))
+        )
 
         self.lr_input = QLineEdit()
-        self.lr_input.setPlaceholderText("Learning rate, e.g. 0.0009671262324273176")
+        self.lr_input.setPlaceholderText(
+            "Learning rate, e.g. 0.0009671262324273176"
+        )
         self.lr_input.setText(str(self.settings.value("train/lr", "0.001")))
 
         self.weight_decay_input = QLineEdit()
         self.weight_decay_input.setPlaceholderText("Weight decay, e.g. 0.00001")
-        self.weight_decay_input.setText(str(self.settings.value("train/weight_decay", "0.00001")))
+        self.weight_decay_input.setText(
+            str(self.settings.value("train/weight_decay", "0.00001"))
+        )
         self.epochs_input = QSpinBox()
         self.epochs_input.setRange(1, 100000)
-        self.epochs_input.setValue(int(self.settings.value("train/epochs", 100)))
+        self.epochs_input.setValue(
+            int(self.settings.value("train/epochs", 100))
+        )
 
         self.patience_input = QSpinBox()
         self.patience_input.setRange(1, 100000)
-        self.patience_input.setValue(int(self.settings.value("train/patience", 20)))
+        self.patience_input.setValue(
+            int(self.settings.value("train/patience", 20))
+        )
 
         self.drop_out_input = QDoubleSpinBox()
         self.drop_out_input.setDecimals(4)
         self.drop_out_input.setRange(0.0, 1.0)
         self.drop_out_input.setSingleStep(0.05)
-        self.drop_out_input.setValue(float(self.settings.value("train/drop_out", 0.2)))
+        self.drop_out_input.setValue(
+            float(self.settings.value("train/drop_out", 0.2))
+        )
 
         form_layout = QFormLayout()
         form_layout.addRow(QLabel("<b>Required files/directories</b>"))
-        form_layout.addRow("Train split:", self._with_button(self.train_file_input, self.train_file_btn))
-        form_layout.addRow("Test split:", self._with_button(self.test_file_input, self.test_file_btn))
-        form_layout.addRow("Validation split:", self._with_button(self.val_file_input, self.val_file_btn))
-        form_layout.addRow("Graph dir:", self._with_button(self.graph_dir_input, self.graph_dir_btn))
-        form_layout.addRow("Save dir:", self._with_button(self.save_dir_input, self.save_dir_btn))
+        form_layout.addRow(
+            "Train split:",
+            self._with_button(self.train_file_input, self.train_file_btn),
+        )
+        form_layout.addRow(
+            "Test split:",
+            self._with_button(self.test_file_input, self.test_file_btn),
+        )
+        form_layout.addRow(
+            "Validation split:",
+            self._with_button(self.val_file_input, self.val_file_btn),
+        )
+        form_layout.addRow(
+            "Graph dir:",
+            self._with_button(self.graph_dir_input, self.graph_dir_btn),
+        )
+        form_layout.addRow(
+            "Save dir:",
+            self._with_button(self.save_dir_input, self.save_dir_btn),
+        )
 
         form_layout.addRow(QLabel("<b>Training parameters</b>"))
         form_layout.addRow("Seed:", self.seed_input)
@@ -108,7 +161,9 @@ class TrainDialog(QDialog):
         layout = QVBoxLayout()
         layout.addLayout(form_layout)
 
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        )
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
         layout.addWidget(self.buttons)
@@ -125,10 +180,7 @@ class TrainDialog(QDialog):
 
     def _browse_txt_file(self, title):
         path, _ = QFileDialog.getOpenFileName(
-            self,
-            title,
-            "",
-            "Text files (*.txt);;All files (*)"
+            self, title, "", "Text files (*.txt);;All files (*)"
         )
         return path
 
@@ -170,7 +222,9 @@ class TrainDialog(QDialog):
             return
 
         if not self.val_file_input.text().strip():
-            logger.warning("Missing input: please select the validation split file.")
+            logger.warning(
+                "Missing input: please select the validation split file."
+            )
             return
 
         if not self.graph_dir_input.text().strip():
@@ -201,15 +255,29 @@ class TrainDialog(QDialog):
             logger.warning("Invalid input: weight decay must be a float.")
             return
 
-        self.settings.setValue("train/last_train_file", self.train_file_input.text().strip())
-        self.settings.setValue("train/last_test_file", self.test_file_input.text().strip())
-        self.settings.setValue("train/last_val_file", self.val_file_input.text().strip())
-        self.settings.setValue("train/last_graph_dir", self.graph_dir_input.text().strip())
-        self.settings.setValue("train/last_save_dir", self.save_dir_input.text().strip())
+        self.settings.setValue(
+            "train/last_train_file", self.train_file_input.text().strip()
+        )
+        self.settings.setValue(
+            "train/last_test_file", self.test_file_input.text().strip()
+        )
+        self.settings.setValue(
+            "train/last_val_file", self.val_file_input.text().strip()
+        )
+        self.settings.setValue(
+            "train/last_graph_dir", self.graph_dir_input.text().strip()
+        )
+        self.settings.setValue(
+            "train/last_save_dir", self.save_dir_input.text().strip()
+        )
 
         self.settings.setValue("train/seed", self.seed_input.value())
-        self.settings.setValue("train/hidden_dim", self.hidden_dim_input.value())
-        self.settings.setValue("train/batch_size", self.batch_size_input.value())
+        self.settings.setValue(
+            "train/hidden_dim", self.hidden_dim_input.value()
+        )
+        self.settings.setValue(
+            "train/batch_size", self.batch_size_input.value()
+        )
         self.settings.setValue("train/lr", lr_text)
         self.settings.setValue("train/weight_decay", weight_decay_text)
         self.settings.setValue("train/epochs", self.epochs_input.value())

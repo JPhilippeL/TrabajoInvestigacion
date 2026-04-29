@@ -1,27 +1,22 @@
-import os
 import ast
-from pathlib import Path
+import os
+from time import time
 
-import torch
+import matplotlib
 import numpy as np
 import pandas as pd
-import matplotlib
+import torch
 
-# don't remove that otherwise the thread will fail
+# don't remove
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from torch_geometric.loader import DataLoader
-from torch.utils.data import Dataset
-from torch_geometric.nn import global_mean_pool
-from sklearn.metrics import mean_squared_error
 from scipy.stats import spearmanr
-import torch.nn as nn
+from sklearn.metrics import mean_squared_error
+from torch_geometric.loader import DataLoader
+from utils import URVGraphDataset, load_split_txt
 
 from GIGN_GUI.model.GIGN_model import GIGN
 
-# =========================================================
-# Utils
-# =========================================================
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
@@ -29,9 +24,11 @@ def parse_parameter_file(file):
     if not os.path.isfile(file):
         raise FileNotFoundError(f"Parameter file not found: {file}")
 
-    params = dict.fromkeys(["node_dim", "hidden_dim", "drop_out", "batch_size"], None)
+    params = dict.fromkeys(
+        ["node_dim", "hidden_dim", "drop_out", "batch_size"], None
+    )
 
-    with open(file, "r") as f:
+    with open(file) as f:
         for line in f:
             line = line.strip()
 
@@ -51,7 +48,7 @@ def parse_parameter_file(file):
             try:
                 value = ast.literal_eval(value)
             except (ValueError, SyntaxError):
-                print("Error parsing value for key '{}': {}".format(key, value))
+                print(f"Error parsing value for key '{key}': {value}")
                 return None
 
             params[key] = value
@@ -76,36 +73,6 @@ def escala_global(file_path):
     return global_min, global_max
 
 
-def load_split_txt(path):
-    with open(path, "r") as f:
-        return ast.literal_eval(f.read())
-
-
-# =========================================================
-# Dataset
-# =========================================================
-
-
-class URVGraphDataset(Dataset):
-    def __init__(self, graph_ids, graphs_dir):
-        self.graph_ids = graph_ids
-        self.graphs_dir = graphs_dir
-
-    def __len__(self):
-        return len(self.graph_ids)
-
-    def __getitem__(self, idx):
-        pdb_id = self.graph_ids[idx]
-        return torch.load(
-            os.path.join(self.graphs_dir, f"{pdb_id}.pt"), weights_only=False
-        )
-
-
-# =========================================================
-# Evaluación
-# =========================================================
-
-
 def evaluate(model, dataloader):
     model.eval()
     preds, labels = [], []
@@ -127,12 +94,9 @@ def evaluate(model, dataloader):
     return rmse, pearson, spearman, labels, preds
 
 
-# =========================================================
-# Plots
-# =========================================================
-
-
-def plot_split_scatter(labels, preds, split_name, save_dir, rmse, pearson, global_min, global_max):
+def plot_split_scatter(
+        labels, preds, split_name, save_dir, rmse, pearson, global_min, global_max
+):
     mask = (preds >= global_min) & (preds <= global_max)
     n_out = (~mask).sum()
 
@@ -167,7 +131,13 @@ def plot_split_scatter(labels, preds, split_name, save_dir, rmse, pearson, globa
 
 
 def plot_global_scatter(
-        all_labels, all_preds, save_path, mean_rmse, mean_pearson, global_min, global_max
+        all_labels,
+        all_preds,
+        save_path,
+        mean_rmse,
+        mean_pearson,
+        global_min,
+        global_max,
 ):
     mask = (all_preds >= global_min) & (all_preds <= global_max)
     n_out = (~mask).sum()
@@ -199,16 +169,20 @@ def plot_global_scatter(
     plt.close()
 
 
-# =========================================================
-# Main
-# =========================================================
-def predict(pic50_txt, model_dir, graph_dir, train_split_file, test_split_file, val_split_file, output_dir,
-            log_callback, parameter_file):
-    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def predict(
+        pic50_txt,
+        model_dir,
+        graph_dir,
+        train_split_file,
+        test_split_file,
+        val_split_file,
+        output_dir,
+        log_callback,
+        parameter_file,
+):
+    debut_prediction = time()
     global_min, global_max = escala_global(pic50_txt)
 
-    train_splits = load_split_txt(train_split_file)
-    val_splits = load_split_txt(val_split_file)
     test_splits = load_split_txt(test_split_file)
 
     all_results = []
@@ -216,13 +190,20 @@ def predict(pic50_txt, model_dir, graph_dir, train_split_file, test_split_file, 
     all_preds_global = []
     parameter = parse_parameter_file(parameter_file)
     for split_idx in range(5):
-        if log_callback: log_callback.info(f"\n===== SPLIT {split_idx:02d} =====")
+        if log_callback:
+            log_callback.info(f"\n===== SPLIT {split_idx:02d} =====")
 
         test_ids = test_splits[split_idx]
         test_set = URVGraphDataset(test_ids, graph_dir)
-        test_loader = DataLoader(test_set, batch_size=parameter["batch_size"], shuffle=False)
+        test_loader = DataLoader(
+            test_set, batch_size=parameter["batch_size"], shuffle=False
+        )
 
-        model = GIGN(parameter["node_dim"], parameter["hidden_dim"], parameter["drop_out"]).to(DEVICE)
+        model = GIGN(
+            parameter["node_dim"],
+            parameter["hidden_dim"],
+            parameter["drop_out"],
+        ).to(DEVICE)
 
         model_path = os.path.join(
             model_dir, f"split_{split_idx:02d}", "best_model.pt"
@@ -236,7 +217,14 @@ def predict(pic50_txt, model_dir, graph_dir, train_split_file, test_split_file, 
             log_callback.info(f"Spearman: {spearman:.4f}")
 
         plot_split_scatter(
-            labels, preds, f"Split_{split_idx:02d}", output_dir, rmse, pearson, global_min, global_max
+            labels,
+            preds,
+            f"Split_{split_idx:02d}",
+            output_dir,
+            rmse,
+            pearson,
+            global_min,
+            global_max,
         )
 
         all_results.append(
@@ -271,7 +259,9 @@ def predict(pic50_txt, model_dir, graph_dir, train_split_file, test_split_file, 
         }
     )
 
-    summary_df.to_csv(os.path.join(output_dir, "metrics_summary.csv"), index=False)
+    summary_df.to_csv(
+        os.path.join(output_dir, "metrics_summary.csv"), index=False
+    )
 
     if log_callback:
         log_callback.info("\n=== RESULTADOS FINALES ===")
@@ -295,7 +285,10 @@ def predict(pic50_txt, model_dir, graph_dir, train_split_file, test_split_file, 
         mean_row["RMSE"],
         mean_row["Pearson"],
         global_min,
-        global_max
+        global_max,
     )
+    end_prediction = time()
+
     if log_callback:
+        log_callback.info(f"prediction total time: {end_prediction - debut_prediction:.2f} seconds")
         log_callback.info(f"\nScatter global guardado en: {scatter_path}")

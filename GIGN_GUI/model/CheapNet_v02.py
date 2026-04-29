@@ -1,10 +1,11 @@
 import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.utils import to_dense_adj, to_dense_batch
 from torch_geometric.nn import DenseGCNConv
 from torch_geometric.nn.conv import MessagePassing
+from torch_geometric.utils import to_dense_adj, to_dense_batch
 
 
 def _rbf(D, D_min=0.0, D_max=6.0, D_count=9, device="cpu"):
@@ -30,7 +31,7 @@ def gnn_norm(x, norm):
 
 class MLP(nn.Module):
     def __init__(self, input_dim, output_dim, drop_rate):
-        super(MLP, self).__init__()
+        super().__init__()
 
         self.mlp = nn.Sequential(
             nn.Linear(input_dim, output_dim),
@@ -46,7 +47,7 @@ class MLP(nn.Module):
 
 class FC(nn.Module):
     def __init__(self, input_dim, hidden_dim, num_layer, drop_rate, output_dim):
-        super(FC, self).__init__()
+        super().__init__()
 
         self.predict = nn.ModuleList()
         self.predict.append(MLP(input_dim, hidden_dim, drop_rate))
@@ -65,7 +66,7 @@ class FC(nn.Module):
 class HIL(MessagePassing):
     def __init__(self, input_dim, output_dim, drop_rate, **kwargs):
         kwargs.setdefault("aggr", "add")
-        super(HIL, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.mlp_coord = MLP(9, input_dim, 0.0)
         self.out = MLP(input_dim, output_dim, drop_rate)
@@ -92,7 +93,7 @@ class HIL(MessagePassing):
 
 class GIGNBlock(nn.Module):
     def __init__(self, input_dim, output_dim, drop_rate):
-        super(GIGNBlock, self).__init__()
+        super().__init__()
 
         self.gconv_intra = HIL(input_dim, output_dim, drop_rate)
         self.gconv_inter = HIL(input_dim, output_dim, drop_rate)
