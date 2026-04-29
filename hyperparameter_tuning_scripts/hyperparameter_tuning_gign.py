@@ -8,16 +8,21 @@ import numpy as np
 import ray
 import torch
 from ray import tune
-from ray.air import RunConfig, CheckpointConfig
+from ray.air import CheckpointConfig
 
 from GIGN_GUI.model.GIGN_model import GIGN
-from utils import load_split_txt, seed_everything, val, load_data_for_split, safe_mean_std, \
-    is_finite_number, save_tuning_in_a_file
+from GIGN_GUI.model.utils import (
+    is_finite_number,
+    load_data_for_split,
+    load_split_txt,
+    safe_mean_std,
+    save_tuning_in_a_file,
+    seed_everything,
+    val,
+)
 
 
-def train_on_one_split(
-        config, split_id, device, train_splits, test_splits, val_splits, graph_dir
-):
+def train_on_one_split(config, split_id, device, train_splits, test_splits, val_splits, graph_dir):
     seed_everything(split_id)
 
     train_loader, val_loader, test_loader = load_data_for_split(
@@ -56,9 +61,7 @@ def train_on_one_split(
             target = data.y.view(-1)
             loss = criterion(pred, target)
             if not torch.isfinite(loss).item():
-                print(
-                    f"[WARNING] Loss not finished yet on split {split_id}, epoch {epoch}"
-                )
+                print(f"[WARNING] Loss not finished yet on split {split_id}, epoch {epoch}")
                 continue
             loss.backward()
             optimizer.step()
@@ -105,7 +108,13 @@ def train_GIGN(config, train_split_file, val_split_file, test_split_file, graph_
 
     for split_id in range(num_splits):
         metrics = train_on_one_split(
-            config, split_id, device, train_splits, test_splits, val_splits, graph_dir
+            config,
+            split_id,
+            device,
+            train_splits,
+            test_splits,
+            val_splits,
+            graph_dir,
         )
 
         if is_finite_number(metrics.get("best_val_rmse")):
@@ -120,9 +129,7 @@ def train_GIGN(config, train_split_file, val_split_file, test_split_file, graph_
     mean_val_rmse, std_val_rmse = safe_mean_std(
         val_rmses, empty_mean=float("inf"), empty_std=float("inf")
     )
-    mean_val_pearson, std_val_pearson = safe_mean_std(
-        val_pearsons, empty_mean=0.0, empty_std=0.0
-    )
+    mean_val_pearson, std_val_pearson = safe_mean_std(val_pearsons, empty_mean=0.0, empty_std=0.0)
     mean_train_rmse, std_train_rmse = safe_mean_std(
         train_rmses, empty_mean=float("inf"), empty_std=float("inf")
     )
@@ -139,18 +146,17 @@ def train_GIGN(config, train_split_file, val_split_file, test_split_file, graph_
 
 
 def hyperparameter_tuning(
-        cpu_per_trials,
-        gpu_per_trials,
-        num_trials,
-        out_dir,
-        train_split_file,
-        val_split_file,
-        test_split_file,
-        graph_dir,
+    cpu_per_trials,
+    gpu_per_trials,
+    num_trials,
+    out_dir,
+    train_split_file,
+    val_split_file,
+    test_split_file,
+    graph_dir,
 ):
     ray.shutdown()
     ray.init(ignore_reinit_error=True, include_dashboard=False)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     config = {
         "NODE_DIM": 14,
@@ -160,7 +166,7 @@ def hyperparameter_tuning(
         "weight_decay": tune.loguniform(1e-6, 1e-3),
         "EPOCHS": 50,
         "patience": 15,
-        "drop_out": tune.choice([0, 0.05, 0.1])
+        "drop_out": tune.choice([0, 0.05, 0.1]),
     }
 
     trainable = tune.with_parameters(
@@ -189,10 +195,37 @@ def hyperparameter_tuning(
                 checkpoint_at_end=False,
             ),
         ),
-
     )
     results = tuner.fit()
 
     best_result = results.get_best_result(metric="mean_val_rmse", mode="min")
     print(f"Best result {best_result}")
     save_tuning_in_a_file(results, out_dir)
+
+
+if __name__ == "__main__":
+    graph_dir = "/home/administrateur/Bureau/deepGNN/GIGN/Graphs_GIGN"
+    output_dir = "tuning"
+    test_split_file = (
+        "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/Splits/test_index_folder.txt"
+    )
+    train_split_file = (
+        "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/Splits/train_index_folder.txt"
+    )
+    val_split_file = (
+        "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/Splits/val_index_folder.txt"
+    )
+    cpu_per_trials = 4
+    gpu_per_trials = 0
+    num_trials = 20
+
+    hyperparameter_tuning(
+        cpu_per_trials,
+        gpu_per_trials,
+        num_trials,
+        output_dir,
+        train_split_file,
+        val_split_file,
+        test_split_file,
+        graph_dir,
+    )

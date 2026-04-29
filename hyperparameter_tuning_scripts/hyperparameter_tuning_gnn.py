@@ -39,29 +39,25 @@ All my work and experiments are based on the PyTorch tutorial for hyperparameter
 
 
 def train(
-        search_space_dictionary,
-        sdf_directory,
-        target_file,
-        gnn_model_name,
-        valid_split,
-        gnn_model_pseudo,
+    search_space_dictionary,
+    sdf_directory,
+    target_file,
+    gnn_model_name,
+    valid_split,
+    gnn_model_pseudo,
 ):
     best_model_tmp_path = os.path.join(
         tempfile.gettempdir(),
         f"{gnn_model_pseudo}_{os.getpid()}_best_model_tmp.pt",
     )
 
-    calc_atom_emb_dim = calc_dim(
-        len(periodic_elements) * search_space_dictionary["atom_emb_dim"]
-    )
+    calc_atom_emb_dim = calc_dim(len(periodic_elements) * search_space_dictionary["atom_emb_dim"])
 
     calc_hybrid_emb_dim = calc_dim(
         len(hybridization_types) * search_space_dictionary["hybrid_emb_dim"]
     )
 
-    calc_bond_emb_dim = calc_dim(
-        N_BOND_TYPES * search_space_dictionary["bond_emb_dim"]
-    )
+    calc_bond_emb_dim = calc_dim(N_BOND_TYPES * search_space_dictionary["bond_emb_dim"])
 
     input_dim = calc_atom_emb_dim + calc_hybrid_emb_dim + OTHER_NODE_FEATURES
 
@@ -87,9 +83,7 @@ def train(
 
     model.to(device)
 
-    optimizer = torch.optim.Adam(
-        model.parameters(), lr=search_space_dictionary["lr"]
-    )
+    optimizer = torch.optim.Adam(model.parameters(), lr=search_space_dictionary["lr"])
 
     patience_scheduler = (
         max(10, search_space_dictionary["patience"] // 4)
@@ -97,9 +91,7 @@ def train(
         else 15
     )
 
-    scheduler = ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.5, patience=patience_scheduler
-    )
+    scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=patience_scheduler)
 
     criterion = torch.nn.MSELoss()
 
@@ -132,9 +124,7 @@ def train(
             with torch.no_grad():
                 for batch in val_loader:
                     batch = batch.to(device)
-                    out = model(
-                        batch.x, batch.edge_index, batch.edge_attr, batch.batch
-                    )
+                    out = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
                     loss = criterion(out, batch.y)
                     val_loss += loss.item() * batch.num_graphs
 
@@ -191,9 +181,7 @@ def train(
             logging.info(f"Epoch {epoch:03d} | Train MSE: {avg_train_loss:.4f}")
 
     if os.path.exists(best_model_tmp_path):
-        model.load_state_dict(
-            torch.load(best_model_tmp_path, map_location=device)
-        )
+        model.load_state_dict(torch.load(best_model_tmp_path, map_location=device))
         os.remove(best_model_tmp_path)
         logging.info(
             f"Best model saved at epoch {best_epoch} | "
@@ -216,7 +204,7 @@ if __name__ == "__main__":
     debut_tuning = time()
     models = ["GAT", "GINE", "GraphTransformer", "EGAT", "GIN"]
     for model in models:
-        logging.info("Starting hyperparameter tuning for model: {}".format(model))
+        logging.info(f"Starting hyperparameter tuning for model: {model}")
         ray.shutdown()
         # we can limit the number cpus in order to avoid overloading the cpus by num_cpus passed to ray.init
         ray.init(ignore_reinit_error=True, include_dashboard=False)
@@ -290,7 +278,12 @@ if __name__ == "__main__":
         results = tuner.fit()
 
         best_result = results.get_best_result(metric="best_val_loss", mode="min")
-        write_results_to_file(model, best_result.metrics, best_result.config, "hyperparameter_tuning_results.txt")
+        write_results_to_file(
+            model,
+            best_result.metrics,
+            best_result.config,
+            "hyperparameter_tuning_results.txt",
+        )
     end_tuning = time()
     elapsed_time = end_tuning - debut_tuning
     with open("hyperparameter_tuning_results.txt", "a") as f:
