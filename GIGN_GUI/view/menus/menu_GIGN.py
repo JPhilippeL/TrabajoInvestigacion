@@ -1,5 +1,4 @@
 import logging
-import os
 
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu
@@ -10,17 +9,6 @@ from GIGN_GUI.view.dialogs.train_dialog import TrainDialog
 from GIGN_GUI.workers import DBGenerationThread, PredictThread, TrainGIGNThread
 
 logger = logging.getLogger(__name__)
-# this script will launch ray tune hyperparameter search separately.
-SCRIPT = os.path.join(
-    os.path.dirname(
-        os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        )
-    ),
-    "GIGN_GUI",
-    "model",
-    "run_hp_tuning.py",
-)
 
 
 class MenuGIGN(QMenu):
