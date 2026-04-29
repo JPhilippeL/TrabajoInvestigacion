@@ -1,11 +1,14 @@
+import logging
 import os
+from time import time
+
+import networkx as nx
 import pandas as pd
 import torch
-from torch_geometric.data import Data
-from rdkit import Chem
 from Bio.PDB import PDBParser
+from rdkit import Chem
 from scipy.spatial import distance_matrix
-import networkx as nx
+from torch_geometric.data import Data
 from tqdm import tqdm
 
 
@@ -307,8 +310,11 @@ def build_graph_for_original(
 # =========================================================
 # Generate all graphs
 # =========================================================
-def generate_all_graphs(pic50_file, out_dir, lig_dir, pdb_dir, dis_threshold=5.0, cutoff_prot=6.0):
+def generate_all_graphs(
+        pic50_file, out_dir, lig_dir, pdb_dir, log_callback, dis_threshold=5.0, cutoff_prot=6.0
+):
     os.makedirs(out_dir, exist_ok=True)
+    debut_generation = time()
     pic50_dict = load_pic50(pic50_file)
     for pdb_id in tqdm(pic50_dict.keys(), desc="Generando grafos GIGN"):
         g = build_graph_for_original(
@@ -323,3 +329,6 @@ def generate_all_graphs(pic50_file, out_dir, lig_dir, pdb_dir, dis_threshold=5.0
             continue
 
         torch.save(g, os.path.join(out_dir, f"{pdb_id}.pt"))
+    end_generation = time()
+    if log_callback:
+        logging.info(f"generation total time: {end_generation - debut_generation:.2f} seconds")

@@ -1,10 +1,18 @@
-from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLineEdit,
-    QPushButton, QFileDialog, QDialogButtonBox, QWidget,
-    QHBoxLayout, QLabel, QMessageBox
-)
-from PySide6.QtCore import QSettings
 import logging
+
+from PySide6.QtCore import QSettings
+from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,41 +27,64 @@ class DBGenerationDialog(QDialog):
 
         self.pic50_file_input = QLineEdit()
         self.pic50_file_input.setPlaceholderText("Target file (pic50.txt)")
-        self.pic50_file_input.setText(self.settings.value("dbGen/last_pic50_file", ""))
+        self.pic50_file_input.setText(
+            self.settings.value("dbGen/last_pic50_file", "")
+        )
         self.pic50_btn = QPushButton("Select...")
         self.pic50_btn.clicked.connect(self.browse_txt)
 
         self.ligand_dir_input = QLineEdit()
         self.ligand_dir_input.setPlaceholderText("Folder with .sdf")
-        self.ligand_dir_input.setText(self.settings.value("dbGen/last_ligand_dir", ""))
+        self.ligand_dir_input.setText(
+            self.settings.value("dbGen/last_ligand_dir", "")
+        )
         self.ligand_btn = QPushButton("Select...")
         self.ligand_btn.clicked.connect(self.browse_ligand)
 
         self.pdb_dir_input = QLineEdit()
         self.pdb_dir_input.setPlaceholderText("Folder with .pdb")
-        self.pdb_dir_input.setText(self.settings.value("dbGen/last_pdb_dir", ""))
+        self.pdb_dir_input.setText(
+            self.settings.value("dbGen/last_pdb_dir", "")
+        )
         self.pdb_btn = QPushButton("Select...")
         self.pdb_btn.clicked.connect(self.browse_pdb)
 
         self.output_dir_input = QLineEdit()
-        self.output_dir_input.setPlaceholderText("Optional (default output directory)")
-        self.output_dir_input.setText(self.settings.value("dbGen/last_output_dir", ""))
+        self.output_dir_input.setPlaceholderText(
+            "Optional (default output directory)"
+        )
+        self.output_dir_input.setText(
+            self.settings.value("dbGen/last_output_dir", "")
+        )
         self.output_btn = QPushButton("Select...")
         self.output_btn.clicked.connect(self.browse_output)
 
         form_layout = QFormLayout()
         form_layout.addRow(QLabel("<b>Required Parameters</b>"))
-        form_layout.addRow("pIC50 file:", self._with_button(self.pic50_file_input, self.pic50_btn))
-        form_layout.addRow("Ligands dir:", self._with_button(self.ligand_dir_input, self.ligand_btn))
-        form_layout.addRow("Proteins dir:", self._with_button(self.pdb_dir_input, self.pdb_btn))
+        form_layout.addRow(
+            "pIC50 file:",
+            self._with_button(self.pic50_file_input, self.pic50_btn),
+        )
+        form_layout.addRow(
+            "Ligands dir:",
+            self._with_button(self.ligand_dir_input, self.ligand_btn),
+        )
+        form_layout.addRow(
+            "Proteins dir:", self._with_button(self.pdb_dir_input, self.pdb_btn)
+        )
 
         form_layout.addRow(QLabel("<b>Optional</b>"))
-        form_layout.addRow("Output dir:", self._with_button(self.output_dir_input, self.output_btn))
+        form_layout.addRow(
+            "Output dir:",
+            self._with_button(self.output_dir_input, self.output_btn),
+        )
 
         layout = QVBoxLayout()
         layout.addLayout(form_layout)
 
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        )
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
         layout.addWidget(self.buttons)
@@ -70,10 +101,7 @@ class DBGenerationDialog(QDialog):
 
     def browse_txt(self):
         path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select pIC50 file",
-            "",
-            "Text files (*.txt);;All files (*)"
+            self, "Select pIC50 file", "", "Text files (*.txt);;All files (*)"
         )
         if path:
             self.pic50_file_input.setText(path)
@@ -107,10 +135,16 @@ class DBGenerationDialog(QDialog):
             logger.warning("Missing input,Please select the protein directory.")
             return
 
-        self.settings.setValue("dbGen/last_pic50_file", self.pic50_file_input.text())
-        self.settings.setValue("dbGen/last_ligand_dir", self.ligand_dir_input.text())
+        self.settings.setValue(
+            "dbGen/last_pic50_file", self.pic50_file_input.text()
+        )
+        self.settings.setValue(
+            "dbGen/last_ligand_dir", self.ligand_dir_input.text()
+        )
         self.settings.setValue("dbGen/last_pdb_dir", self.pdb_dir_input.text())
-        self.settings.setValue("dbGen/last_output_dir", self.output_dir_input.text())
+        self.settings.setValue(
+            "dbGen/last_output_dir", self.output_dir_input.text()
+        )
 
         super().accept()
 
