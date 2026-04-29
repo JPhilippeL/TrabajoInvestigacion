@@ -7,7 +7,7 @@ import torch.nn as nn
 from torch_geometric.loader import DataLoader
 
 from GIGN_GUI.model.GIGN_model import GIGN
-from utils import (
+from GIGN_GUI.model.utils import (
     URVGraphDataset,
     load_split_txt,
     seed_everything,

@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import spearmanr
 from sklearn.metrics import mean_squared_error
 from torch_geometric.loader import DataLoader
-from utils import URVGraphDataset, load_split_txt
+from GIGN_GUI.model.utils import URVGraphDataset, load_split_txt
 
 from GIGN_GUI.model.GIGN_model import GIGN
 
