@@ -17,3 +17,6 @@ __pycache__/
 *.pyd
 .idea
 ray_results
+hyperparameter_tuning_results.txt
+global_axis.npy
+pyproject.toml
