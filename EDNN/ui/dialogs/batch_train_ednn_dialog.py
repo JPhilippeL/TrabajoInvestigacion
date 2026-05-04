@@ -30,8 +30,8 @@ from EDNN.utils.constants import (
 class BatchTrainDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Batch Training / Hyperparameter Search - EDNN")
-        self.resize(760, 620)
+        self.setWindowTitle("EDNN Hyperparameter Search Configuration")
+        self.resize(760, 580)
 
         self.settings = QSettings("Investigacion", "EDNN_BatchTraining")
 
@@ -71,15 +71,9 @@ class BatchTrainDialog(QDialog):
         self.results_root_btn = QPushButton("Select...")
         self.results_root_btn.clicked.connect(self.browse_results_root)
 
-        self.temp_runs_dir_input = QLineEdit()
-        self.temp_runs_dir_input.setPlaceholderText("Temporary runs folder")
-        self.temp_runs_dir_input.setText(self.settings.value("batch/temp_runs_dir", DEFAULT_TEMP_RUNS_DIR))
-        self.temp_runs_dir_btn = QPushButton("Select...")
-        self.temp_runs_dir_btn.clicked.connect(self.browse_temp_runs)
-
         self.device_combo = QComboBox()
-        self.device_combo.addItems(["cuda", "cpu", "cuda:0", "cuda:1"])
-        self.device_combo.setCurrentText(self.settings.value("batch/device", "cuda"))
+        self.device_combo.addItems(["auto", "cuda", "cpu", "cuda:0", "cuda:1"])
+        self.device_combo.setCurrentText(self.settings.value("batch/device", "auto"))
 
         self.seed_spin = QSpinBox()
         self.seed_spin.setRange(0, 999999)
@@ -113,7 +107,6 @@ class BatchTrainDialog(QDialog):
         form_layout.addRow("Test Split (.txt):", self._with_button(self.test_split_input, self.test_split_btn))
         form_layout.addRow("Models Root:", self._with_button(self.models_root_input, self.models_root_btn))
         form_layout.addRow("Results Root:", self._with_button(self.results_root_input, self.results_root_btn))
-        form_layout.addRow("Temp Runs Dir:", self._with_button(self.temp_runs_dir_input, self.temp_runs_dir_btn))
 
         form_layout.addRow(QLabel("<br><b>2. General configuration</b>"))
         form_layout.addRow("Device:", self.device_combo)
@@ -174,11 +167,6 @@ class BatchTrainDialog(QDialog):
         if path:
             self.results_root_input.setText(path)
 
-    def browse_temp_runs(self):
-        path = QFileDialog.getExistingDirectory(self, "Select temporary folder")
-        if path:
-            self.temp_runs_dir_input.setText(path)
-
     def accept(self):
         self.settings.setValue("batch/graphs_dir", self.graphs_dir_input.text())
         self.settings.setValue("batch/train_split_file", self.train_split_input.text())
@@ -186,7 +174,6 @@ class BatchTrainDialog(QDialog):
         self.settings.setValue("batch/test_split_file", self.test_split_input.text())
         self.settings.setValue("batch/models_root", self.models_root_input.text())
         self.settings.setValue("batch/results_root", self.results_root_input.text())
-        self.settings.setValue("batch/temp_runs_dir", self.temp_runs_dir_input.text())
         self.settings.setValue("batch/device", self.device_combo.currentText())
         self.settings.setValue("batch/seed", self.seed_spin.value())
         self.settings.setValue("batch/epochs", self.epochs_spin.value())
@@ -205,6 +192,10 @@ class BatchTrainDialog(QDialog):
         return [int(x.strip()) for x in raw_text.split(",") if x.strip()]
 
     def get_inputs(self):
+        device = self.device_combo.currentText()
+        if device == "auto":
+            device = None
+
         return {
             "graphs_dir": self.graphs_dir_input.text(),
             "train_split_file": self.train_split_input.text(),
@@ -212,8 +203,8 @@ class BatchTrainDialog(QDialog):
             "test_split_file": self.test_split_input.text(),
             "models_root": self.models_root_input.text(),
             "results_root": self.results_root_input.text(),
-            "temp_runs_dir": self.temp_runs_dir_input.text(),
-            "device": self.device_combo.currentText(),
+            "temp_runs_dir": DEFAULT_TEMP_RUNS_DIR,
+            "device": device,
             "seed": self.seed_spin.value(),
             "epochs": self.epochs_spin.value(),
             "patience": self.patience_spin.value(),

@@ -10,6 +10,8 @@ import csv
 import itertools
 import os
 import shutil
+import time
+import math
 from typing import Any, Dict, Iterable, Optional, Tuple
 
 import yaml
@@ -63,8 +65,11 @@ def append_trial_result(csv_path: str, row: Dict[str, Any]) -> None:
 
 def save_yaml(data: Dict[str, Any], yaml_path: str) -> None:
     os.makedirs(os.path.dirname(yaml_path), exist_ok=True)
+
+    clean_data = to_python_builtin(data)
+
     with open(yaml_path, "w", encoding="utf-8") as f:
-        yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
+        yaml.safe_dump(clean_data, f, sort_keys=False, allow_unicode=True)
 
 
 def build_best_config_payload(
@@ -131,6 +136,54 @@ def generate_trials(
 ) -> Iterable[Tuple[float, int, int]]:
     return itertools.product(lr_values, hidden_dim_values, batch_size_values)
 
+def to_python_builtin(value):
+    """
+    Convert NumPy / Torch scalar values into standard Python types for YAML.
+    """
+    try:
+        import numpy as np
+        import torch
+    except Exception:
+        np = None
+        torch = None
+
+    if isinstance(value, dict):
+        return {k: to_python_builtin(v) for k, v in value.items()}
+
+    if isinstance(value, list):
+        return [to_python_builtin(v) for v in value]
+
+    if isinstance(value, tuple):
+        return tuple(to_python_builtin(v) for v in value)
+
+    if np is not None:
+        if isinstance(value, np.integer):
+            return int(value)
+        if isinstance(value, np.floating):
+            return float(value)
+        if isinstance(value, np.ndarray):
+            return value.tolist()
+
+    if torch is not None and isinstance(value, torch.Tensor):
+        if value.numel() == 1:
+            return value.item()
+        return value.detach().cpu().tolist()
+
+    return value
+
+
+def format_duration_hms(seconds: float) -> str:
+    """
+    Convert elapsed seconds to HH:MM:SS format.
+    """
+    total_seconds = int(round(seconds))
+
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    secs = total_seconds % 60
+
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
 
 def run_hyperparameter_search(
     graphs_dir: str,
@@ -152,7 +205,7 @@ def run_hyperparameter_search(
     @brief Run a grid search over EGNN hyperparameters.
     @return Dictionary containing the best trial and output paths.
     """
-    os.makedirs(temp_runs_dir, exist_ok=True)
+    search_start_time = time.time()
     os.makedirs(models_root, exist_ok=True)
     os.makedirs(results_root, exist_ok=True)
 
@@ -256,19 +309,27 @@ def run_hyperparameter_search(
             )
             print(f"[WARNING] {trial_name} failed: {exc}")
 
+        search_elapsed_seconds = time.time() - search_start_time
+    search_elapsed_hms = format_duration_hms(search_elapsed_seconds)
+
     if best_trial_payload is None:
         return {
             "status": "failed",
             "message": "No valid configuration found.",
             "trials_csv": trials_csv_path,
             "best_config_yaml": best_config_yaml_path,
+            "hyperparameter_search_time": search_elapsed_hms,
         }
+
+    best_trial_payload["hyperparameter_search_time"] = search_elapsed_hms
+    save_yaml(best_trial_payload, best_config_yaml_path)
 
     return {
         "status": "success",
         "message": "Hyperparameter search completed successfully.",
         "best_trial": best_trial_name,
-        "best_metrics": best_metrics,
+        "best_metrics": to_python_builtin(best_metrics),
         "trials_csv": trials_csv_path,
         "best_config_yaml": best_config_yaml_path,
+        "hyperparameter_search_time": search_elapsed_hms,
     }

@@ -46,7 +46,7 @@ class BatchTrainDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("EGNN Hyperparameter Search Configuration")
-        self.resize(780, 640)
+        self.resize(780, 600)
 
         self.settings = QSettings("ResearchApp", "EGNN_HyperparameterSearch")
 
@@ -86,11 +86,11 @@ class BatchTrainDialog(QDialog):
         self.results_root_btn = QPushButton("Browse...")
         self.results_root_btn.clicked.connect(self.browse_results_root)
 
-        self.temp_runs_dir_input = QLineEdit()
-        self.temp_runs_dir_input.setPlaceholderText("Temporary runs directory")
-        self.temp_runs_dir_input.setText(self.settings.value("search/temp_runs_dir", DEFAULT_TEMP_RUNS_DIR))
-        self.temp_runs_dir_btn = QPushButton("Browse...")
-        self.temp_runs_dir_btn.clicked.connect(self.browse_temp_runs)
+        #self.temp_runs_dir_input = QLineEdit()
+        #self.temp_runs_dir_input.setPlaceholderText("Temporary runs directory")
+        #self.temp_runs_dir_input.setText(self.settings.value("search/temp_runs_dir", DEFAULT_TEMP_RUNS_DIR))
+        #self.temp_runs_dir_btn = QPushButton("Browse...")
+        #self.temp_runs_dir_btn.clicked.connect(self.browse_temp_runs)
 
         self.device_combo = QComboBox()
         self.device_combo.addItems(["auto", "cuda", "cpu", "cuda:0", "cuda:1"])
@@ -128,7 +128,7 @@ class BatchTrainDialog(QDialog):
         form_layout.addRow("Test split:", self._with_button(self.test_split_input, self.test_split_btn))
         form_layout.addRow("Models root:", self._with_button(self.models_root_input, self.models_root_btn))
         form_layout.addRow("Results root:", self._with_button(self.results_root_input, self.results_root_btn))
-        form_layout.addRow("Temporary runs directory:", self._with_button(self.temp_runs_dir_input, self.temp_runs_dir_btn))
+        #form_layout.addRow("Temporary runs directory:", self._with_button(self.temp_runs_dir_input, self.temp_runs_dir_btn))
 
         form_layout.addRow(QLabel("<br><b>2. General configuration</b>"))
         form_layout.addRow("Device:", self.device_combo)
@@ -189,10 +189,10 @@ class BatchTrainDialog(QDialog):
         if path:
             self.results_root_input.setText(path)
 
-    def browse_temp_runs(self):
-        path = QFileDialog.getExistingDirectory(self, "Select temporary runs directory")
-        if path:
-            self.temp_runs_dir_input.setText(path)
+    #def browse_temp_runs(self):
+     #   path = QFileDialog.getExistingDirectory(self, "Select temporary runs directory")
+      #  if path:
+       #     self.temp_runs_dir_input.setText(path)
 
     def accept(self):
         self.settings.setValue("search/graphs_dir", self.graphs_dir_input.text())
@@ -201,7 +201,7 @@ class BatchTrainDialog(QDialog):
         self.settings.setValue("search/test_split_file", self.test_split_input.text())
         self.settings.setValue("search/models_root", self.models_root_input.text())
         self.settings.setValue("search/results_root", self.results_root_input.text())
-        self.settings.setValue("search/temp_runs_dir", self.temp_runs_dir_input.text())
+        #self.settings.setValue("search/temp_runs_dir", self.temp_runs_dir_input.text())
         self.settings.setValue("search/device", self.device_combo.currentText())
         self.settings.setValue("search/seed", self.seed_spin.value())
         self.settings.setValue("search/epochs", self.epochs_spin.value())
@@ -220,6 +220,10 @@ class BatchTrainDialog(QDialog):
         return [int(x.strip()) for x in raw_text.split(",") if x.strip()]
 
     def get_inputs(self):
+        device = self.device_combo.currentText()
+        if device == "auto":
+            device = None
+
         return {
             "graphs_dir": self.graphs_dir_input.text(),
             "train_split_file": self.train_split_input.text(),
@@ -227,12 +231,12 @@ class BatchTrainDialog(QDialog):
             "test_split_file": self.test_split_input.text(),
             "models_root": self.models_root_input.text(),
             "results_root": self.results_root_input.text(),
-            "temp_runs_dir": self.temp_runs_dir_input.text(),
-            "device": self.device_combo.currentText(),
+            "temp_runs_dir": DEFAULT_TEMP_RUNS_DIR,
+            "device": device,
             "seed": self.seed_spin.value(),
             "epochs": self.epochs_spin.value(),
             "patience": self.patience_spin.value(),
             "lr_values": self._parse_float_list(self.lr_values_input.text()),
             "hidden_dim_values": self._parse_int_list(self.hidden_dim_values_input.text()),
             "batch_size_values": self._parse_int_list(self.batch_size_values_input.text()),
-        }
+    }

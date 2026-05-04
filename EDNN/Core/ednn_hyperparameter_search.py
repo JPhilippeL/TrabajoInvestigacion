@@ -11,6 +11,7 @@ import itertools
 import os
 import shutil
 import time
+import traceback
 from typing import Any, Dict, Iterable, Optional, Tuple
 
 import yaml
@@ -62,6 +63,16 @@ def append_trial_result(csv_path: str, row: Dict[str, Any]) -> None:
         writer.writerow(ordered_row)
 
 
+def format_duration_hms(seconds: float) -> str:
+    total_seconds = int(round(seconds))
+
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    secs = total_seconds % 60
+
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
 def to_python_builtin(value):
     """
     Convert NumPy / Torch scalar types into standard Python types
@@ -107,19 +118,25 @@ def save_yaml(data: Dict[str, Any], yaml_path: str) -> None:
 
 def build_best_config_payload(
     trial_id: int,
+    trial_name: str,
     lr: float,
     hidden_dim: int,
     batch_size: int,
     metrics: Dict[str, Any],
+    model_dir: str,
+    result_dir: str,
 ) -> Dict[str, Any]:
     return {
         "model_name": "EDNN",
         "status": "computed",
         "best_trial": {
             "trial_id": int(trial_id),
+            "trial_name": trial_name,
             "lr": float(lr),
             "hidden_dim": int(hidden_dim),
             "batch_size": int(batch_size),
+            "model_dir": model_dir,
+            "result_dir": result_dir,
         },
         "best_metrics": {
             "rmse_mean": float(metrics.get("RMSE")),
@@ -180,13 +197,20 @@ def run_hyperparameter_search(
     hidden_dim_values: list[int],
     batch_size_values: list[int],
 ) -> Dict[str, Any]:
+    """
+    Run a grid search over EDNN hyperparameters.
+
+    temp_runs_dir is kept in the signature for GUI/worker compatibility,
+    but it is not used anymore.
+    """
     search_start_time = time.time()
-    os.makedirs(temp_runs_dir, exist_ok=True)
+
     os.makedirs(models_root, exist_ok=True)
     os.makedirs(results_root, exist_ok=True)
 
     trials_csv_path = os.path.join(results_root, "ednn_hyperparameter_trials.csv")
     best_config_yaml_path = os.path.join(results_root, "best_config_ednn.yaml")
+    best_models_dir = os.path.join(models_root, "best_trial_models")
 
     ensure_trials_csv(trials_csv_path)
 
@@ -200,12 +224,15 @@ def run_hyperparameter_search(
 
     for trial_index, (lr, hidden_dim, batch_size) in enumerate(combinations, start=1):
         trial_name = f"trial_{trial_index:03d}"
-        trial_root = os.path.join(temp_runs_dir, trial_name)
-        trial_models_dir = os.path.join(trial_root, "Models_EDNN")
-        trial_results_dir = os.path.join(trial_root, "Results_EDNN")
 
-        if os.path.exists(trial_root):
-            shutil.rmtree(trial_root)
+        trial_models_dir = os.path.join(models_root, trial_name)
+        trial_results_dir = os.path.join(results_root, trial_name)
+
+        if os.path.exists(trial_models_dir):
+            shutil.rmtree(trial_models_dir)
+
+        if os.path.exists(trial_results_dir):
+            shutil.rmtree(trial_results_dir)
 
         os.makedirs(trial_models_dir, exist_ok=True)
         os.makedirs(trial_results_dir, exist_ok=True)
@@ -256,22 +283,31 @@ def run_hyperparameter_search(
             if is_better_result(metrics, best_metrics):
                 best_metrics = metrics
                 best_trial_name = trial_name
+
                 best_trial_payload = build_best_config_payload(
                     trial_id=trial_index,
+                    trial_name=trial_name,
                     lr=lr,
                     hidden_dim=hidden_dim,
                     batch_size=batch_size,
                     metrics=metrics,
+                    model_dir=trial_models_dir,
+                    result_dir=trial_results_dir,
                 )
+
+                if os.path.exists(best_models_dir):
+                    shutil.rmtree(best_models_dir)
+
+                shutil.copytree(trial_models_dir, best_models_dir)
+
+                best_trial_payload["artifacts"] = {
+                    "trials_csv": trials_csv_path,
+                    "best_models_dir": best_models_dir,
+                }
+
                 save_yaml(best_trial_payload, best_config_yaml_path)
 
-                if os.path.exists(models_root):
-                    best_models_dir = os.path.join(models_root, "best_trial_models")
-                    if os.path.exists(best_models_dir):
-                        shutil.rmtree(best_models_dir)
-                    shutil.copytree(trial_models_dir, best_models_dir)
-
-        except Exception as exc:
+        except Exception:
             append_trial_result(
                 trials_csv_path,
                 {
@@ -283,11 +319,12 @@ def run_hyperparameter_search(
                     "pearson_mean": None,
                     "spearman_mean": None,
                     "status": "failed_exception",
-                    "error_message": str(exc)[:1000],
+                    "error_message": traceback.format_exc()[:3000],
                 },
             )
 
-        search_elapsed_seconds = time.time() - search_start_time
+    search_elapsed_seconds = time.time() - search_start_time
+    search_elapsed_hms = format_duration_hms(search_elapsed_seconds)
 
     if best_trial_payload is None:
         return {
@@ -295,22 +332,14 @@ def run_hyperparameter_search(
             "message": "No valid configuration found.",
             "trials_csv": trials_csv_path,
             "best_config_yaml": best_config_yaml_path,
-            "search_time": {
-                "seconds": round(search_elapsed_seconds, 3),
-                "minutes": round(search_elapsed_seconds / 60, 3),
-                "hours": round(search_elapsed_seconds / 3600, 3),
-            },
+            "hyperparameter_search_time": search_elapsed_hms,
         }
 
-    best_trial_payload["hyperparameter_search_time"] = {
-        "seconds": round(search_elapsed_seconds, 3),
-        "minutes": round(search_elapsed_seconds / 60, 3),
-        "hours": round(search_elapsed_seconds / 3600, 3),
-    }
+    best_trial_payload["hyperparameter_search_time"] = search_elapsed_hms
 
     best_trial_payload["artifacts"] = {
         "trials_csv": trials_csv_path,
-        "best_models_dir": os.path.join(models_root, "best_trial_models"),
+        "best_models_dir": best_models_dir,
     }
 
     save_yaml(best_trial_payload, best_config_yaml_path)
@@ -322,10 +351,6 @@ def run_hyperparameter_search(
         "best_metrics": to_python_builtin(best_metrics),
         "trials_csv": trials_csv_path,
         "best_config_yaml": best_config_yaml_path,
-        "best_models_dir": os.path.join(models_root, "best_trial_models"),
-        "search_time": {
-            "seconds": round(search_elapsed_seconds, 3),
-            "minutes": round(search_elapsed_seconds / 60, 3),
-            "hours": round(search_elapsed_seconds / 3600, 3),
-        },
+        "best_models_dir": best_models_dir,
+        "hyperparameter_search_time": search_elapsed_hms,
     }
