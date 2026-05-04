@@ -9,7 +9,8 @@ from ui.utils.constants import (
     BOND_TYPE_TO_INT, UNKNOWN_BOND_IDX, UNKNOWN_ATOM_IDX, UNKNOWN_HYBRID_IDX,
     periodic_elements, hybridization_types,
     ATOM_TYPE_TO_IDX, HYBRID_TO_IDX,
-    EDGE_ONE_HOT_INDICES, ONE_HOT_INDICES
+    EDGE_ONE_HOT_INDICES, ONE_HOT_INDICES,
+    BOND_CLASS_NAMES
 )
 from sklearn.model_selection import train_test_split
 import math
@@ -128,7 +129,7 @@ def mol_to_graph_data(mol, mode='embedding'):
     # === 3. ENLACES ===
     edge_index = []
     edge_attr = []
-    num_bond_types = len(BOND_TYPE_TO_INT)
+    num_bond_types = len(BOND_CLASS_NAMES)
 
     for bond in mol.GetBonds():
         i = bond.GetBeginAtomIdx()

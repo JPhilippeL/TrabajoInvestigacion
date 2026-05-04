@@ -40,10 +40,10 @@ UNKNOWN_ATOM_IDX = len(periodic_elements) - 1
 UNKNOWN_HYBRID_IDX = len(hybridization_types) - 1
 
 # Suponiendo que tienes acceso a periodic_elements y hybridization_types
-NODE_FEATURE_NAMES = (
-    list(periodic_elements) + 
+NODE_FEATURE_NAMES_ONE_HOT = (
+    [f"Atom_{atom}" for atom in periodic_elements] + 
     ["Degree", "Total_Hs", "Is_Aromatic", "Is_Donor", "Is_Acceptor"] + 
-    list(hybridization_types)
+    [f"Hybrid_{h}" for h in hybridization_types]
 )
 
 # Grupos para facilitar la lógica

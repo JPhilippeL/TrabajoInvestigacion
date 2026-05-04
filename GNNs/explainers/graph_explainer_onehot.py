@@ -14,10 +14,10 @@ from graph_managment.sdf_converter import parse_sdf
 from GNNs.explainers.explanation_helper import ( 
     obtener_info_real, guardar_dashboard_explicacion,
     guardar_pesos, tensor_to_abs_numpy, 
-    normalizar_por_norma, get_features_names_onehot, 
+    normalizar_por_norma, 
     procesar_features_onehot )
 from ui.utils.constants import (
-    EDGE_FEATURE_NAMES,
+    EDGE_FEATURE_NAMES, NODE_FEATURE_NAMES_ONE_HOT,
     ONE_HOT_INDICES, EDGE_ONE_HOT_INDICES)
 
 ALGO_NAME = "GraphExplainer"
@@ -291,7 +291,7 @@ def obtener_graph_explainer(
     # ==========================================================================
     
     # 1. ALFA (Node Features) -> Filtrar -> Ordenar -> Normalizar
-    node_feature_names = get_features_names_onehot()
+    node_feature_names = NODE_FEATURE_NAMES_ONE_HOT
     alfa_sorted, row_labels_alfa = procesar_features_onehot(
         alfa, node_feature_names, muestra.x
     )
