@@ -159,6 +159,16 @@ def is_better_result(
     return candidate_metrics["val_pearson"] > best_metrics["val_pearson"]
 
 
+def format_duration_hms(seconds: float) -> str:
+    total_seconds = int(round(seconds))
+
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    secs = total_seconds % 60
+
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
 def generate_trials(
     lr_values: Iterable[float],
     batch_size_values: Iterable[int],
@@ -183,6 +193,7 @@ def run_hyperparameter_search(
     @return Dictionary containing the best trial and output paths.
     """
     search_start_time = time.perf_counter()
+    search_start_time1 = time.time()
 
     run_name = datetime.now().strftime("run_%Y%m%d_%H%M%S")
     run_dir = os.path.join(output_root, run_name)
@@ -302,6 +313,9 @@ def run_hyperparameter_search(
     elapsed_seconds = round(time.perf_counter() - search_start_time, 3)
     elapsed_time = format_duration(elapsed_seconds)
 
+    search_elapsed_seconds = time.time() - search_start_time1
+    search_elapsed_hms = format_duration_hms(search_elapsed_seconds)
+
     if best_trial_payload is None:
         return {
             "status": "failed",
@@ -313,7 +327,12 @@ def run_hyperparameter_search(
             "best_config_yaml": best_config_yaml_path,
             "elapsed_seconds": elapsed_seconds,
             "elapsed_time": elapsed_time,
+            "hyperparameter_search_time": search_elapsed_hms,
         }
+
+    best_trial_payload["hyperparameter_search_time"] = search_elapsed_hms
+
+    save_yaml(best_trial_payload, best_config_yaml_path)
 
     return {
         "status": "success",
@@ -327,4 +346,5 @@ def run_hyperparameter_search(
         "best_config_yaml": best_config_yaml_path,
         "elapsed_seconds": elapsed_seconds,
         "elapsed_time": elapsed_time,
+        "hyperparameter_search_time": search_elapsed_hms,
     }
