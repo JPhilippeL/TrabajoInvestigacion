@@ -9,7 +9,7 @@ from ui.utils.constants import (
     BOND_TYPE_TO_INT, UNKNOWN_BOND_IDX, UNKNOWN_ATOM_IDX, UNKNOWN_HYBRID_IDX,
     periodic_elements, hybridization_types,
     ATOM_TYPE_TO_IDX, HYBRID_TO_IDX,
-    RESULTADOS_DIR
+    EDGE_ONE_HOT_INDICES, ONE_HOT_INDICES
 )
 from sklearn.model_selection import train_test_split
 import math
@@ -52,8 +52,8 @@ def get_atom_features(atom, is_donor, is_acceptor, mode='one_hot'):
 
     if mode == 'one_hot':
         return (one_of_k_encoding_unk(atom.GetSymbol(), periodic_elements) + 
-                [degree, num_h, is_aromatic] + #, formal_charge, gasteiger_charge] + 
-                [is_donor_feat, is_acceptor_feat] +  # <--- NUEVO
+                [degree, num_h] + #, formal_charge, gasteiger_charge] + 
+                [is_aromatic, is_donor_feat, is_acceptor_feat] +  # <--- NUEVO
                 one_of_k_encoding_unk(atom.GetHybridization().name, hybridization_types))
     
     elif mode == 'embedding':
@@ -164,66 +164,62 @@ def mol_to_graph_data(mol, mode='embedding'):
 
 def onehot_to_indices(data):
     """
-    Convierte features one-hot a indices.
-    Soporta la detección de 'Zero Masking' asignando clases Unknown/Other.
+    Convierte features one-hot a indices usando los diccionarios definidos.
+    Soporta 'Zero Masking' asignando clases Unknown/Other.
     """
     if data.x is None: return data
 
     x = data.x.clone()
     
-    # Usamos las longitudes dinámicas de las constantes
-    num_atoms = len(periodic_elements)
-    num_hybrids = len(hybridization_types)
+    # 1. Recuperar Slices desde el diccionario
+    atom_slice = ONE_HOT_INDICES["ATOM_SYMBOL"]
+    hybrid_slice = ONE_HOT_INDICES["HYBRIDIZATION"]
     
-    # Indices de fallback
-    idx_unknown_atom = num_atoms - 1 
-    idx_unknown_hybrid = num_hybrids - 1
+    # Índices donde inician las features continuas/binarias
+    start_cont = ONE_HOT_INDICES["DEGREE"]
+    end_cont = ONE_HOT_INDICES["HYBRIDIZATION"].start
+    
+    idx_unknown_atom = atom_slice.stop - atom_slice.start - 1
+    idx_unknown_hybrid = hybrid_slice.stop - hybrid_slice.start - 1
 
     # === 1. ÁTOMOS ===
-    atom_onehot = x[:, :num_atoms]
-    atom_idx = atom_onehot.argmax(dim=1, keepdim=True)
+    atom_onehot = x[:, atom_slice]
+    atom_idx = atom_onehot.argmax(dim=1, keepdim=True).float()
     
-    # Detección de Ceros (Masking) -> Unknown
     is_empty_atom = (atom_onehot.sum(dim=1, keepdim=True) == 0)
     atom_idx[is_empty_atom] = idx_unknown_atom
-    atom_idx = atom_idx.float()
 
     # === 2. HIBRIDACIÓN ===
-    hybrid_onehot = x[:, -num_hybrids:]
-    hybrid_idx = hybrid_onehot.argmax(dim=1, keepdim=True)
+    hybrid_onehot = x[:, hybrid_slice]
+    hybrid_idx = hybrid_onehot.argmax(dim=1, keepdim=True).float()
     
-    # Detección de Ceros -> Other
     is_empty_hybrid = (hybrid_onehot.sum(dim=1, keepdim=True) == 0)
     hybrid_idx[is_empty_hybrid] = idx_unknown_hybrid
-    hybrid_idx = hybrid_idx.float()
 
-    # === 3. Concatenar ===
-    cont_features = x[:, num_atoms:-num_hybrids]
-    x_new = torch.cat([atom_idx, hybrid_idx, cont_features], dim=1)
-    
+    # === 3. CONCATENAR NODOS ===
+    cont_features = x[:, start_cont:end_cont]
     data_new = data.clone()
-    data_new.x = x_new
+    data_new.x = torch.cat([atom_idx, hybrid_idx, cont_features], dim=1)
 
-    # === 4. ENLACES (Actualizado con Rotación) ===
-    # Ajustamos la condición: al menos 1 feature de bond + dist + bond_flexibility = 3
+    # === 4. ENLACES ===
     if data_new.edge_attr is not None and data_new.edge_attr.shape[1] >= 3:
         edge_attr = data_new.edge_attr
         
-        # Ahora tenemos DOS features continuas al final (dist y bond_flexibility)
-        cont_features = edge_attr[:, -2:] 
-        bond_onehot = edge_attr[:, :-2] # Todo menos las últimas dos columnas
+        bond_slice = EDGE_ONE_HOT_INDICES["BOND_TYPE"]
+        dist_idx = EDGE_ONE_HOT_INDICES["DISTANCE"]
+        flex_idx = EDGE_ONE_HOT_INDICES["FLEXIBILITY"]
         
-        bond_idx = bond_onehot.argmax(dim=1, keepdim=True)
-        
-        # --- CORRECCIÓN PARA ENLACES ---
-        idx_unknown_bond = UNKNOWN_BOND_IDX 
+        bond_onehot = edge_attr[:, bond_slice]
+        bond_idx = bond_onehot.argmax(dim=1, keepdim=True).float()
         
         is_empty_bond = (bond_onehot.sum(dim=1, keepdim=True) == 0)
-        bond_idx[is_empty_bond] = idx_unknown_bond
-        bond_idx = bond_idx.float()
+        bond_idx[is_empty_bond] = UNKNOWN_BOND_IDX
         
-        # Concatenamos el índice recuperado con la distancia y la rotación
-        data_new.edge_attr = torch.cat([bond_idx, cont_features], dim=1)
+        # Extraemos distancia y flexibilidad explícitamente
+        dist_feat = edge_attr[:, dist_idx:dist_idx+1]
+        flex_feat = edge_attr[:, flex_idx:flex_idx+1]
+        
+        data_new.edge_attr = torch.cat([bond_idx, dist_feat, flex_feat], dim=1)
 
     return data_new
 

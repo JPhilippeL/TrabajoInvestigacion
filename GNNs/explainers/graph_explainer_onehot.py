@@ -4,7 +4,6 @@ from GNNs.model_tester import cargar_modelo, predecir_molecula
 import torch
 import torch.nn as nn
 import numpy as np
-from ui.utils.constants import periodic_elements, hybridization_types, EDGE_FEATURE_NAMES
 import os
 import sys
 import logging
@@ -17,95 +16,79 @@ from GNNs.explainers.explanation_helper import (
     guardar_pesos, tensor_to_abs_numpy, 
     normalizar_por_norma, get_features_names_onehot, 
     procesar_features_onehot )
+from ui.utils.constants import (
+    EDGE_FEATURE_NAMES,
+    ONE_HOT_INDICES, EDGE_ONE_HOT_INDICES)
 
 ALGO_NAME = "GraphExplainer"
+FEATURE_MASK_LENGTH = 7
 # Un 15% - 20% es razonable para mantener la estructura general.
 MININICIAL = sys.float_info.max
 logger = logging.getLogger(__name__)
 
 # Función para dada una muestra (x), genere una muestra perturbada (Z)
 # Dado un vector binario de las características a perturbar
-def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1], noise_level=0.05, perturb_prob = 0.5):
+def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1, 1], noise_level=0.05, perturb_prob=0.5):
     data_new = data.clone()
     x = data_new.x
     num_nodes = x.shape[0]
     
-    # === 0. ANÁLISIS DE SPARSITY (Columnas activas) ===
-    # Detectamos qué columnas tienen al menos un valor distinto de 0 en toda la molécula.
-    # Si una columna es todo 0s, active_x_cols[idx] será False.
+    # === 0. ANÁLISIS DE SPARSITY ===
     active_x_cols = (x != 0).any(dim=0)
     
-    # === DEFINICIÓN DE INDICES ===
-    len_atom = len(periodic_elements)
-    len_hybrid = len(hybridization_types)
-    
-    start_atom, end_atom = 0, len_atom
-    start_hybrid = x.shape[1] - len_hybrid
-    end_hybrid = x.shape[1]
-    
     # Rellenar máscara
-    if len(feature_mask) < 6:
-        feature_mask = list(feature_mask) + [False] * (6 - len(feature_mask))
+    if len(feature_mask) < FEATURE_MASK_LENGTH:
+        feature_mask = list(feature_mask) + [False] * (FEATURE_MASK_LENGTH - len(feature_mask))
 
     # ==========================================
     # 1. PERTURBACIÓN DE NODOS
     # ==========================================
     for i in range(num_nodes):
         
-        # A. TIPO DE ÁTOMO (One-Hot) - Masking
-        # Solo perturbamos si este nodo es elegido (perturb_prob)
-        # Si es elegido y es 1, lo pasamos a 0
+        # A. TIPO DE ÁTOMO (One-Hot)
         if feature_mask[0] and torch.rand(1).item() < perturb_prob:
-            # Obtenemos el slice del átomo
-            onehot = x[i, start_atom:end_atom]
+            # Usamos el slice directamente desde el diccionario
+            atom_slice = ONE_HOT_INDICES["ATOM_SYMBOL"]
+            onehot = x[i, atom_slice]
             
-            # Lógica: Si hay un 1, tiramos moneda para ver si lo apagamos.
-            # No encendemos nada nuevo (evitamos crear átomos de la nada).
-            # onehot.nonzero() devuelve los índices donde hay un 1.
-            indices_activos = onehot.nonzero(as_tuple=False)
-            
-            if indices_activos.numel() > 0:
-                # Si existe un átomo definido (debería), lo apagamos
-                onehot[:] = 0 # El nodo se queda "mudo" (sin identidad atómica)
+            if onehot.nonzero(as_tuple=False).numel() > 0:
+                x[i, atom_slice] = 0 
 
         # B. FEATURES CONTINUAS (Ruido)
-        # SUGERENCIA: Añadido chequeo de probabilidad para consistencia
         if feature_mask[1] and torch.rand(1).item() < perturb_prob:
-            indices_continuous = [0, 1, 3, 4] 
-            vals = x[i, end_atom:start_hybrid]
-            indices_absolutos = [idx + end_atom for idx in indices_continuous]
+            # Obtenemos los índices absolutos del diccionario
+            indices_continuous = [
+                ONE_HOT_INDICES["DEGREE"], 
+                ONE_HOT_INDICES["TOTAL_HS"]
+            ]
             
-            indices_validos_rel = []
-            for k, idx_abs in enumerate(indices_absolutos):
-                if active_x_cols[idx_abs]:
-                    indices_validos_rel.append(indices_continuous[k])
+            # Filtramos solo los que están activos en la molécula
+            indices_validos = [idx for idx in indices_continuous if active_x_cols[idx]]
             
-            if len(indices_validos_rel) > 0:
-                noise = noise_level * torch.randn(len(indices_validos_rel))
-                vals[indices_validos_rel] += noise
-                vals[indices_validos_rel] = torch.clamp(vals[indices_validos_rel], min=0.0, max=1.0)
+            if indices_validos:
+                noise = noise_level * torch.randn(len(indices_validos))
+                x[i, indices_validos] += noise
+                x[i, indices_validos] = torch.clamp(x[i, indices_validos], min=0.0, max=1.0)
 
-        # C. FEATURES BINARIAS (Flip 1 -> 0 only)
+        # C. FEATURES BINARIAS (Flip 1 -> 0)
         if feature_mask[2]:
-            indices_binary = [2, 5, 6] # Aromatic, Donor, Acceptor
-            vals = x[i, end_atom:start_hybrid]
+            indices_binary = [
+                ONE_HOT_INDICES["IS_AROMATIC"], 
+                ONE_HOT_INDICES["IS_DONOR"], 
+                ONE_HOT_INDICES["IS_ACCEPTOR"]
+            ]
             
-            for idx_rel in indices_binary:
-                # 1. Chequeamos PERTURB_PROB (si toca perturbar este nodo)
-                # 2. Chequeamos si vale 1 (solo perturbamos lo que existe)
-                if torch.rand(1).item() < perturb_prob and vals[idx_rel] > 0.5:
-                    vals[idx_rel] = 0.0
-                
-                # NOTA: Al chequear `vals[idx_rel] > 0.5`, implícitamente cumplimos
-                # la regla de "si la columna es todo 0 no se perturba", 
-                # porque nunca entraremos en el if.
+            for idx in indices_binary:
+                if torch.rand(1).item() < perturb_prob and x[i, idx] > 0.5:
+                    x[i, idx] = 0.0
 
-        # D. HIBRIDACIÓN (One-Hot) - Masking
+        # D. HIBRIDACIÓN (One-Hot)
         if feature_mask[3] and torch.rand(1).item() < perturb_prob:
-            onehot = x[i, start_hybrid:end_hybrid]
-            # Si tiene hibridación definida, probamos apagarla
+            hyb_slice = ONE_HOT_INDICES["HYBRIDIZATION"]
+            onehot = x[i, hyb_slice]
+            
             if (onehot == 1).any():
-                onehot[:] = 0
+                x[i, hyb_slice] = 0
 
     data_new.x = x
 
@@ -119,37 +102,44 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1], noise_level=0
         
         # Mapa para mantener simetría en grafos no dirigidos
         edge_map = {(edge_index[0, k].item(), edge_index[1, k].item()): k for k in range(num_edges)}
-        dist_idx = -1 
-        num_bond_cols = edge_attr.shape[1] - 1 
         
-        # Chequeo de columnas activas en aristas (para distancia)
+        # Chequeo de columnas activas en aristas
         active_e_cols = (edge_attr != 0).any(dim=0)
 
         for i in range(num_edges):
             u, v = edge_index[0, i].item(), edge_index[1, i].item()
-            if u > v: continue 
+            # Iteramos solo en una dirección, luego copiamos al reverso
+            if u > v: 
+                continue 
 
             modified = False
             
-            # Perturbar Tipo Enlace (One-Hot Masking)
+            # A. Perturbar Tipo Enlace (One-Hot Masking) -> feature_mask[4]
             if feature_mask[4] and torch.rand(1).item() < perturb_prob:
-                onehot_bond = edge_attr[i, :num_bond_cols]
-                # Si hay enlace definido (debería), probamos borrarlo (hacerlo 0)
-                # Esto equivale a eliminar la arista para la GNN
-                if (onehot_bond == 1).any():
-                    onehot_bond[:] = 0
+                bond_slice = EDGE_ONE_HOT_INDICES["BOND_TYPE"]
+                onehot_bond = edge_attr[i, bond_slice]
+                
+                # Si hay enlace definido, lo borramos (el enlace pierde su tipo)
+                if onehot_bond.nonzero(as_tuple=False).numel() > 0:
+                    edge_attr[i, bond_slice] = 0.0
                     modified = True
             
-            # Perturbar Distancia (Solo si la feature existe globalmente)
-            # dist_idx suele ser el último índice (-1)
-            # SUGERENCIA: Añadido chequeo de probabilidad
-            dist_idx_abs = edge_attr.shape[1] - 1
-            if feature_mask[5] and active_e_cols[dist_idx_abs]:
-                # Solo añadimos ruido si toca perturbar
+            # B. Perturbar Distancia (Continua - Ruido) -> feature_mask[5]
+            dist_idx = EDGE_ONE_HOT_INDICES["DISTANCE"]
+            if feature_mask[5] and active_e_cols[dist_idx]:
                 if torch.rand(1).item() < perturb_prob: 
                     noise = noise_level * torch.randn(1).item()
                     edge_attr[i, dist_idx] += noise
-                    edge_attr[i, dist_idx] = torch.clamp(edge_attr[i, dist_idx], min=0.0)
+                    # La distancia no puede ser negativa
+                    edge_attr[i, dist_idx] = max(0.0, edge_attr[i, dist_idx].item())
+                    modified = True
+
+            # C. Perturbar Flexibilidad (Binaria - Flip 1 a 0) -> feature_mask[6]
+            flex_idx = EDGE_ONE_HOT_INDICES["FLEXIBILITY"]
+            if feature_mask[6] and active_e_cols[flex_idx]:
+                # Hacemos rígido (0.0) un enlace que era rotable (1.0)
+                if torch.rand(1).item() < perturb_prob and edge_attr[i, flex_idx] > 0.5:
+                    edge_attr[i, flex_idx] = 0.0
                     modified = True
 
             # Mantener simetría (u,v) == (v,u)

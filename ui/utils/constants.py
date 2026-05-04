@@ -12,20 +12,6 @@ periodic_elements = ['C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na',
 
 hybridization_types = ['S', 'SP', 'SP2', 'SP2D','SP3','SP3D', 'OTHER','UNSPECIFIED']
 
-# DICCIONARIO DE INDICES PARA MODO EMBEDDING
-# Basado en el orden de tu función get_atom_features(mode='embedding')
-# EMBEDDING_INDICES = {
-#     "ATOM_SYMBOL": 0,
-#     "HYBRIDIZATION": 1,
-#     "DEGREE": 2,
-#     "TOTAL_HS": 3,
-#     "IS_AROMATIC": 4,
-#     "FORMAL_CHARGE": 5,
-#     "GASTEIGER": 6,
-#     "IS_DONOR": 7,
-#     "IS_ACCEPTOR": 8
-# }
-
 EMBEDDING_INDICES = {
     "ATOM_SYMBOL": 0,
     "HYBRIDIZATION": 1,
@@ -36,10 +22,16 @@ EMBEDDING_INDICES = {
     "IS_ACCEPTOR": 6
 }
 
-EDGE_EMBEDDING_INDICES = {
-    "BOND_TYPE": 0,
-    "DISTANCE": 1,
-    "BOND_FLEXIBILITY": 2  # <--- NUEVO
+L_A = len(periodic_elements)
+
+ONE_HOT_INDICES = {
+    "ATOM_SYMBOL": slice(0, L_A),                 # Ocupa los primeros L_A índices
+    "DEGREE": L_A + 0,                            # Justo después del One-Hot del átomo
+    "TOTAL_HS": L_A + 1,
+    "IS_AROMATIC": L_A + 2,
+    "IS_DONOR": L_A + 3,
+    "IS_ACCEPTOR": L_A + 4,
+    "HYBRIDIZATION": slice(L_A + 5, L_A + 5 + len(hybridization_types)) # Al final
 }
 
 # Definimos los valores de "Unknown" para las categorías
@@ -47,10 +39,15 @@ EDGE_EMBEDDING_INDICES = {
 UNKNOWN_ATOM_IDX = len(periodic_elements) - 1
 UNKNOWN_HYBRID_IDX = len(hybridization_types) - 1
 
+# Suponiendo que tienes acceso a periodic_elements y hybridization_types
+NODE_FEATURE_NAMES = (
+    list(periodic_elements) + 
+    ["Degree", "Total_Hs", "Is_Aromatic", "Is_Donor", "Is_Acceptor"] + 
+    list(hybridization_types)
+)
+
 # Grupos para facilitar la lógica
 CATEGORICAL_INDICES = [EMBEDDING_INDICES["ATOM_SYMBOL"], EMBEDDING_INDICES["HYBRIDIZATION"]]
-# Definimos cuáles son categóricas para los enlaces
-CATEGORICAL_EDGE_INDICES = [EDGE_EMBEDDING_INDICES["BOND_TYPE"]]
 
 # --- ENLACES
 BOND_TYPE_TO_INT = {
@@ -84,13 +81,45 @@ BOND_TYPE_TO_INT = {
     "OTHER": 15
 }
 
-EDGE_FEATURE_NAMES = [
-    "Single", "Double", "Triple", "Aromatic", 
-    "AMIDERING", "Hydrophobic", "CARBONPI", "DONORPI", 
-    "METSULPHURPI", "EF", "Vdw_clash", "FE", "Vdw", "Hbond", 
-    "Weak_hbond_group", "Other",
-    "Distance", "Is_Rotatable" # (Tus variables continuas al final)
+EDGE_EMBEDDING_INDICES = {
+    "BOND_TYPE": 0,
+    "DISTANCE": 1,
+    "BOND_FLEXIBILITY": 2  # <--- NUEVO
+}
+
+# Cuenta los valores únicos (del 0 al 15 = 16 clases)
+L_B = max(BOND_TYPE_TO_INT.values()) + 1  # Esto dará 16
+
+EDGE_ONE_HOT_INDICES = {
+    "BOND_TYPE": slice(0, L_B),   # Ocupa los primeros L_B índices
+    "DISTANCE": L_B + 0,          # La distancia física
+    "FLEXIBILITY": L_B + 1        # El booleano/float de si es rotable
+}
+
+CATEGORICAL_EDGE_INDICES = [EDGE_EMBEDDING_INDICES["BOND_TYPE"]]
+
+# Nombres exactos mapeados a los índices del 0 al 15
+BOND_CLASS_NAMES = [
+    "SINGLE",          # 0
+    "DOUBLE",          # 1
+    "TRIPLE",          # 2
+    "AROMATIC",        # 3
+    "AMIDERING",       # 4
+    "HYDROPHOBIC",     # 5
+    "CARBONPI",        # 6
+    "DONORPI",         # 7
+    "METSULPHURPI",    # 8
+    "EDGE_TO_FACE",    # 9 (EF)
+    "VDW_CLASH",       # 10
+    "FACE_TO_EDGE",    # 11 (FE)
+    "VDW",             # 12
+    "HBOND",           # 13
+    "WEAK_BONDS",      # 14 (Agrupa weak_hbond, weak_polar, polar)
+    "OTHER_BOND"       # 15 (Agrupa OTHER, UNSPECIFIED)
 ]
+
+# Y ahora tu lista final de features para aristas será perfecta:
+EDGE_FEATURE_NAMES = BOND_CLASS_NAMES + ["Distance", "Flexibility"]
 
 # Variable auxiliar para el índice de "Unknown Bond"
 UNKNOWN_BOND_IDX = BOND_TYPE_TO_INT[Chem.rdchem.BondType.OTHER]
@@ -118,5 +147,5 @@ GNN_ARCHITECTURES = (
     "GAT",
     "GraphTransformer",
     "EGAT",
-    "NNConv"  # <-- Puedes agregar fácilmente el modelo que definiste antes
+    "NNConv"
 )

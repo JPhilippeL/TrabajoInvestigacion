@@ -64,7 +64,7 @@ class MenuExplainerGNN(QMenu):
             model_path, sdf_path, target_path = dialog.get_paths()
             try:
                 # Obtener explicación GraphExplanation
-                # feature_mask espera: [Atom, Degree, Arom, Hybrid, BondType, BondDist]
+                # feature_mask espera: [Atom, Continuas, Binarias, Hibrid, BondType, BondDist, Bond_flex]
                 plot_path = obtener_graph_explainer(model_path, sdf_path, target_path, num_samples=1000, noise_level=0.01, device='cpu')
 
                 # mostrar el sdf por pantalla
