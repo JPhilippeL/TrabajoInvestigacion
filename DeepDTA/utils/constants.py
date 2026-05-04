@@ -11,7 +11,7 @@ import os
 
 MODULE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-DEFAULT_DATASET = "davis"
+DEFAULT_DATASET = "mpro_urv"
 
 DEFAULT_OUTPUT_ROOT = os.path.join(
     MODULE_ROOT,

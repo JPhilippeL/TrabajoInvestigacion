@@ -36,6 +36,16 @@ def format_duration(seconds: float) -> str:
     return f"{secs}s"
 
 
+def format_duration_hms(seconds: float) -> str:
+    total_seconds = int(round(seconds))
+
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    secs = total_seconds % 60
+
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
 def ensure_trials_csv(csv_path: str) -> None:
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
 
@@ -45,6 +55,8 @@ def ensure_trials_csv(csv_path: str) -> None:
     header = [
         "trial_id",
         "dataset",
+        "split_mode",
+        "fold_index",
         "lr",
         "batch_size",
         "epochs",
@@ -56,6 +68,7 @@ def ensure_trials_csv(csv_path: str) -> None:
         "test_pearson",
         "checkpoint_path",
         "duration_seconds",
+        "duration_hms",
         "status",
         "error_message",
     ]
@@ -70,6 +83,8 @@ def append_trial_result(csv_path: str, row: Dict[str, Any]) -> None:
     ordered_row = [
         row.get("trial_id"),
         row.get("dataset"),
+        row.get("split_mode"),
+        row.get("fold_index"),
         row.get("lr"),
         row.get("batch_size"),
         row.get("epochs"),
@@ -81,6 +96,7 @@ def append_trial_result(csv_path: str, row: Dict[str, Any]) -> None:
         row.get("test_pearson"),
         row.get("checkpoint_path"),
         row.get("duration_seconds"),
+        row.get("duration_hms"),
         row.get("status"),
         row.get("error_message"),
     ]
@@ -117,6 +133,8 @@ def build_best_config_payload(
             "trial_id": trial_id,
             "trial_name": trial_name,
             "dataset": dataset_name,
+            "split_mode": metrics.get("split_mode"),
+            "fold_index": metrics.get("fold_index"),
             "lr": lr,
             "batch_size": batch_size,
             "epochs": epochs,
@@ -153,20 +171,11 @@ def is_better_result(
 
     if candidate_rmse < best_rmse:
         return True
+
     if candidate_rmse > best_rmse:
         return False
 
     return candidate_metrics["val_pearson"] > best_metrics["val_pearson"]
-
-
-def format_duration_hms(seconds: float) -> str:
-    total_seconds = int(round(seconds))
-
-    hours = total_seconds // 3600
-    minutes = (total_seconds % 3600) // 60
-    secs = total_seconds % 60
-
-    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
 
 
 def generate_trials(
@@ -187,13 +196,15 @@ def run_hyperparameter_search(
     val_split: float = 0.1,
     test_split: float = 0.2,
     max_train_batches: int | None = None,
+    fold_index: int = 0,
+    use_dataset_folds: bool = True,
 ) -> Dict[str, Any]:
     """
     @brief Run a grid search over DeepDTA hyperparameters.
     @return Dictionary containing the best trial and output paths.
     """
-    search_start_time = time.perf_counter()
-    search_start_time1 = time.time()
+    search_start_perf = time.perf_counter()
+    search_start_wall = time.time()
 
     run_name = datetime.now().strftime("run_%Y%m%d_%H%M%S")
     run_dir = os.path.join(output_root, run_name)
@@ -213,8 +224,14 @@ def run_hyperparameter_search(
     best_trial_name: str | None = None
 
     combinations = list(generate_trials(lr_values, batch_size_values))
+
     print(f"Total DeepDTA trials to run: {len(combinations)}")
     print(f"Run directory: {run_dir}")
+    print(
+        f"Dataset={dataset_name}, "
+        f"use_dataset_folds={use_dataset_folds}, "
+        f"fold_index={fold_index}"
+    )
 
     for trial_index, (lr, batch_size) in enumerate(combinations, start=1):
         trial_name = f"trial_{trial_index:03d}"
@@ -227,7 +244,12 @@ def run_hyperparameter_search(
 
         print(
             f"\n[{trial_name}] "
-            f"dataset={dataset_name}, lr={lr}, batch_size={batch_size}, epochs={epochs}"
+            f"dataset={dataset_name}, "
+            f"lr={lr}, "
+            f"batch_size={batch_size}, "
+            f"epochs={epochs}, "
+            f"use_dataset_folds={use_dataset_folds}, "
+            f"fold_index={fold_index}"
         )
 
         trial_start_time = time.perf_counter()
@@ -244,6 +266,8 @@ def run_hyperparameter_search(
                 val_split=val_split,
                 test_split=test_split,
                 max_train_batches=max_train_batches,
+                fold_index=fold_index,
+                use_dataset_folds=use_dataset_folds,
             )
 
             trial_duration_seconds = round(time.perf_counter() - trial_start_time, 3)
@@ -253,6 +277,8 @@ def run_hyperparameter_search(
                 {
                     "trial_id": trial_name,
                     "dataset": dataset_name,
+                    "split_mode": metrics.get("split_mode"),
+                    "fold_index": metrics.get("fold_index"),
                     "lr": lr,
                     "batch_size": batch_size,
                     "epochs": epochs,
@@ -264,6 +290,7 @@ def run_hyperparameter_search(
                     "test_pearson": metrics.get("test_pearson"),
                     "checkpoint_path": metrics.get("checkpoint_path"),
                     "duration_seconds": trial_duration_seconds,
+                    "duration_hms": format_duration_hms(trial_duration_seconds),
                     "status": "success",
                     "error_message": "",
                 },
@@ -293,6 +320,8 @@ def run_hyperparameter_search(
                 {
                     "trial_id": trial_name,
                     "dataset": dataset_name,
+                    "split_mode": None,
+                    "fold_index": fold_index if use_dataset_folds else None,
                     "lr": lr,
                     "batch_size": batch_size,
                     "epochs": epochs,
@@ -304,16 +333,18 @@ def run_hyperparameter_search(
                     "test_pearson": None,
                     "checkpoint_path": "",
                     "duration_seconds": trial_duration_seconds,
+                    "duration_hms": format_duration_hms(trial_duration_seconds),
                     "status": "failed_exception",
                     "error_message": str(exc)[:1000],
                 },
             )
+
             print(f"[WARNING] {trial_name} failed: {exc}")
 
-    elapsed_seconds = round(time.perf_counter() - search_start_time, 3)
+    elapsed_seconds = round(time.perf_counter() - search_start_perf, 3)
     elapsed_time = format_duration(elapsed_seconds)
 
-    search_elapsed_seconds = time.time() - search_start_time1
+    search_elapsed_seconds = time.time() - search_start_wall
     search_elapsed_hms = format_duration_hms(search_elapsed_seconds)
 
     if best_trial_payload is None:
@@ -331,7 +362,6 @@ def run_hyperparameter_search(
         }
 
     best_trial_payload["hyperparameter_search_time"] = search_elapsed_hms
-
     save_yaml(best_trial_payload, best_config_yaml_path)
 
     return {
