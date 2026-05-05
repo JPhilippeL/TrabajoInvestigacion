@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import QMenuBar
 import logging
 
+from WideDTA.ui.menus.menu_WideDTA import MenuWideDTA
 from ui.menus import (
     MenuMolecula,
     MenuExplainerGNN,
@@ -12,6 +13,7 @@ from URVDEEPTAF.ui.menus import MenuURVDEEPTAF
 from EGNN.ui.menus.menu_EGNN import MenuEGNN
 from EDNN.ui.menus.menu_EDNN import MenuEDNN
 from DeepDTA.ui.menus.menu_DeepDTA import MenuDeepDTA
+from WideDTA.ui.menus.menu_WideDTA import MenuWideDTA
 
 
 logger = logging.getLogger(__name__)
@@ -57,3 +59,7 @@ class MenuBar(QMenuBar):
         # DeepDTA menu
         self.menu_DeepDTA = MenuDeepDTA(self.parent)
         self.addMenu(self.menu_DeepDTA)
+
+        # WideDTA menu
+        self.menu_WideDTA = MenuWideDTA(self.parent)
+        self.addMenu(self.menu_WideDTA)

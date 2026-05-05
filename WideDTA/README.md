@@ -1,19 +1,32 @@
-# MolPro
-Protein ligands Binding Affinity Prediction model
+# WideDTA MPro working patch
 
-The protein–ligand interactions assume a continuum of binding strength values, also called binding affinity and we are predicting this value using deep learning architectures.Furthermore, a regression-based model brings in the advantage of predicting an approximate value for the strength of the interaction between the drug and target which in turn would be significantly beneficial for limiting the large compound search-space in drug discovery studies.
+This patch replaces the Davis/KIBA-hardcoded WideDTA training path with a dynamic model and a clean trainer.
 
+Important: old `wide.pt` checkpoints from Davis are not compatible with this dynamic MPro pipeline. Train a new checkpoint.
 
-We implemented 2 Deep learning model name:Deep DTA and WideDTA to predict binding affinity.
-: Prediction of the interaction affinity between proteins and compounds is a major challenge in the drug discovery process.
+Required MPro folder:
 
-Deep DTA-Using Deep learning architecture in identification of drug-target interactions (DTI) strength (binding affinity) using 
-character-based sequence representation approach.
- 
-WideDTA is a deep-learning based prediction model that employs chemical and biological textual sequence information-word-based 
-sequence representation to predict binding affinity.
+```text
+WideDTA/data/mpro_urv/
+├── ligands_can.txt
+├── proteins.txt
+├── motif2.txt
+└── Y
+```
 
-We evaluated our model on the KIBA data set (kinase inhibitors bioactive data).We used the filtered version of the KIBA dataset, 
-in which each protein and ligand has at least ten interactions. KIBA set contains ligands-2111, and proteins-229.For more details 
-refer Blog post.
- 
+If you already have a DeepDTA-style MPro folder with `ligands_can.txt`, `proteins.txt`, and `Y`, create the WideDTA folder with:
+
+```bash
+python -m WideDTA.Core.widedta_mpro_urv_converter \
+  --source-deepdta-dir DeepDTA/data/mpro_urv \
+  --output-dir WideDTA/data/mpro_urv \
+  --use-protein-as-motif
+```
+
+Using the protein sequence as motif is a technical baseline, not the original WideDTA biological motif representation.
+
+Smoke test:
+
+```bash
+python -m WideDTA.train --dataset mpro_urv --epochs 1 --batch-size 1 --max-train-batches 2
+```
