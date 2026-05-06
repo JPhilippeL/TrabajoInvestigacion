@@ -1,12 +1,25 @@
-EGNN/Results_EGNN/
-EDNN/Results_EDNN/
-EGNN/Graphs_EGNN/
-EGNN/Models_EGNN/
-EDNN/Graphs_EDNN/
-EDNN/Models_EDNN/
+# Python
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Models / checkpoints
 *.pt
 *.pth
+*.ckpt
+best_model_tmp.pt
 
+# Generated model folders anywhere
+**/Models_EGNN/
+**/Models_EDNN/
+**/Results_EGNN/
+**/Results_EDNN/
+**/Graphs_EGNN/
+**/Graphs_EDNN/
+
+# Data / generated outputs
 Modelos/
 data/
 Datos/
@@ -14,13 +27,4 @@ DEEPTAFDATA/
 dtafRuns/
 dtafruns/
 Resultados/
-Datos/
-dtafRuns/
 Resultados 2025/
-best_model_tmp.pt
-# Ignorar todas las carpetas __pycache__ y archivos .pyc en el proyecto
-__pycache__/
-**/__pycache__/
-*.pyc
-*.pyo
-*.pyd
