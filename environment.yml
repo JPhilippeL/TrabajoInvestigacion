@@ -1,34 +1,62 @@
 name: gui_app
 
 channels:
-    - pytorch
-    - nvidia
-    - conda-forge
-    - defaults
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
 
 dependencies:
-    - python=3.10
-    - pip
-    - numpy
-    - pandas
-    - scipy
-    - scikit-learn
-    - matplotlib
-    - seaborn
-    - tqdm
-    - pyyaml
-    - joblib
-    - pyside6
-    - rdkit
-    - biopython
-    - pytorch=2.3.1
-    - torchvision=0.18.1
-    - torchaudio=2.3.1
-    - pytorch-cuda=11.8
-    - ipython
-    - ipykernel
-    - jupyterlab
-    - lifelines
-    - pip:
-          - deepsmiles
-          - torch-geometric==2.7.0
+  # Python
+  - python=3.10
+  - pip
+
+  # Core scientific stack
+  - numpy
+  - pandas
+  - scipy
+  - scikit-learn
+  - statsmodels
+  - matplotlib
+  - seaborn
+  - tqdm
+  - pyyaml
+  - joblib
+
+  # GUI
+  - pyside6
+
+  # Bio / chemistry
+  - rdkit
+  - biopython
+
+  # Deep learning
+  - pytorch=2.3.1
+  - torchvision=0.18.1
+  - torchaudio=2.3.1
+  - pytorch-cuda=11.8
+
+  # Graph / ML utilities
+  - networkx
+  - numba
+  - lifelines
+
+  # Notebook / debug
+  - ipython
+  - ipykernel
+  - jupyterlab
+  - tensorboard
+
+  # Web / async utilities sometimes used by dependencies
+  - requests
+  - aiohttp
+  - httpx
+
+  - sqlalchemy
+
+  # Pip-only packages
+  - pip:
+      - deepsmiles
+      - torch-geometric==2.7.0
+      - pgmpy
+      - pyro-ppl

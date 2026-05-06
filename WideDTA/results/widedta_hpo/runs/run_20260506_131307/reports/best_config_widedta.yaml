@@ -1,0 +1,40 @@
+model_name: WideDTA
+status: computed
+best_trial:
+  trial_id: 5
+  trial_name: trial_005
+  dataset: mpro_urv
+  split_mode: dataset_folds
+  fold_index: 1
+  lr: 0.003
+  batch_size: 8
+  dropout: 0.3
+  epochs: 200
+  input_shapes:
+    ligand:
+    - 1598
+    - 53
+    protein:
+    - 290
+    - 304
+    motif:
+    - 290
+    - 304
+  model_dir: /home/andromeda/Documentos/el-boukhiari/TrabajoInvestigacion/WideDTA/results/widedta_hpo/runs/run_20260506_131307/models/trial_005
+  reports_dir: /home/andromeda/Documentos/el-boukhiari/TrabajoInvestigacion/WideDTA/results/widedta_hpo/runs/run_20260506_131307/reports
+  checkpoint_path: /home/andromeda/Documentos/el-boukhiari/TrabajoInvestigacion/WideDTA/results/widedta_hpo/runs/run_20260506_131307/models/trial_005/widedta_best.pt
+best_metrics:
+  train_rmse: 0.24836304390239936
+  train_pearson: 0.9573099079817434
+  val_rmse: 0.5490242396037941
+  val_pearson: 0.7371760886568233
+  test_rmse: 0.8519601747917043
+  test_pearson: 0.4328656056281528
+  test_mse: 0.7258361394311114
+  test_mae: 0.6730844559876815
+selection_rule:
+  primary_metric: val_rmse
+  primary_goal: min
+  secondary_metric: val_pearson
+  secondary_goal: max
+hyperparameter_search_time: 00:07:52
