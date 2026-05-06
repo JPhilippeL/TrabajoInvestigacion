@@ -1,0 +1,27 @@
+model_name: DeepDTA
+status: computed
+best_trial:
+  trial_id: 11
+  trial_name: trial_011
+  dataset: mpro_urv
+  split_mode: dataset_folds
+  fold_index: 1
+  lr: 0.0005
+  batch_size: 8
+  epochs: 150
+  model_dir: /home/andromeda/Documentos/el-boukhiari/TrabajoInvestigacion/DeepDTA/results/deepdta_hpo/runs/run_20260504_141635/models/trial_011
+  reports_dir: /home/andromeda/Documentos/el-boukhiari/TrabajoInvestigacion/DeepDTA/results/deepdta_hpo/runs/run_20260504_141635/reports
+  checkpoint_path: /home/andromeda/Documentos/el-boukhiari/TrabajoInvestigacion/DeepDTA/results/deepdta_hpo/runs/run_20260504_141635/models/trial_011/deepdta_best.pt
+best_metrics:
+  train_rmse: 0.6085530967849555
+  train_pearson: 0.6807905258618366
+  val_rmse: 0.605844309945167
+  val_pearson: 0.6524217945452317
+  test_rmse: 0.745249350325045
+  test_pearson: 0.6473452539355916
+selection_rule:
+  primary_metric: val_rmse
+  primary_goal: min
+  secondary_metric: val_pearson
+  secondary_goal: max
+hyperparameter_search_time: 00:07:33
