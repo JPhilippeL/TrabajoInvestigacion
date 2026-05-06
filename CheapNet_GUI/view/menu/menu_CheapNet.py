@@ -3,8 +3,12 @@ import logging
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu
 
-from CheapNet_GUI.workers import DBGenerationThread
 from CheapNet_GUI.view.dialogs.generate_graph_dialog import DBGenerationDialog
+from CheapNet_GUI.view.dialogs.train_dialog import TrainDialog
+from CheapNet_GUI.workers import DBGenerationThread
+from CheapNet_GUI.workers import TrainCheapNetThread
+from CheapNet_GUI.view.dialogs.prediction_dialog import PredictDialog
+from CheapNet_GUI.workers import PredictThread
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +24,14 @@ class MenuCheapNet(QMenu):
         gendata_action = QAction("DB Generation", self)
         gendata_action.triggered.connect(self.generate_db)
         self.addAction(gendata_action)
+
+        train_action = QAction("Train", self)
+        train_action.triggered.connect(self.train_cheapnet)
+        self.addAction(train_action)
+
+        prediction_action = QAction("Prediction", self)
+        prediction_action.triggered.connect(self.predict_cheapnet)
+        self.addAction(prediction_action)
 
     def generate_db(self):
         dialog = DBGenerationDialog(self.main_window)
@@ -60,3 +72,62 @@ class MenuCheapNet(QMenu):
         logger.error(f"DB generation failed: {error_message}")
         self.main_window.setEnabled(True)
         self.db_thread = None
+
+    def train_cheapnet(self):
+
+        dialog = TrainDialog(self.main_window)
+
+        if dialog.exec():
+            params = dialog.get_inputs()
+
+            logger.info("Init training...")
+            logger.info("Please wait...")
+
+            self.main_window.setEnabled(False)
+
+            self.train_thread = TrainCheapNetThread(params, self)
+            self.train_thread.log_message.connect(logger.info)
+            self.train_thread.finished_success.connect(self.on_train_success)
+            self.train_thread.finished_error.connect(self.on_train_error)
+            self.train_thread.start()
+
+    def on_train_success(self):
+        logger.info("Training finished successfully.")
+        self.main_window.setEnabled(True)
+        self.train_thread = None
+
+    def on_train_error(self, error_message):
+        logger.error(f"Training failed: {error_message}")
+        self.main_window.setEnabled(True)
+        self.train_thread = None
+
+
+    def predict_cheapnet(self):
+        dialog = PredictDialog(self.main_window)
+
+        if dialog.exec():
+            params = dialog.get_inputs()
+
+            logger.info("Init prediction...")
+            logger.info("Please wait...")
+
+            self.main_window.setEnabled(False)
+
+            self.predict_thread = PredictThread(params, self)
+            self.predict_thread.log_message.connect(logger.info)
+            self.predict_thread.finished_success.connect(
+                self.on_predict_success
+            )
+            self.predict_thread.finished_error.connect(self.on_predict_error)
+            self.predict_thread.start()
+
+    def on_predict_success(self):
+        logger.info("Prediction finished successfully.")
+        self.main_window.setEnabled(True)
+        self.predict_thread = None
+
+    def on_predict_error(self, error_message):
+        logger.error(f"Prediction failed: {error_message}")
+        self.main_window.setEnabled(True)
+        self.predict_thread = None
+
