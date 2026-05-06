@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 from torch_geometric.loader import DataLoader
 
-from GIGN_GUI.model.GIGN_model import GIGN
+from GIGN_GUI.model.gign_model import GIGN
 from GIGN_GUI.model.utils import (
     URVGraphDataset,
     load_split_txt,
@@ -39,8 +39,7 @@ def train_gign(
     train_splits = load_split_txt(train_file)
     val_splits = load_split_txt(val_file)
     test_splits = load_split_txt(test_file)
-
-    for split_id in range(5):
+    for split_id in range(len(train_splits)):
         if log_callback:
             log_callback.info(f"SPLIT {split_id}")
 
@@ -54,9 +53,7 @@ def train_gign(
         val_set = URVGraphDataset(graph_dir, val_ids)
         test_set = URVGraphDataset(graph_dir, test_ids)
 
-        train_loader = DataLoader(
-            train_set, batch_size=batch_size, shuffle=True, drop_last=True
-        )
+        train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, drop_last=True)
         val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
         test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False)
         if log_callback:
@@ -64,7 +61,6 @@ def train_gign(
             log_callback.info(f"Test samples: {len(test_set)}")
             log_callback.info(f"Validation samples: {len(val_set)}")
 
-        # ---------------- Model ----------------
         model = GIGN(node_dim, hidden_dim, drop_out).to(device)
         if log_callback:
             log_callback.info(
@@ -124,7 +120,7 @@ def train_gign(
                     os.path.join(split_save_dir, "best_model.pt"),
                 )
                 if log_callback:
-                    log_callback.info(">>> Nuevo mejor modelo guardado")
+                    log_callback.info(">>> Better model stocked")
 
             else:
                 patience_counter += 1
@@ -140,11 +136,12 @@ def train_gign(
             )
 
     if log_callback:
-        log_callback.info("\nEntrenamiento completado para todos los splits.")
+        log_callback.info("\nTraining completed for all splits.")
 
     end_training = time()
     if log_callback:
         log_callback.info(f"train total time: {end_training - debut_training:.2f} seconds")
+        log_callback.info(f"The parameters used are stored in {save_dir}/hyperparameters.txt")
     write_hyperparameter_into_a_file(
         epochs,
         node_dim,

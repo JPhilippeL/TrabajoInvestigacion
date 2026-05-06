@@ -59,15 +59,15 @@ class URVGraphDataset(Dataset):
 
 
 def write_hyperparameter_into_a_file(
-    epochs,
-    node_dim,
-    hidden_dim,
-    drop_out,
-    batch_size,
-    lr,
-    weight_decay,
-    patience,
-    output_file,
+        epochs,
+        node_dim,
+        hidden_dim,
+        drop_out,
+        batch_size,
+        lr,
+        weight_decay,
+        patience,
+        output_file,
 ):
     os.makedirs(os.path.dirname(output_file), exist_ok=True) if os.path.dirname(
         output_file
@@ -77,7 +77,7 @@ def write_hyperparameter_into_a_file(
         f.write(f"epochs: {epochs}\n")
         f.write(f"node_dim: {node_dim}\n")
         f.write(f"hidden_dim: {hidden_dim}\n")
-        f.write(f"drop_out: {drop_out}\n")
+        f.write(f"drop_rate: {drop_out}\n")
         f.write(f"batch_size: {batch_size}\n")
         f.write(f"lr: {lr}\n")
         f.write(f"weight_decay: {weight_decay}\n")
@@ -85,7 +85,7 @@ def write_hyperparameter_into_a_file(
 
 
 def load_data_for_split(
-    split_id, batch_size, train_splits, val_splits, test_splits, graph_dir
+        split_id, batch_size, train_splits, val_splits, test_splits, graph_dir
 ):
     train_ids = train_splits[split_id]
     val_ids = val_splits[split_id]
