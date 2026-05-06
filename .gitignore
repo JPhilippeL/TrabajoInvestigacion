@@ -1,10 +1,11 @@
-Results_EGNN/
-Results_EDNN/
-Graphs_EGNN/
-Models_EGNN/
-Graphs_EDNN/
-Models_EDNN/
-
+EGNN/Results_EGNN/
+EDNN/Results_EDNN/
+EGNN/Graphs_EGNN/
+EGNN/Models_EGNN/
+EDNN/Graphs_EDNN/
+EDNN/Models_EDNN/
+*.pt
+*.pth
 
 Modelos/
 data/
