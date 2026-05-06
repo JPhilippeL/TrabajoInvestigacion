@@ -18,7 +18,7 @@ from GNNs.explainers.explanation_helper import (
 logger = logging.getLogger(__name__)
 
 # ----------------------    DUMMY EXPLAINER -------------------------
-def obtener_Dummy_Explainer(checkpoint_path, sdf_path, target_data_path=None, imagen=True):
+def obtener_Dummy_Explainer(checkpoint_path, sdf_path, target_data_path=None, batch_mode=False):
     
     # --- 1. CARGA DE RECURSOS ---
     model, device, model_target_name = cargar_modelo(checkpoint_path)
@@ -56,15 +56,22 @@ def obtener_Dummy_Explainer(checkpoint_path, sdf_path, target_data_path=None, im
     # --- 3. EXTRACCIÓN Y GUARDADO ---
     alfa_raw, beta_raw, gamma_raw, delta_raw = extraer_pesos_torchexplainers(explanation)
     model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
+
+    # NUEVA LÓGICA: Si es batch, preparamos el diccionario y retornamos INMEDIATAMENTE
+    if batch_mode:
+        return {
+            'mol_name': mol_name, # Para usarlo como llave en el bucle
+            'alfa': alfa_raw.detach().cpu() if alfa_raw is not None else None,
+            'beta': beta_raw.detach().cpu() if beta_raw is not None else None,
+            'gamma': gamma_raw.detach().cpu() if gamma_raw is not None else None,
+            'delta': delta_raw.detach().cpu() if delta_raw is not None else None
+        }
     
     guardar_pesos(
         alfa=alfa_raw, beta=beta_raw, gamma=gamma_raw, delta=delta_raw,
         model_name=model_folder_name, mol_name=mol_name,
         algo_name="DummyExplainer"
     )
-
-    if not imagen:
-        return 1
 
     # --- 4. VISUALIZACIÓN ---
     pred_val = predecir_molecula(model, data, device)
@@ -85,7 +92,7 @@ def obtener_Dummy_Explainer(checkpoint_path, sdf_path, target_data_path=None, im
     return plotfilename
 
 # ----------------------    GNN EXPLAINER -------------------------
-def obtener_GNN_Explainer(checkpoint_path, sdf_path, target_data_path=None, imagen = True):
+def obtener_GNN_Explainer(checkpoint_path, sdf_path, target_data_path=None, batch_mode=False):
     
     # --- 1. CARGA DE RECURSOS ---
     model, device, model_target_name = cargar_modelo(checkpoint_path)
@@ -124,6 +131,16 @@ def obtener_GNN_Explainer(checkpoint_path, sdf_path, target_data_path=None, imag
     alfa_raw, beta_raw, gamma_raw, delta_raw = extraer_pesos_torchexplainers(explanation)
     
     model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
+
+    # NUEVA LÓGICA: Si es batch, preparamos el diccionario y retornamos INMEDIATAMENTE
+    if batch_mode:
+        return {
+            'mol_name': mol_name, # Para usarlo como llave en el bucle
+            'alfa': alfa_raw.detach().cpu() if alfa_raw is not None else None,
+            'beta': beta_raw.detach().cpu() if beta_raw is not None else None,
+            'gamma': gamma_raw.detach().cpu() if gamma_raw is not None else None,
+            'delta': delta_raw.detach().cpu() if delta_raw is not None else None
+        }
     
     # Guardamos los tensores crudos (con el orden correcto)
     guardar_pesos(
@@ -131,10 +148,6 @@ def obtener_GNN_Explainer(checkpoint_path, sdf_path, target_data_path=None, imag
         model_name=model_folder_name, mol_name=mol_name,
         algo_name="GNNExplainer"
     )
-
-    if imagen == False:
-        logger.info("Pesos guardados, no se hizo imagen")
-        return 1
 
     # --- 4. ANÁLISIS Y VISUALIZACIÓN ---
     pred_val = predecir_molecula(model, data, device)
@@ -154,7 +167,7 @@ def obtener_GNN_Explainer(checkpoint_path, sdf_path, target_data_path=None, imag
     return plotfilename
 
 # ----------------------    CAPTUM EXPLAINER -------------------------
-def obtener_Captum_Explainer(checkpoint_path, sdf_path, target_data_path=None, imagen=True, captum_method='IntegratedGradients'):
+def obtener_Captum_Explainer(checkpoint_path, sdf_path, target_data_path=None, batch_mode=False, captum_method='ShapleyValueSampling'):
     """
     Ejecuta un explicador basado en la librería Captum.
     Opciones recomendadas para captum_method: 
@@ -209,6 +222,16 @@ def obtener_Captum_Explainer(checkpoint_path, sdf_path, target_data_path=None, i
     
     model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
     algo_name_full = f"Captum_{captum_method}"
+
+    # NUEVA LÓGICA: Si es batch, preparamos el diccionario y retornamos INMEDIATAMENTE
+    if batch_mode:
+        return {
+            'mol_name': mol_name, # Para usarlo como llave en el bucle
+            'alfa': alfa_raw.detach().cpu() if alfa_raw is not None else None,
+            'beta': beta_raw.detach().cpu() if beta_raw is not None else None,
+            'gamma': gamma_raw.detach().cpu() if gamma_raw is not None else None,
+            'delta': delta_raw.detach().cpu() if delta_raw is not None else None
+        }
     
     # Guardamos los tensores crudos
     guardar_pesos(
@@ -216,10 +239,6 @@ def obtener_Captum_Explainer(checkpoint_path, sdf_path, target_data_path=None, i
         model_name=model_folder_name, mol_name=mol_name,
         algo_name=algo_name_full
     )
-
-    if not imagen:
-        logger.info("Pesos guardados, no se hizo imagen")
-        return 1
 
     # --- 4. ANÁLISIS Y VISUALIZACIÓN ---
     pred_val = predecir_molecula(model, data, device)

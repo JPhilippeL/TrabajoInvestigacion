@@ -422,6 +422,22 @@ def guardar_pesos(alfa, beta, gamma, delta, model_name, mol_name, algo_name):
     
     return saved_paths
 
+def guardar_pesos_batch(batch_dict, model_name, algo_name):
+    """
+    Guarda el diccionario completo del batch en un solo archivo .pt
+    Estructura esperada: {'Molecula1': {'alfa': tensor, ...}, 'Molecula2': {...}}
+    """
+    specific_dir = os.path.join(RESULTADOS_DIR, model_name, algo_name)
+    os.makedirs(specific_dir, exist_ok=True)
+    
+    filename = f"{model_name}_{algo_name}_BATCH_COMPLETO.pt"
+    full_path = os.path.join(specific_dir, filename)
+    
+    # Guardamos el diccionario gigante
+    torch.save(batch_dict, full_path)
+    
+    return full_path
+
 def get_feature_names_embedding():
     return [
         "Atom Symbol", 

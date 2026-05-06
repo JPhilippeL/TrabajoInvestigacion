@@ -7,12 +7,12 @@ MODELOS_DIR = "Modelos"
 EXPLAINERS = [
         "GraphExplainer",
         "GNNExplainer",
-        "Captum_IntegratedGradients",
-        "Captum_InputXGradient",
+        # "Captum_IntegratedGradients",
+        # "Captum_InputXGradient",
         "Captum_ShapleyValueSampling",
-        "Captum_Saliency",          # <--- NUEVO
-        "Captum_Deconvolution",     # <--- NUEVO
-        "Captum_GuidedBackprop",    # <--- NUEVO
+        # "Captum_Saliency",          # <--- NUEVO
+        # "Captum_Deconvolution",     # <--- NUEVO
+        # "Captum_GuidedBackprop",    # <--- NUEVO
         "DummyExplainer"
     ]
 

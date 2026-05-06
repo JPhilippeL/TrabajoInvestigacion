@@ -233,7 +233,7 @@ def obtener_graph_explainer(
         num_samples=50, 
         noise_level=0.05, 
         device='cpu',
-        imagen = True):
+        batch_mode = False):
     
     mol = Chem.SDMolSupplier(sdf_path, removeHs=False)[0]
     muestra = mol_to_graph_data(mol, 'one_hot')
@@ -289,12 +289,18 @@ def obtener_graph_explainer(
     # Preparamos el nombre del modelo para la carpeta
     model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
 
+    # NUEVA LÓGICA: Si es batch, preparamos el diccionario y retornamos INMEDIATAMENTE
+    if batch_mode:
+        return {
+            'mol_name': mol_name, # Para usarlo como llave en el bucle
+            'alfa': alfa.detach().cpu() if alfa is not None else None,
+            'beta': beta.detach().cpu() if beta is not None else None,
+            'gamma': gamma.detach().cpu() if gamma is not None else None,
+            'delta': delta.detach().cpu() if delta is not None else None
+        }
+
     guardar_pesos(alfa, beta, gamma, delta, model_folder_name,
                   mol_name, ALGO_NAME)
-    
-    if imagen == False:
-        logger.info("Pesos guardados, no se hizo imagen")
-        return 1
     
     # ==========================================================================
     # PROCESAMIENTO DE MATRICES

@@ -14,6 +14,7 @@ from ui.dialogs.explanation_dialog import ExplanationDialog
 from ui.dialogs.explainer_comparer_dialog import ExplainerComparerDialog
 from ui.dialogs.batch_explainer_comparer_dialog import BatchComparerDialog
 
+from GNNs.explainers.explanation_helper import guardar_pesos_batch
 from GNNs.explainers.graph_explainer_onehot import obtener_graph_explainer
 from GNNs.explainers.model_TorchExplainers import obtener_Dummy_Explainer, obtener_Captum_Explainer, obtener_GNN_Explainer
 from GNNs.explainers.explanation_fidelity import generar_comparativa_fidelity, obtener_aucs_directorio
@@ -104,20 +105,16 @@ class MenuExplainerGNN(QMenu):
                 logger.error(f"Error en explicación con {explainer_name}: {str(e)}", exc_info=True)
 
     def get_batch_explanation(self):
-        """
-        Procesa un directorio completo de archivos SDF usando el explicador seleccionado.
-        Utiliza BatchExplanationDialog para seleccionar Modelo, Directorio, Targets y Explicador.
-        """
-        # Asegúrate de haber importado BatchExplanationDialog al principio del archivo
         dialog = BatchExplanationDialog(self.main_window)
         if dialog.exec():
-            # Recuperamos las 4 variables del diálogo
             model_path, directory_path, target_path, explainer_name = dialog.get_paths()
             
+            # Diccionario para acumular todos los resultados del batch
+            batch_results_dict = {}
+            model_folder_name = os.path.basename(model_path).split('.')[0]
+            
             try:
-                # Filtrar archivos .sdf
                 sdf_files = [f for f in os.listdir(directory_path) if f.endswith('.sdf')]
-
                 if not sdf_files:
                     logger.warning(f"No se encontraron archivos .sdf en {directory_path}")
                     return
@@ -127,57 +124,39 @@ class MenuExplainerGNN(QMenu):
                 for sdf_file in sdf_files:
                     full_sdf_path = os.path.join(directory_path, sdf_file)
                     
-                    # Try-except interno: Si una molécula falla, pasamos a la siguiente sin abortar el batch completo
                     try:
-                        # Enrutamiento según el explicador seleccionado
-                        if explainer_name == "GraphExplainer":
-                            obtener_graph_explainer(
-                                model_path, 
-                                full_sdf_path, 
-                                target_path, 
-                                num_samples=1000, 
-                                noise_level=0.01, 
-                                device='cpu',
-                                imagen=False
+                        pesos_dict = None
+                        
+                        if explainer_name == "DummyExplainer":
+                            pesos_dict = obtener_Dummy_Explainer(
+                                model_path, full_sdf_path, target_path,
+                                imagen=False, batch_mode=True # <-- Activamos el flag
                             )
                         
-                        elif explainer_name == "GNNExplainer":
-                            obtener_GNN_Explainer(
-                                model_path, 
-                                full_sdf_path, 
-                                target_path,
-                                imagen=False
-                            )
+                        # APLICAR ESTA MISMA LÓGICA (añadir batch_mode=True) A LOS DEMÁS:
+                        elif explainer_name == "GraphExplainer":
+                            pesos_dict = obtener_graph_explainer(..., batch_mode=True)
+                        # ... (restos de explainers) ...
                         
-                        elif explainer_name.startswith("Captum_"):
-                            captum_method = explainer_name.split("_")[1]
-                            obtener_Captum_Explainer(
-                                model_path, 
-                                full_sdf_path, 
-                                target_path, 
-                                imagen=False, 
-                                captum_method=captum_method
-                            )
-                            
-                        elif explainer_name == "DummyExplainer":
-                            obtener_Dummy_Explainer(
-                                model_path, 
-                                full_sdf_path, 
-                                target_path,
-                                imagen=False
-                            )
-
                         else:
                             logger.error(f"Explicador no reconocido en batch: {explainer_name}")
                             return
 
-                        logger.info(f"Procesado correctamente: {sdf_file}")
+                        # Si el explainer devolvió datos, los guardamos en el diccionario gigante
+                        if pesos_dict:
+                            mol_name = pesos_dict.pop('mol_name') # Sacamos el nombre para usarlo de llave
+                            batch_results_dict[mol_name] = pesos_dict
+                            logger.info(f"Procesado en memoria correctamente: {sdf_file}")
 
                     except Exception as inner_e:
                         logger.error(f"Error procesando {sdf_file} con {explainer_name}: {str(inner_e)}", exc_info=True)
-                        # El bucle continúa automáticamente con el siguiente archivo
 
-                logger.info(f"Procesamiento batch con {explainer_name} finalizado.")
+                # --- GUARDADO FINAL ---
+                if batch_results_dict:
+                    ruta_guardada = guardar_pesos_batch(batch_results_dict, model_folder_name, explainer_name)
+                    logger.info(f"Procesamiento batch finalizado. Todo guardado en: {ruta_guardada}")
+                else:
+                    logger.warning("No se generaron resultados para guardar en este batch.")
 
             except Exception as e:
                 logger.error(f"Error crítico en el directorio de batch: {str(e)}", exc_info=True)
