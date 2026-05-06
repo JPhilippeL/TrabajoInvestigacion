@@ -10,7 +10,7 @@ import torch
 from ray import tune
 from ray.air import CheckpointConfig
 
-from GIGN_GUI.model.GIGN_model import GIGN
+from GIGN_GUI.model.gign_model import GIGN
 from GIGN_GUI.model.utils import (
     is_finite_number,
     load_data_for_split,

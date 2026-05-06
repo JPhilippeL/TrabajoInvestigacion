@@ -1,7 +1,7 @@
 import torch.nn as nn
 from torch_geometric.nn import global_mean_pool
 
-from GIGN_GUI.model.CheapNet_v02 import MLP, GIGNBlock
+from GIGN_GUI.model.cheapnet_v02 import MLP, GIGNBlock
 
 
 class GIGN(nn.Module):
