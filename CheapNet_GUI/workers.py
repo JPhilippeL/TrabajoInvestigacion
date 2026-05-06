@@ -1,6 +1,13 @@
+import logging
+import traceback
+
 from PySide6.QtCore import QThread, Signal
 
 from CheapNet_GUI.model.graph_generation import generate_all_graphs
+from CheapNet_GUI.model.predict import predict
+from CheapNet_GUI.model.train import train_cheapnet
+
+logger = logging.getLogger(__name__)
 
 
 class _ThreadLoggerProxy:
@@ -34,5 +41,47 @@ class DBGenerationThread(QThread):
             thread_logger = _ThreadLoggerProxy(self.log_message.emit)
             generate_all_graphs(**self.params, log_callback=thread_logger)
             self.finished_success.emit()
-        except Exception as e:
-            self.finished_error.emit(str(e))
+        except Exception as _:
+            error_detailed = str(traceback.format_exc())
+            self.finished_error.emit(error_detailed)
+
+
+class TrainCheapNetThread(QThread):
+    log_message = Signal(str)
+    finished_success = Signal()
+    finished_error = Signal(str)
+
+    def __init__(self, params, parent=None):
+        super().__init__(parent)
+        self.params = params
+
+    def run(self):
+        try:
+            thread_logger = _ThreadLoggerProxy(self.log_message.emit)
+
+            train_cheapnet(**self.params, log_callback=thread_logger)
+
+            self.finished_success.emit()
+
+        except Exception as _:
+            error_detailed = str(traceback.format_exc())
+            self.finished_error.emit(error_detailed)
+
+
+class PredictThread(QThread):
+    log_message = Signal(str)
+    finished_success = Signal()
+    finished_error = Signal(str)
+
+    def __init__(self, params, parent=None):
+        super().__init__(parent)
+        self.params = params
+
+    def run(self):
+        try:
+            thread_logger = _ThreadLoggerProxy(self.log_message.emit)
+            predict(**self.params, log_callback=thread_logger)
+            self.finished_success.emit()
+        except Exception as _:
+            error_detailed = str(traceback.format_exc())
+            self.finished_error.emit(error_detailed)

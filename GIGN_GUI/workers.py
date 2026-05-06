@@ -1,3 +1,5 @@
+import traceback
+
 from PySide6.QtCore import QThread, Signal
 
 from GIGN_GUI.model.graph_generation import generate_all_graphs
@@ -21,6 +23,12 @@ class _ThreadLoggerProxy:
         message = " ".join(str(arg) for arg in args)
         self._emit(f"ERROR: {message}")
 
+    def debug(self, *args):
+        if not args:
+            return
+        message = " ".join(str(arg) for arg in args)
+        self._emit(f"DEBUG: {message}")
+
 
 class DBGenerationThread(QThread):
     finished_success = Signal()
@@ -36,8 +44,9 @@ class DBGenerationThread(QThread):
             thread_logger = _ThreadLoggerProxy(self.log_message.emit)
             generate_all_graphs(**self.params, log_callback=thread_logger)
             self.finished_success.emit()
-        except Exception as e:
-            self.finished_error.emit(str(e))
+        except Exception as _:
+            traceback_error = str(traceback.format_exc())
+            self.finished_error.emit(traceback_error)
 
 
 class TrainGIGNThread(QThread):
@@ -57,8 +66,9 @@ class TrainGIGNThread(QThread):
 
             self.finished_success.emit()
 
-        except Exception as e:
-            self.finished_error.emit(str(e))
+        except Exception as _:
+            traceback_error = str(traceback.format_exc())
+            self.finished_error.emit(traceback_error)
 
 
 class PredictThread(QThread):
@@ -75,5 +85,6 @@ class PredictThread(QThread):
             thread_logger = _ThreadLoggerProxy(self.log_message.emit)
             predict(**self.params, log_callback=thread_logger)
             self.finished_success.emit()
-        except Exception as e:
-            self.finished_error.emit(str(e))
+        except Exception as _:
+            traceback_error = str(traceback.format_exc())
+            self.finished_error.emit(traceback_error)
