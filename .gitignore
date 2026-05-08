@@ -20,3 +20,8 @@ ray_results
 hyperparameter_tuning_results.txt
 global_axis.npy
 pyproject.toml
+GRAPHS
+hyperparameter_search_results
+MODEL
+MODELS
+plot
