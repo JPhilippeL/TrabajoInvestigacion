@@ -285,29 +285,4 @@ def run_hyperparameter_search(
     return best_result
 
 
-if __name__ == "__main__":
-    save_dir = os.path.abspath("hyperparameter_search_results")
-    train_split_file = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/Splits/train_index_folder.txt"
-    val_split_file = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/Splits/valid_index_folder.txt"
-    test_split_file = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/Splits/test_index_folder.txt"
-    graph_dir = "/home/andromeda/Documentos/mohamedA/TrabajoInvestigacion/GIGN_GUI/GRAPHS"
 
-    config = {
-        "NODE_DIM": 14,
-        "hidden_dim": tune.choice([32, 64, 128, 256]),
-        "batch_size": tune.choice([4, 8]),
-        "lr": tune.loguniform(1e-4, 1e-3),
-        "weight_decay": tune.loguniform(1e-6, 1e-3),
-        "EPOCHS": 50,
-        "PATIENCE": 15,
-        "drop_out": tune.choice([0, 0.05, 0.1]),
-    }
-
-    cpu_per_trials = 6
-    gpu_per_trials = 1
-    num_trials = 30
-
-    run_hyperparameter_search(
-        save_dir, train_split_file, test_split_file, val_split_file, config, graph_dir,
-        cpu_per_trials, gpu_per_trials, num_trials, log_callback=None
-    )
