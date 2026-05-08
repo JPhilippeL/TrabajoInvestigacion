@@ -124,19 +124,45 @@ class MenuExplainerGNN(QMenu):
                 for sdf_file in sdf_files:
                     full_sdf_path = os.path.join(directory_path, sdf_file)
                     
+                    # Try-except interno: Si una molécula falla, pasamos a la siguiente sin abortar el batch completo
                     try:
-                        pesos_dict = None
-                        
-                        if explainer_name == "DummyExplainer":
-                            pesos_dict = obtener_Dummy_Explainer(
-                                model_path, full_sdf_path, target_path,
-                                imagen=False, batch_mode=True # <-- Activamos el flag
+                        # Enrutamiento según el explicador seleccionado
+                        if explainer_name == "GraphExplainer":
+                            pesos_dict = obtener_graph_explainer(
+                                model_path, 
+                                full_sdf_path, 
+                                target_path, 
+                                num_samples=1000, 
+                                noise_level=0.01, 
+                                device='cpu',
+                                batch_mode=True
                             )
                         
-                        # APLICAR ESTA MISMA LÓGICA (añadir batch_mode=True) A LOS DEMÁS:
-                        elif explainer_name == "GraphExplainer":
-                            pesos_dict = obtener_graph_explainer(..., batch_mode=True)
-                        # ... (restos de explainers) ...
+                        elif explainer_name == "GNNExplainer":
+                            pesos_dict = obtener_GNN_Explainer(
+                                model_path, 
+                                full_sdf_path, 
+                                target_path,
+                                batch_mode=True
+                            )
+                        
+                        elif explainer_name.startswith("Captum_"):
+                            captum_method = explainer_name.split("_")[1]
+                            pesos_dict = obtener_Captum_Explainer(
+                                model_path, 
+                                full_sdf_path, 
+                                target_path, 
+                                batch_mode=True, 
+                                captum_method=captum_method
+                            )
+                            
+                        elif explainer_name == "DummyExplainer":
+                            pesos_dict = obtener_Dummy_Explainer(
+                                model_path, 
+                                full_sdf_path, 
+                                target_path,
+                                batch_mode=True
+                            )
                         
                         else:
                             logger.error(f"Explicador no reconocido en batch: {explainer_name}")
