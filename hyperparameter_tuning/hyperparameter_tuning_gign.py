@@ -146,28 +146,19 @@ def train_GIGN(config, train_split_file, val_split_file, test_split_file, graph_
 
 
 def hyperparameter_tuning(
-    cpu_per_trials,
-    gpu_per_trials,
-    num_trials,
-    out_dir,
-    train_split_file,
-    val_split_file,
-    test_split_file,
-    graph_dir,
+        cpu_per_trials,
+        gpu_per_trials,
+        num_trials,
+        out_dir,
+        train_split_file,
+        val_split_file,
+        test_split_file,
+        graph_dir,
+        config,
+        log_callback
 ):
     ray.shutdown()
     ray.init(ignore_reinit_error=True, include_dashboard=False)
-
-    config = {
-        "NODE_DIM": 14,
-        "HIDDEN_DIM": tune.choice([32, 64, 128, 256]),
-        "BATCH_SIZE": tune.choice([4, 8]),
-        "LR": tune.loguniform(1e-4, 1e-3),
-        "weight_decay": tune.loguniform(1e-6, 1e-3),
-        "EPOCHS": 50,
-        "patience": 15,
-        "drop_out": tune.choice([0, 0.05, 0.1]),
-    }
 
     trainable = tune.with_parameters(
         train_GIGN,
@@ -201,31 +192,3 @@ def hyperparameter_tuning(
     best_result = results.get_best_result(metric="mean_val_rmse", mode="min")
     print(f"Best result {best_result}")
     save_tuning_in_a_file(results, out_dir)
-
-
-if __name__ == "__main__":
-    graph_dir = "/home/administrateur/Bureau/deepGNN/GIGN/Graphs_GIGN"
-    output_dir = "tuning"
-    test_split_file = (
-        "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/Splits/test_index_folder.txt"
-    )
-    train_split_file = (
-        "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/Splits/train_index_folder.txt"
-    )
-    val_split_file = (
-        "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/Splits/val_index_folder.txt"
-    )
-    cpu_per_trials = 4
-    gpu_per_trials = 0
-    num_trials = 20
-
-    hyperparameter_tuning(
-        cpu_per_trials,
-        gpu_per_trials,
-        num_trials,
-        output_dir,
-        train_split_file,
-        val_split_file,
-        test_split_file,
-        graph_dir,
-    )
