@@ -4,9 +4,10 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu
 
 from GIGN_GUI.view.dialogs.generate_graph_dialog import DBGenerationDialog
+from GIGN_GUI.view.dialogs.hyperparameter_search_dialog import HyperparameterSearchDialog
 from GIGN_GUI.view.dialogs.predict_dialog import PredictDialog
 from GIGN_GUI.view.dialogs.train_dialog import TrainDialog
-from GIGN_GUI.workers import DBGenerationThread, PredictThread, TrainGIGNThread
+from GIGN_GUI.workers import DBGenerationThread, PredictThread, TrainGIGNThread, HPGIGNThread
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,10 @@ class MenuGIGN(QMenu):
         predict_action = QAction("Predict", self)
         predict_action.triggered.connect(self.predict_gign)
         self.addAction(predict_action)
+
+        hyperparameter_tuning_action = QAction("Hyperparameter tuning", self)
+        hyperparameter_tuning_action.triggered.connect(self.hyperparameter_tuning_gign)
+        self.addAction(hyperparameter_tuning_action)
 
     def generate_db(self):
         dialog = DBGenerationDialog(self.main_window)
@@ -126,3 +131,31 @@ class MenuGIGN(QMenu):
         logger.error(f"Prediction failed: {error_message}")
         self.main_window.setEnabled(True)
         self.predict_thread = None
+
+    def hyperparameter_tuning_gign(self):
+
+        dialog = HyperparameterSearchDialog(self.main_window)
+
+        if dialog.exec():
+            params = dialog.get_values()
+
+            logger.info("Init hyperparameter tuning...")
+            logger.info("Please wait...")
+
+            self.main_window.setEnabled(False)
+
+            self.hyperparameter_search_thread = HPGIGNThread(params, self)
+            self.hyperparameter_search_thread.log_message.connect(logger.info)
+            self.hyperparameter_search_thread.finished_success.connect(self.on_hyperparameter_tuning_success)
+            self.hyperparameter_search_thread.finished_error.connect(self.on_hyperparameter_tuning_error)
+            self.hyperparameter_search_thread.start()
+
+    def on_hyperparameter_tuning_success(self):
+            logger.info("Hyperparameter tuning finished successfully.")
+            self.main_window.setEnabled(True)
+            self.predict_thread = None
+
+    def on_hyperparameter_tuning_error(self, error_message):
+            logger.error(f"Hyperparameter tuning failed: {error_message}")
+            self.main_window.setEnabled(True)
+            self.predict_thread = None
