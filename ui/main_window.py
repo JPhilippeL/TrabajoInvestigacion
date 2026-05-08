@@ -74,7 +74,7 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self,
             "Consejo",
-            "Haz clic derecho sobre el área para añadir un nodo."
+            "Haz clic derecho sobre el área para añadir un átomo."
         )
 
 

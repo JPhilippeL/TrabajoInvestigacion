@@ -75,8 +75,8 @@ class NodeItem(QGraphicsEllipseItem, QObject):
     
     def contextMenuEvent(self, event):
         menu = QMenu()
-        modify_action = menu.addAction("Modificar nodo")
-        delete_action = menu.addAction("Eliminar nodo")
+        modify_action = menu.addAction("Modificar átomo")
+        delete_action = menu.addAction("Eliminar átomo")
         add_edge_action = menu.addAction("Añadir enlace")
 
         action = menu.exec(event.screenPos())

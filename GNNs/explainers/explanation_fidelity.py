@@ -6,7 +6,7 @@ import os
 import statistics  # <--- IMPORTANTE: Importar esto
 from rdkit import Chem
 from ui.utils.constants import (
-    RESULTADOS_DIR,
+    RESULTADOS_DIR, EXPLAINERS,
     EMBEDDING_INDICES, 
     EDGE_EMBEDDING_INDICES,
 )
@@ -22,61 +22,65 @@ logger = logging.getLogger(__name__)
 
 PORCENTAJE_K = 0.25
 
+# === CONFIGURACIÓN DE ESTILOS PARA LA GRÁFICA ===
+# Asigna colores y marcadores únicos para identificar fácilmente a los 6 explicadores
+PLOT_STYLES = {
+    'GraphExplainer': {'color': '#1f77b4', 'marker': 'o', 'linestyle': '-'},        # Azul
+    'GNNExplainer': {'color': '#ff7f0e', 'marker': 'x', 'linestyle': '--'},       # Naranja
+    'Captum_IntegratedGradients': {'color': '#2ca02c', 'marker': 's', 'linestyle': '-.'}, # Verde
+    'Captum_InputXGradient': {'color': '#d62728', 'marker': '^', 'linestyle': ':'},       # Rojo
+    'Captum_ShapleyValueSampling': {'color': '#9467bd', 'marker': 'v', 'linestyle': '-'}, # Morado
+    'Captum_Saliency': {'color': '#17becf', 'marker': 'p', 'linestyle': '--'},            # Cian (Pentágono)
+    'Captum_Deconvolution': {'color': '#8c564b', 'marker': 'h', 'linestyle': '-.'},       # Marrón (Hexágono)
+    'Captum_GuidedBackprop': {'color': '#bcbd22', 'marker': '*', 'linestyle': ':'},       # Verde Oliva (Estrella)
+    'DummyExplainer': {'color': '#7f7f7f', 'marker': 'D', 'linestyle': '--'},             # Gris
+}
+
 # FORMULA QUE HACE TODO PARA UN SOLO COMPONENTE
 # CARGA, CALCULA, GENERA IMAGEN
 def generar_comparativa_fidelity(
     model_path, 
     sdf_path, 
-    graphexp_weights_path, 
-    gnnexp_weights_path, # Puede ser None
+    weights_paths_dict, # <-- AHORA RECIBE UN DICCIONARIO: {'GraphExplainer': path, 'GNNExplainer': path, ...}
     mode = "delta",
     reg_fidelity_mas = True,
 ):
-    """
-    Función orquestadora completa.
-    """
-    
-    # --- 1. Procesamiento de Strings y Nombres ---
     model_folder_name = model_path.split('/')[-1].split('.')[0]
     mol_id = os.path.basename(sdf_path).split('.')[0]
 
-    # --- 2. Carga del Modelo ---
     try:
         model, device, _ = cargar_modelo(model_path)
         model.eval()
     except Exception as e:
-        print(f"Error cargando el modelo desde {model_path}: {e}")
+        logger.error(f"Error cargando el modelo desde {model_path}: {e}")
         return None
     
-    # --- 3. Carga de Molécula y Conversión a Grafo ---
     if not os.path.exists(sdf_path):
-        print(f"Error: No se encontró el archivo SDF en {sdf_path}")
+        logger.error(f"Error: No se encontró el archivo SDF en {sdf_path}")
         return None
 
     mol = Chem.SDMolSupplier(sdf_path, removeHs=False)[0]
-    
     if mol is None:
-        print(f"Error: No se pudo leer la molécula del SDF.")
+        logger.error(f"Error: No se pudo leer la molécula del SDF.")
         return None
 
     mol_name = mol.GetProp("_Name") if mol.HasProp("_Name") else mol_id
+    logger.info(f"--- Comparativa ({mode}) para {mol_name} ---")
 
-    print(f"--- Comparativa ({mode}) para {mol_name} ---")
-
-    # --- 4. Obtener metricas ---
-
-    k_vals_graph, fiab_graphexp, k_vals_gnn, fiab_gnn, auc_graph, auc_gnn = calcular_metricas_comparativas(
+    # Calcula las métricas dinámicamente
+    metrics_dict = calcular_metricas_comparativas(
         model, device, mol, 
-        graphexp_weights_path, gnnexp_weights_path, 
+        weights_paths_dict, 
         mode, reg_fidelity_mas
     )
 
-    # --- 7. Generar Gráfico ---
+    if not metrics_dict:
+        logger.warning(f"No se pudieron calcular métricas para {mol_name}")
+        return None
+
+    # Genera el gráfico iterando sobre los resultados
     plot_path = guardar_plot_fidelity_comparativo(
-        k_values_graph=k_vals_graph,      # <--- K de GraphExplainer
-        fiab_graph=fiab_graphexp,
-        k_values_gnn=k_vals_gnn,          # <--- K de GNNExplainer
-        fiab_gnn=fiab_gnn,
+        metrics_dict=metrics_dict,
         model_name=model_folder_name,
         mol_name=mol_name,
         mode=mode,
@@ -87,72 +91,49 @@ def generar_comparativa_fidelity(
 
 # FUNCION PARA CARGAR PESOS Y CALCULAR LOS DATOS DE LOS DOS
 def calcular_metricas_comparativas(
-    model, 
-    device, 
-    mol, 
-    graphexp_weights_path, 
-    gnnexp_weights_path, 
-    mode, 
-    reg_fidelity_mas,
-    usar_porcentaje = False
+    model, device, mol, 
+    weights_paths_dict, 
+    mode, reg_fidelity_mas, usar_porcentaje=False
 ):
     """
-    Función NÚCLEO. Carga pesos y calcula las curvas y AUCs para ambos explainers.
-    Retorna datos puros, sin generar gráficos.
+    Retorna un diccionario: 
+    { 'Explainer1': {'k_vals': [...], 'fiab': [...], 'auc': float}, ... }
     """
-    
-    # --- 1. Carga de Tensores ---
-    try:
-        tensor_graphexp = cargar_pesos_tensor(graphexp_weights_path, device)
-    except Exception:
-        # Si falla GraphExplainer, no podemos comparar nada. Retornamos vacío.
-        return None, None, None, None, 0.0, None
+    metrics_dict = {}
 
-    tensor_gnn = None
-    if gnnexp_weights_path is not None and mode != 'gamma':
+    for explainer_name, path in weights_paths_dict.items():
         try:
-            tensor_gnn = cargar_pesos_tensor(gnnexp_weights_path, device)
-        except Exception:
-            tensor_gnn = None
+            tensor_weights = cargar_pesos_tensor(path, device)
+        except Exception as e:
+            logger.warning(f"Error cargando pesos de {explainer_name}: {e}")
+            continue
+        
+        # Omitimos GNNExplainer en gamma (no soporta feature de aristas)
+        if explainer_name == 'GNNExplainer' and mode == 'gamma':
+            continue
+            
+        # GraphExplainer es el único que usa lógica one-hot en este contexto
+        is_onehot = (explainer_name == 'GraphExplainer')
 
-    # --- 2. GraphExplainer (One-Hot) ---
-    k_vals_graph, fiab_graph = calcular_curvas_fidelity(
-        model=model, 
-        importance=tensor_graphexp, 
-        device=device, 
-        mol=mol, 
-        is_onehot_explainer=True, 
-        mode=mode,
-        usar_porcentaje=usar_porcentaje,
-        reg_fidelity_mas=reg_fidelity_mas
-    )
-    
-    auc_graph = _calcular_auc_simple(k_vals_graph, fiab_graph)
-
-    # --- 3. GNNExplainer (Indices) ---
-    k_vals_gnn = []
-    fiab_gnn = None
-    auc_gnn = None
-
-    if tensor_gnn is not None:
         try:
-            k_vals_gnn, fiab_gnn = calcular_curvas_fidelity(
-                model=model, 
-                importance=tensor_gnn, 
-                device=device, 
-                mol=mol, # Pasamos mol, la función genera data internamente
-                is_onehot_explainer=False, 
-                mode=mode,
-                usar_porcentaje=usar_porcentaje,
+            k_vals, fiab = calcular_curvas_fidelity(
+                model=model, importance=tensor_weights, device=device, 
+                mol=mol, is_onehot_explainer=is_onehot, 
+                mode=mode, usar_porcentaje=usar_porcentaje, 
                 reg_fidelity_mas=reg_fidelity_mas
             )
-            auc_gnn = _calcular_auc_simple(k_vals_gnn, fiab_gnn)
-        except ValueError:
-            k_vals_gnn = []
-            fiab_gnn = None
-            auc_gnn = None
+            
+            auc_val = _calcular_auc_simple(k_vals, fiab)
+            
+            metrics_dict[explainer_name] = {
+                'k_vals': k_vals,
+                'fiab': fiab,
+                'auc': auc_val
+            }
+        except Exception as e:
+            logger.error(f"Fallo al calcular curvas para {explainer_name}: {e}")
 
-    return k_vals_graph, fiab_graph, k_vals_gnn, fiab_gnn, auc_graph, auc_gnn
+    return metrics_dict
 
 # FUNCION PARA CALCULAR DATOS DE UNO
 def calcular_curvas_fidelity(
@@ -383,56 +364,49 @@ def cargar_pesos_tensor(path, device='cpu'):
 
 # FUNCION PARA HACER GRAFICA
 def guardar_plot_fidelity_comparativo(
-        k_values_graph,      # K values específicos para tu explainer
-        fiab_graph, 
-        k_values_gnn,        # K values específicos para GNNExplainer
-        fiab_gnn,            # <--- NUEVO ARGUMENTO: Ya viene calculado 
+        metrics_dict, 
         model_name, 
         mol_name,
         mode,
         reg_fidelity_mas = True
     ):
-    """
-    Genera un gráfico comparativo. Si fiab_gnn es None,
-    solo grafica GraphExplainer Explainer.
-    """
+    
     apply_paper_style()
 
-    # 1. Sanitizar nombre
     safe_mol_name = "".join([c for c in mol_name if c.isalnum() or c in (' ', '_', '-')]).strip()
     
-    # 2. Configurar Rutas
     if reg_fidelity_mas:
         filename = f"COMPARATIVA_FIDELITY_MAS_{safe_mol_name}_{mode}.png"
     else:
         filename = f"COMPARATIVA_FIDELITY_MENOS_{safe_mol_name}_{mode}.png"
 
-    base_model_dir = os.path.join(RESULTADOS_DIR, model_name) # Asegúrate que RESULTADOS_DIR es accesible
+    base_model_dir = os.path.join(RESULTADOS_DIR, model_name)
     fidelity_dir = os.path.join(base_model_dir, "Fidelity_Comparison")
     os.makedirs(fidelity_dir, exist_ok=True)
     full_save_path = os.path.join(fidelity_dir, filename)
 
-    # === CÁLCULO DE AUC NORMALIZADO ===
-    
-    # === PLOTTING ===
     plt.figure()
     
-    # Plot GraphExplainer (Eje X largo)
-    plt.plot(k_values_graph, fiab_graph, 
-             marker='o', color='#1f77b4', linestyle='-', linewidth=2.5,
-             label=f'GraphExplainer')
-    
-    if fiab_gnn is not None and len(fiab_gnn) > 0:
-        has_gnn = True
-    else:
-        has_gnn = False
-    # Plot GNNExplainer (Eje X corto)
-    if has_gnn:
-        plt.plot(k_values_gnn, fiab_gnn, 
-                 marker='x', color='#ff7f0e', linestyle='--', linewidth=2, alpha=0.9,
-                 label=f'GNNExplainer')
+    max_total_k = 0
 
-    # Decoración
+    # Iterar sobre todos los explicadores en metrics_dict
+    for explainer_name, data in metrics_dict.items():
+        k_vals = data['k_vals']
+        fiab = data['fiab']
+        
+        if not k_vals: continue
+            
+        # Actualizamos el K máximo para ajustar el eje X después
+        max_total_k = max(max_total_k, k_vals[-1])
+        
+        # Extraer estilos si existen, si no usar un fallback por defecto
+        style = PLOT_STYLES.get(explainer_name, {'color': np.random.rand(3,), 'marker': 'o', 'linestyle': '-'})
+
+        plt.plot(k_vals, fiab, 
+                 marker=style['marker'], color=style['color'], 
+                 linestyle=style['linestyle'], linewidth=2, alpha=0.9,
+                 label=f'{explainer_name}')
+
     subscript_map = {'alfa': 'n_a', 'beta': 'n', 'gamma': 'e_a', 'delta': 'e'}
     sub = subscript_map.get(mode, 'u')
     if reg_fidelity_mas:
@@ -446,223 +420,143 @@ def guardar_plot_fidelity_comparativo(
     plt.ylim(-0.05, 1.05) 
     plt.axhline(1, color='gray', linestyle=':', alpha=0.5)
     
-    plt.legend(loc="best", frameon=True)
+    # Legend adaptado
+    plt.legend(loc="best", frameon=True, fontsize='small')
     plt.grid(True, linestyle='-', alpha=0.3)
 
-    # Ajuste de ticks para que no se vea saturado
-    # Usamos el K más largo para definir el eje X
-    max_total_k = max(k_values_graph[-1], k_values_gnn[-1] if has_gnn else 0)
     if max_total_k < 15:
         plt.xticks(range(max_total_k + 1))
 
     save_paper_figure(full_save_path)
-    print(f"Gráfico comparativo guardado en: {full_save_path}")
+    logger.info(f"Gráfico comparativo guardado en: {full_save_path}")
     
     return full_save_path
 
 # OBTENER TODOS LOS DATOS DE UN DIRECTORIO ENTERO
 def obtener_aucs_directorio(
-        model_path,
-        sdfs_dir,
-        weights_root_dir,
-        targets_path,
-        mode,
-        reg_fidelity_mas,
+        model_path, sdfs_dir, weights_root_dir, 
+        targets_path, mode, reg_fidelity_mas
 ):
-    UMBRAL_ERROR = 100
-
-    # Construir la ruta específica del modo (ej: .../pesos/alpha)
     weights_mode_dir = os.path.join(weights_root_dir, mode)
     
     if not os.path.exists(weights_mode_dir):
         logger.error(f"No existe el directorio de pesos para el modo {mode}: {weights_mode_dir}")
         return
 
-    results = []  # Lista para guardar diccionarios: {'name': str, 'auc_graph': float, 'auc_gnn': float}
+    results = [] 
     
     try:
-        # Filtrar solo archivos .sdf
         sdf_files = [f for f in os.listdir(sdfs_dir) if f.endswith('.sdf')]
-        
-        if not sdf_files:
-            logger.warning(f"No hay archivos .sdf en {sdfs_dir}")
+        if not sdf_files: 
+            logger.warning(f"No se encontraron archivos .sdf en {sdfs_dir}")
             return
 
-        logger.info(f"Iniciando comparativa Batch ({mode}). Total archivos: {len(sdf_files)}")
-
-        # Listar todos los archivos de pesos una sola vez para no leer disco en cada iteración
-        # Esto mejora el rendimiento si hay muchos archivos.
         all_weight_files = os.listdir(weights_mode_dir)
-
-        # Cargar modelo
-        model, device, targetname = cargar_modelo(model_path)
+        model, device, _ = cargar_modelo(model_path)
         targets_dict = read_targets(targets_path)
 
         for sdf_file in sdf_files:
-            mol_name = os.path.splitext(sdf_file)[0] # Nombre sin extensión (el "componente")
+            mol_name = os.path.splitext(sdf_file)[0] 
             full_sdf_path = os.path.join(sdfs_dir, sdf_file)
 
-            # --- FILTRO DE ERROR ---
+            # Nos aseguramos de que la molécula esté en nuestro dataset de targets
+            if mol_name not in targets_dict: 
+                continue
+
+            weights_paths_dict = {}
+            suffix = f"_{mol_name}.pt"
             
-            # A) Obtener Valor Real
-            if mol_name not in targets_dict:
-                logger.warning(f"Saltando {mol_name}: No tiene valor target asociado.")
-                continue
-            y_real = targets_dict[mol_name]
-
-            # B) Obtener Valor Predicho (Inferencia rápida)
-            try:
-                mol = Chem.SDMolSupplier(full_sdf_path, removeHs=False)[0] # Ojo con removeHs
-                if mol is None: continue
-                data = mol_to_graph_data(mol).to(device)
-                
-                with torch.no_grad():
-                    pred_tensor = model(data.x, data.edge_index, data.edge_attr, data.batch)
-                    y_pred = pred_tensor.item()
-            except Exception as e:
-                logger.error(f"Error en inferencia {mol_name}: {e}")
-                continue
-
-            # C) Calcular Error y Filtrar
-            error_abs = abs(y_real - y_pred)
-            
-            if error_abs >= UMBRAL_ERROR:
-                # Si el error es grande, saltamos esta molécula
-                # logger.info(f"Saltando {mol_name}: Error {error_abs:.4f} > {UMBRAL_ERROR}")
-                continue
-
-            matches = []
+            # Búsqueda y limpieza dinámica de nombres
             for w in all_weight_files:
-                if w.endswith(f"_{mol_name}.pt"):
-                    matches.append(w)
-            
-            if not matches:
-                logger.warning(f"Saltando {mol_name}: No se encontraron pesos en {mode}.")
+                if w.endswith(suffix):
+                    clean_explainer_name = None
+                    for known in EXPLAINERS:
+                        if known in w:
+                            clean_explainer_name = known
+                            break 
+                    
+                    if clean_explainer_name:
+                        weights_paths_dict[clean_explainer_name] = os.path.join(weights_mode_dir, w)
+
+            # Si no hay ningún peso para esta molécula, la saltamos
+            if not weights_paths_dict: 
                 continue
 
-            # Identificar cuál es cual
-            path_graph_explainer = None
-            path_gnn_explainer = None
-
-            for w_file in matches:
-                full_w_path = os.path.join(weights_mode_dir, w_file)
-                if "GraphExplainer" in w_file:
-                    path_graph_explainer = full_w_path
-                elif "GNNExplainer" in w_file: 
-                    # Asumimos que si no es GraphExplainer y hizo match, es el GNNExplainer
-                    # O buscamos explícitamente el string si tus archivos lo tienen.
-                    path_gnn_explainer = full_w_path
-            
-            # Verificar requisitos mínimos
-            if not path_graph_explainer and not path_gnn_explainer:
-                    logger.warning(f"Saltando {mol_name}: Archivos encontrados pero no se identificó el tipo de explainer.")
-                    continue
-
-            # --- Llamada a la función generadora ---
             try:
-                # Si ya tienes 'mol' validado del paso de inferencia, úsalo:
-                k_vals_g, fiab_g, k_vals_n, fiab_n, auc_graph, auc_gnn = calcular_metricas_comparativas(
+                # Cargamos la molécula solo cuando sabemos que vamos a procesarla
+                mol = Chem.SDMolSupplier(full_sdf_path, removeHs=False)[0] 
+                if mol is None: 
+                    continue
+                
+                # Calculamos todas las métricas para los explicadores encontrados
+                metrics_dict = calcular_metricas_comparativas(
                     model, device, mol, 
-                    path_graph_explainer, path_gnn_explainer, 
+                    weights_paths_dict, 
                     mode, reg_fidelity_mas, usar_porcentaje=True
                 )
                 
-                if auc_graph is not None: # Si hubo resultado válido
-                    results.append({
-                        "name": mol_name,
-                        "auc_graph": auc_graph,
-                        "auc_gnn": auc_gnn if auc_gnn is not None else "N/A"
-                    })
-                    logger.info(f"Procesado {mol_name} | G: {auc_graph:.4f}")
-                else:
-                        logger.warning(f"Fallo cálculo para {mol_name}")
+                if metrics_dict:
+                    row_data = {"name": mol_name}
+                    for exp_name, val in metrics_dict.items():
+                        row_data[exp_name] = val['auc']
+                        
+                    results.append(row_data)
+                    logger.info(f"Procesado {mol_name} | Explainers: {list(metrics_dict.keys())}")
 
             except Exception as e_inner:
                 logger.error(f"Error procesando {mol_name}: {e_inner}")
 
-        # --- Guardar resultados finales ---
         if results:
             model_name_clean = os.path.splitext(os.path.basename(model_path))[0]
-
-            # Llamada a la función externa actualizada
             save_auc_results_csv(results, mode, model_name_clean, reg_fidelity_mas)
         else:
-            logger.warning("No se generaron resultados para guardar.")
+            logger.warning("No se generaron resultados para el batch.")
 
     except Exception as e:
         logger.error(f"Error global en Batch Comparer: {str(e)}", exc_info=True)
 
 # GUARDARLO EL CSV
 def save_auc_results_csv(results, mode, model_name, reg_fidelity_mas):
-    """
-    Guarda la lista de resultados en: RESULTADOS_DIR / model_name / auc_results / {metrica}_{mode}.csv
-    Calcula el PROMEDIO de las columnas numéricas y lo añade al final.
-    """
     try:
-        # 1. Definir rutas
-        # Asegúrate de tener RESULTADOS_DIR importado o definido globalmente
         output_folder = os.path.join(RESULTADOS_DIR, model_name, "auc_results")
         os.makedirs(output_folder, exist_ok=True)
 
-        if reg_fidelity_mas:
-            metrica = "RegFidelityMas"
-        else:
-            metrica = "RegFidelityMenos"
-
+        metrica = "RegFidelityMas" if reg_fidelity_mas else "RegFidelityMenos"
         csv_filename = f"{metrica}_{mode}_{PORCENTAJE_K}.csv"
         csv_path = os.path.join(output_folder, csv_filename)
 
-        # 2. RECOPILAR VALORES (Para estadísticas)
-        # Extraemos solo los números, ignorando "N/A" o None
-        vals_graph = [
-            r["auc_graph"] for r in results 
-            if isinstance(r.get("auc_graph"), (int, float))
-        ]
-        
-        vals_gnn = [
-            r["auc_gnn"] for r in results 
-            if isinstance(r.get("auc_gnn"), (int, float))
-        ]
+        # 1. Averiguar todas las columnas (explicadores) existentes en los resultados
+        # Unimos las keys de todos los diccionarios por si a una molécula le faltó un explainer
+        all_explainers = set()
+        for row in results:
+            all_explainers.update([k for k in row.keys() if k != 'name'])
+            
+        all_explainers = sorted(list(all_explainers)) # Ordenar alfabéticamente
+        fieldnames = ["name"] + all_explainers
 
-        # 3. CALCULAR ESTADÍSTICAS
-        # -- Promedio --
-        avg_graph = statistics.mean(vals_graph) if vals_graph else 0.0
-        avg_gnn = statistics.mean(vals_gnn) if vals_gnn else 0.0
+        # 2. Calcular estadísticas dinámicas para cada columna
+        stats_avg = {"name": "AVERAGE"}
+        stats_std = {"name": "STD_DEV"}
 
-        # -- Desviación Estándar (Sample Stdev) --
-        # Requiere al menos 2 datos para calcularse
-        std_graph = statistics.stdev(vals_graph) if len(vals_graph) > 1 else 0.0
-        std_gnn = statistics.stdev(vals_gnn) if len(vals_gnn) > 1 else 0.0
+        for exp in all_explainers:
+            # Filtrar valores válidos numéricos de la columna
+            vals = [r.get(exp) for r in results if isinstance(r.get(exp), (int, float))]
+            
+            stats_avg[exp] = statistics.mean(vals) if vals else 0.0
+            stats_std[exp] = statistics.stdev(vals) if len(vals) > 1 else 0.0
 
-        # 3. ESCRIBIR CSV
-        fieldnames = ["name", "auc_graph", "auc_gnn"]
-        
+        # 3. Escribir CSV
         with open(csv_path, mode='w', newline='', encoding='utf-8') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames, restval="N/A")
             writer.writeheader()
             
-            # A) Escribir todas las filas de datos
             for data in results:
                 writer.writerow(data)
             
-            # B) Escribir fila de separación (opcional, visualmente útil) o ir directo al promedio
-            # writer.writerow({}) 
-            
-            # C) Escribir la fila AVERAGE
-            writer.writerow({
-                "name": "AVERAGE",
-                "auc_graph": avg_graph,
-                "auc_gnn": avg_gnn
-            })
-
-            # D) Fila DESVIACIÓN ESTÁNDAR
-            writer.writerow({
-                "name": "STD_DEV",
-                "auc_graph": std_graph,
-                "auc_gnn": std_gnn
-            })
+            writer.writerow(stats_avg)
+            writer.writerow(stats_std)
                 
-        logging.getLogger(__name__).info(f"Resultados AUC guardados con promedio en: {csv_path}")
+        logger.info(f"Resultados AUC guardados con promedios dinámicos en: {csv_path}")
 
     except Exception as e:
-        logging.getLogger(__name__).error(f"Error al guardar CSV: {str(e)}", exc_info=True)
+        logger.error(f"Error al guardar CSV: {str(e)}", exc_info=True)
