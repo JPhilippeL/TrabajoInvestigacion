@@ -21,6 +21,8 @@ best_model_tmp.pt
 **/Results_EDNN/
 **/Graphs_EGNN/
 **/Graphs_EDNN/
+runs/
+results/
 
 # Data / generated outputs
 Modelos/
