@@ -193,7 +193,7 @@ def train_gign(config, train_file, test_file, val_file, seed, log_callback, grap
         log_callback.info(f"Mean Test RMSE: {mean_test_rmse:.4f}")
         log_callback.info(f"Mean Test Pearson: {mean_test_pearson:.4f}")
 
-    train.report(
+    tune.report(
         {
             "mean_val_rmse": mean_val_rmse,
             "mean_test_rmse": mean_test_rmse,
@@ -287,10 +287,10 @@ def run_hyperparameter_search(
 
 if __name__ == "__main__":
     save_dir = os.path.abspath("hyperparameter_search_results")
-    train_split_file = "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/Splits/train_index_folder.txt"
-    val_split_file = "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/Splits/valid_index_folder.txt"
-    test_split_file = "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/Splits/test_index_folder.txt"
-    graph_dir = "/home/administrateur/Bureau/TrabajoInvestigacion/GIGN_GUI/GRAPHS"
+    train_split_file = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/Splits/train_index_folder.txt"
+    val_split_file = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/Splits/valid_index_folder.txt"
+    test_split_file = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/Splits/test_index_folder.txt"
+    graph_dir = "/home/andromeda/Documentos/mohamedA/TrabajoInvestigacion/GIGN_GUI/GRAPHS"
 
     config = {
         "NODE_DIM": 14,
