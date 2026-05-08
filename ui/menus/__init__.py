@@ -5,3 +5,4 @@ from .menu_train import MenuTrainGNN
 from .menu_test import MenuTestGNN
 from .menu_transfer import MenuTransferGNN
 from .menu_explainer import MenuExplainerGNN
+from .menu_hyperparameter_search import MenuHyperparameterSearchGNN

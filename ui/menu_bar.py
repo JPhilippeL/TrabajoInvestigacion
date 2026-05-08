@@ -8,6 +8,7 @@ from ui.menus import (
     MenuTestGNN,
     MenuTrainGNN,
     MenuTransferGNN,
+    MenuHyperparameterSearchGNN,
 )
 from URVDEEPTAF.ui.menus import MenuURVDEEPTAF
 from EGNN.ui.menus.menu_EGNN import MenuEGNN
@@ -40,7 +41,11 @@ class MenuBar(QMenuBar):
         self.menu_test = MenuTestGNN(self.parent)
         self.addMenu(self.menu_test)
 
-        # 5. Explainer menu
+        # 5. Hyperparameter Search menu
+        self.menu_hyperparameter_search = MenuHyperparameterSearchGNN(self.parent)
+        self.addMenu(self.menu_hyperparameter_search)
+
+        # 6. Explainer menu
         self.menu_explicacion = MenuExplainerGNN(self.parent)
         self.addMenu(self.menu_explicacion)
 

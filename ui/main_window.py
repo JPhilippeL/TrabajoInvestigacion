@@ -12,6 +12,7 @@ import logging
 from ui.utils.logger import QtHandler
 from GNNs.controllers.training_controller_process import TrainingControllerProcess
 from GNNs.controllers.testing_controller_process import TestingControllerProcess
+from GNNs.controllers.hyperparameter_search_controller_process import HyperparameterSearchControllerProcess
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -37,7 +38,7 @@ class MainWindow(QMainWindow):
         # Welcome screen inicial
         self.splitter.addWidget(WelcomeScreen())
 
-        # Área de log 
+        # Área de log
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
         self.log_output.setPlaceholderText("System messages...")
@@ -61,6 +62,7 @@ class MainWindow(QMainWindow):
         # Controlador de entrenamiento y testeo
         self.training_controller = TrainingControllerProcess(self)
         self.testing_controller = TestingControllerProcess(self)
+        self.hyperparameter_search_controller = HyperparameterSearchControllerProcess(self)
 
     def create_new_graph(self):
         graph = nx.Graph()
