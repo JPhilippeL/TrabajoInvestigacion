@@ -280,6 +280,7 @@ def obtener_graph_explainer(
     model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
 
     # NUEVA LÓGICA: Si es batch, preparamos el diccionario y retornamos INMEDIATAMENTE
+    # Esta mal esto, tengo q camiarlo pa que se normalice antes si voy a comparar entre elos, que en realidad no se si hago
     if batch_mode:
         return {
             'mol_name': mol_name, # Para usarlo como llave en el bucle
@@ -317,7 +318,6 @@ def obtener_graph_explainer(
 
     # --- BETA (Nodos) ---
     beta_np = tensor_to_abs_numpy(beta)
-    # CAMBIO: Usar normalizar_por_norma para ser consistente con los heatmaps
     beta_np = normalizar_por_norma(beta_np)  
 
     # --- DELTA (Aristas) ---

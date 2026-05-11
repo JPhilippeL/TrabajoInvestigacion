@@ -79,6 +79,10 @@ def obtener_graph_explainer(
     print(f"Max Alfa: {alfa.max().item():.4f}, Min Alfa: {alfa.min().item():.4f}")
     print(f"Max Beta: {beta.max().item():.4f}, Min Beta: {beta.min().item():.4f}")
 
+    # --- BETA (Nodos) ---
+    beta_np = tensor_to_abs_numpy(beta)
+    beta_np = normalizar_por_norma(beta_np)  
+
     # Preparamos el nombre del modelo para la carpeta
     model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
 
@@ -87,73 +91,12 @@ def obtener_graph_explainer(
         return {
             'mol_name': mol_name, # Para usarlo como llave en el bucle
             'alfa': alfa.detach().cpu() if alfa is not None else None,
-            'beta': beta.detach().cpu() if beta is not None else None,
+            'beta': beta_np,
             'gamma': gamma.detach().cpu() if gamma is not None else None,
             'delta': delta.detach().cpu() if delta is not None else None
         }
     
     return 0
-
-    # guardar_pesos(alfa, beta, gamma, delta, model_folder_name,
-    #               mol_name, ALGO_NAME)
-    
-    # # ==========================================================================
-    # # PROCESAMIENTO DE MATRICES
-    # # ==========================================================================
-    
-    # # 1. ALFA (Node Features) -> Filtrar -> Ordenar -> Normalizar
-    # node_feature_names = get_feature_names_embedding()
-    # alfa_sorted, row_labels_alfa = procesar_features_ordenadas(
-    #     alfa, node_feature_names, muestra_for_model.x
-    # )
-
-    # # 2. GAMMA (Edge Features) -> Filtrar -> Ordenar -> Normalizar
-    # # Reemplaza a Beta en el segundo heatmap
-    # if muestra.edge_attr is not None:
-    #     edge_feature_names = ["Bond Type", "Distance"]
-        
-    #     gamma_sorted, row_labels_gamma = procesar_features_ordenadas(
-    #         gamma, edge_feature_names, muestra_for_model.edge_attr
-    #     )
-    # else:
-    #     gamma_sorted = np.array([])
-    #     row_labels_gamma = []
-
-    # # --- BETA (Nodos) ---
-    # beta_np = tensor_to_abs_numpy(beta)
-    # # CAMBIO: Usar normalizar_por_norma para ser consistente con los heatmaps
-    # beta_np = normalizar_por_norma(beta_np)  
-
-    # # --- DELTA (Aristas) ---
-    # if delta is not None:
-    #     delta_np = tensor_to_abs_numpy(delta)
-    #     # CAMBIO: Usar normalizar_por_norma para evitar que una arista desaparezca si hay pocas
-    #     delta_normalized = normalizar_por_norma(delta_np) 
-    # else:
-    #     delta_normalized = np.array([])
-
-
-    # # LLAMADA A LA FUNCIÓN Visualizacion
-    # plotfilename = guardar_dashboard_explicacion(
-    #     graph_obj=parse_sdf(sdf_path),
-    #     edge_index=muestra_for_model.edge_index,
-    #     node_importance=beta_np.flatten(),
-    #     edge_importance=delta_normalized.flatten(),
-        
-    #     alfa_sorted=alfa_sorted,
-    #     row_labels_alfa=row_labels_alfa,
-    #     gamma_sorted=gamma_sorted,
-    #     row_labels_gamma=row_labels_gamma,
-        
-    #     mol_name=mol_name,
-    #     target_name=target_name_str,
-    #     real_val=real_val,
-    #     pred_val=prediccion_original,
-    #     algo_name=ALGO_NAME,
-    #     model_name=model_folder_name
-    # )
-
-    # return plotfilename
 
 def obtener_argmin(feature_distances, predicciones_perturbadas, 
                    E_list, A_list,
