@@ -1,4 +1,6 @@
+import json
 import logging
+import sys
 
 from PySide6.QtWidgets import QDialog
 from ray import tune
@@ -63,3 +65,8 @@ def launch_ray_tune_hyperparameter_search(input_values, log_callback):
         config, input_values["graph_directory"], input_values["cpu_per_trials"], input_values["gpu_per_trials"],
         input_values["number_of_trials"], log_callback=log_callback
     )
+
+
+if __name__ == "__main__":
+    params = json.loads(sys.argv[1])
+    launch_ray_tune_hyperparameter_search(params, log_callback=logger)
