@@ -7,7 +7,7 @@ from GIGN_GUI.view.dialogs.generate_graph_dialog import DBGenerationDialog
 from GIGN_GUI.view.dialogs.hyperparameter_search_dialog import HyperparameterSearchDialog
 from GIGN_GUI.view.dialogs.predict_dialog import PredictDialog
 from GIGN_GUI.view.dialogs.train_dialog import TrainDialog
-from GIGN_GUI.workers import DBGenerationThread, PredictThread, TrainGIGNThread, HPGIGNThread
+from GIGN_GUI.workers import DBGenerationThread, PredictThread, TrainGIGNThread, HyperparameterTuningProcess
 
 logger = logging.getLogger(__name__)
 
@@ -139,23 +139,22 @@ class MenuGIGN(QMenu):
         if dialog.exec():
             params = dialog.get_values()
 
-            logger.info("Init hyperparameter tuning...")
-            logger.info("Please wait...")
+            logger.info("[HP tuning]Init hyperparameter tuning...")
+            logger.info("[HP tuning]Please wait...")
 
             self.main_window.setEnabled(False)
-
-            self.hyperparameter_search_thread = HPGIGNThread(params, self)
-            self.hyperparameter_search_thread.log_message.connect(logger.info)
-            self.hyperparameter_search_thread.finished_success.connect(self.on_hyperparameter_tuning_success)
-            self.hyperparameter_search_thread.finished_error.connect(self.on_hyperparameter_tuning_error)
-            self.hyperparameter_search_thread.start()
+            self.hp_tuning_process = HyperparameterTuningProcess(params)
+            self.hp_tuning_process.log_message.connect(logger.info)
+            self.hp_tuning_process.finished_success.connect(self.on_hyperparameter_tuning_success)
+            self.hp_tuning_process.finished_error.connect(self.on_hyperparameter_tuning_error)
+            self.hp_tuning_process.start()
 
     def on_hyperparameter_tuning_success(self):
-            logger.info("Hyperparameter tuning finished successfully.")
-            self.main_window.setEnabled(True)
-            self.predict_thread = None
+        logger.info("Hyperparameter tuning finished successfully.")
+        self.main_window.setEnabled(True)
+        self.hp_tuning_process = None
 
     def on_hyperparameter_tuning_error(self, error_message):
-            logger.error(f"Hyperparameter tuning failed: {error_message}")
-            self.main_window.setEnabled(True)
-            self.predict_thread = None
+        logger.error(f"Hyperparameter tuning failed: {error_message}")
+        self.main_window.setEnabled(True)
+        self.hp_tuning_process = None
