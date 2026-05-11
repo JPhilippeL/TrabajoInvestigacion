@@ -7,6 +7,8 @@ The active dialog is BatchTrainDialog because, in this module, batch training
 is the hyperparameter search workflow.
 """
 
+from __future__ import annotations
+
 from EGNN.ui.dialogs.batch_train_egnn_dialog import BatchTrainDialog
 
 
