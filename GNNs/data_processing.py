@@ -224,6 +224,70 @@ def onehot_to_indices(data):
 
     return data_new
 
+def indices_to_onehot(data):
+    """
+    Convierte un grafo con features categóricas en forma de índices (embedding mode) 
+    de vuelta a features one-hot expandidas.
+    """
+    if data.x is None: return data
+
+    data_new = data.clone()
+    x = data.x
+    
+    # 1. Recuperar los tamaños de las clases usando los slices de tu diccionario original
+    atom_slice = ONE_HOT_INDICES["ATOM_SYMBOL"]
+    hybrid_slice = ONE_HOT_INDICES["HYBRIDIZATION"]
+    
+    num_atom_classes = atom_slice.stop - atom_slice.start
+    num_hybrid_classes = hybrid_slice.stop - hybrid_slice.start
+
+    # === 1. SEPARAR FEATURES DE NODOS ===
+    # Sabemos por tu función 'onehot_to_indices' que el orden de nodos guardado fue:
+    # [atom_idx, hybrid_idx, cont_features...]
+    atom_idx = x[:, 0].long()
+    hybrid_idx = x[:, 1].long()
+    cont_features = x[:, 2:]  # Todas las columnas restantes (degree, num_h, is_aromatic, etc.)
+
+    # === 2. EXPANDIR A ONE-HOT ===
+    # F.one_hot requiere tensores de tipo long (enteros)
+    atom_onehot = F.one_hot(atom_idx, num_classes=num_atom_classes).float()
+    hybrid_onehot = F.one_hot(hybrid_idx, num_classes=num_hybrid_classes).float()
+
+    # === 3. CONCATENAR NODOS ===
+    # Reconstruimos respetando el orden del get_atom_features (mode='one_hot'):
+    # Symbol OneHot + Features Continuas + Hybridization OneHot
+    data_new.x = torch.cat([atom_onehot, cont_features, hybrid_onehot], dim=1)
+
+    # === 4. ENLACES ===
+    if data_new.edge_attr is not None and data_new.edge_attr.shape[1] >= 3:
+        edge_attr = data_new.edge_attr
+        
+        # Recuperamos el tamaño de clases de los enlaces (que será 16)
+        bond_slice = EDGE_ONE_HOT_INDICES["BOND_TYPE"]
+        num_bond_classes = bond_slice.stop - bond_slice.start
+        
+        # Extraemos las 3 columnas guardadas en modo embedding
+        bond_idx = edge_attr[:, 0].long()
+        dist_feat = edge_attr[:, 1:2]
+        flex_feat = edge_attr[:, 2:3]
+        
+        # --- EL PARCHE DINÁMICO ---
+        # Detectamos el número máximo que haya en este grafo (por si hay un 16 perdido por ahí)
+        max_idx_in_tensor = int(bond_idx.max().item())
+        
+        # Le damos a F.one_hot el tamaño que necesite para no explotar
+        safe_num_classes = max(num_bond_classes, max_idx_in_tensor + 1)
+        bond_onehot_full = F.one_hot(bond_idx, num_classes=safe_num_classes).float()
+        
+        # Recortamos estrictamente a las 16 clases que espera tu modelo
+        # (Los índices anómalos quedarán automáticamente como una fila de [0, 0... 0])
+        bond_onehot = bond_onehot_full[:, :num_bond_classes]
+        
+        # Concatenamos respetando el get_edge_features
+        data_new.edge_attr = torch.cat([bond_onehot, dist_feat, flex_feat], dim=1)
+
+    return data_new
+
 def read_targets(targets_file):
     
     #Lee el archivo TXT de targets y devuelve un diccionario {mol_id: target}.
