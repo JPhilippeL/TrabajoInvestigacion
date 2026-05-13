@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import sys
 import torch
+from torch_geometric.data import Batch
 
 dir_actual = os.path.dirname(os.path.abspath(__file__))
 dir_padre = os.path.abspath(os.path.join(dir_actual, "../.."))
@@ -12,7 +13,7 @@ from GNNs.data_processing import prepare_pt_training_data
 from GNNs.model_tester import cargar_modelo, predecir_molecula
 from ui.utils.constants import RESULTADOS_DIR
 
-MAX_ERROR = 0.8
+MAX_ERROR = 1
 
 def calcular_y_guardar_importancias_beta(
     data_list, 
@@ -50,15 +51,21 @@ def calcular_y_guardar_importancias_beta(
         nombre = data.name
         
         # --- NUEVO: 2. Control de Error ---
-        # Movemos los datos al device correcto para la predicción
-        data_to_device = data.to(device)
         
-        # Hacer la predicción
-        prediccion = predecir_molecula(model, data_to_device, device)
+        # 1. Empaquetamos el grafo único en un Batch y LO ENVIAMOS AL DEVICE
+        data_batch = Batch.from_data_list([data]).to(device)
+        
+        # 2. Hacemos la predicción sobre ese Batch
+        prediccion = predecir_molecula(model, data_batch, device)
         
         # Extraer los valores numéricos limpios para la matemática
         pred_val = prediccion.item() if isinstance(prediccion, torch.Tensor) else prediccion
-        real_val = data.y.item() if data.y.numel() == 1 else data.y[0].item()
+        
+        # Asegurarnos de que real_val también sea un float estándar
+        if isinstance(data.y, torch.Tensor):
+            real_val = data.y.item() if data.y.numel() == 1 else data.y[0].item()
+        else:
+            real_val = float(data.y)
         
         # Calcular el error absoluto
         error = abs(pred_val - real_val)
@@ -140,6 +147,98 @@ def calcular_y_guardar_importancias_beta(
 
     return resumen_nodos, df_crudo
 
+def explicar_y_guardar_molecula_individual(
+    data_list, 
+    checkpoint_path, 
+    target_mol_name,
+    csv_dir=RESULTADOS_DIR,
+):
+    """
+    Busca una molécula específica, comprueba su error, calcula la importancia 
+    'beta' de sus nodos y guarda un CSV con los nodos y su importancia.
+    """
+    print(f"Buscando la molécula '{target_mol_name}' en el dataset...")
+    
+    # 1. Buscar la molécula en la lista
+    target_data = None
+    for data in data_list:
+        if data.name == target_mol_name:
+            target_data = data
+            break
+            
+    if target_data is None:
+        print(f"❌ Error: No se encontró la molécula '{target_mol_name}' en el dataset.")
+        return None
+        
+    print(f"✅ Molécula encontrada. Cargando modelo...")
+
+    # 2. Cargar el modelo
+    model, device, _ = cargar_modelo(checkpoint_path)
+    model.eval()
+    
+    # 3. Control de Error
+    data_batch = Batch.from_data_list([target_data]).to(device)
+    prediccion = predecir_molecula(model, data_batch, device)
+    
+    pred_val = prediccion.item() if isinstance(prediccion, torch.Tensor) else prediccion
+    if isinstance(target_data.y, torch.Tensor):
+        real_val = target_data.y.item() if target_data.y.numel() == 1 else target_data.y[0].item()
+    else:
+        real_val = float(target_data.y)
+        
+    error = abs(pred_val - real_val)
+    
+    if error >= MAX_ERROR:
+        print(f"⏩ Operación cancelada. El error ({error:.3f}) es mayor o igual a MAX_ERROR ({MAX_ERROR}).")
+        return None
+        
+    print(f"✅ Error aceptable ({error:.3f} < {MAX_ERROR}). Explicando...")
+
+    # 4. Obtener explicación
+    resultados = obtener_graph_explainer(
+        checkpoint_path=checkpoint_path, 
+        data_indices=target_data,
+        batch_mode=True
+    )
+    
+    beta = resultados['beta'] 
+    original_ids = target_data.node_ids 
+    
+    # 5. Estructurar los datos para la tabla
+    nodos_data = []
+    
+    for importancia, n_id in zip(beta, original_ids):
+        if n_id is not None:
+            # Limpiar el node_id (Ej: "ALA_163_B_N" -> "ALA_163_N")
+            partes = n_id.split('_')
+            if len(partes) >= 4:
+                n_id_limpio = f"{partes[0]}_{partes[1]}_{partes[-1]}"
+            else:
+                n_id_limpio = n_id
+            
+            # Guardamos como un diccionario (que luego será una fila del DataFrame)
+            nodos_data.append({
+                'node_id': n_id_limpio,
+                'importancia': float(importancia.item())
+            })
+
+    # 6. Crear DataFrame y guardar
+    df_nodos = pd.DataFrame(nodos_data)
+    
+    # Ordenar de mayor a menor importancia
+    df_nodos = df_nodos.sort_values(by='importancia', ascending=False)
+    
+    # Guardar en CSV
+    save_path = os.path.join(csv_dir, f"importancias_{target_mol_name}.csv")
+    
+    # index=False evita que Pandas guarde los números de fila (0, 1, 2...)
+    df_nodos.to_csv(save_path, index=False)
+    
+    print(f"🎉 ¡Proceso finalizado! CSV guardado en: {save_path}")
+    print(df_nodos.head()) # Mostrar los 5 más importantes por consola
+    
+    return df_nodos
+
 # ==========================================
 # EJEMPLO DE USO:
 # ==========================================
@@ -147,6 +246,7 @@ def calcular_y_guardar_importancias_beta(
 
 RUTA_MODELO = "Modelos/NuevaPruebaNuevasFeatures/split_0/GraphTransformer_4capas_pIC50.pt"
 DATA_PATH = "/home/philippe/Documents/Databases/3_A_node_id/pocket_BD.pt"
+MOL_OBJETIVO = "7GJO"
 
 train_loader, val_loader, device, targetname = prepare_pt_training_data(
     pt_file_path=DATA_PATH, 
@@ -160,4 +260,11 @@ ruta_resumen = f"{RESULTADOS_DIR}/importancias_beta_{targetname}.csv"
 df_resumen, df_crudo = calcular_y_guardar_importancias_beta(
     data_list=train_loader.dataset,  # <-- Usamos .dataset para evitar el empaquetado del DataLoader
     checkpoint_path=RUTA_MODELO, 
+)
+
+# Ejecutar la función para una sola molécula
+df_resultado = explicar_y_guardar_molecula_individual(
+    data_list=train_loader.dataset,
+    checkpoint_path=RUTA_MODELO,
+    target_mol_name=MOL_OBJETIVO
 )
