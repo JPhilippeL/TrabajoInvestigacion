@@ -46,7 +46,7 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Molecular Analysis System")
-        self.resize(1100, 720)
+        self.resize(1650, 820)
 
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
@@ -119,6 +119,7 @@ class MainWindow(QMainWindow):
         return {
             "molecule_new": lambda: self.trigger_menu_action("Molecule", "New"),
             "molecule_load": lambda: self.trigger_menu_action("Molecule", "Load"),
+            "molecule_save": lambda: self.trigger_menu_action("Molecule", "Save"),
             "verify_molecule": lambda: self.trigger_menu_action("Molecule", "Verify Molecule"),
             "split_sdf": lambda: self.trigger_menu_action("Molecule", "Split SDF"),
             "csv_to_sdf": lambda: self.trigger_menu_action("Molecule", "CSV to SDF"),
@@ -126,8 +127,14 @@ class MainWindow(QMainWindow):
             "train_model": lambda: self.trigger_menu_action("Train GNN", "Train Model"),
             "train_multiple": lambda: self.trigger_menu_action("Train GNN", "Train Multiple Models"),
 
+            "transfer_learning": lambda: self.trigger_menu_action("Transfer GNN", "Transfer Learning"),
+            "transfer_learning_multiple": lambda: self.trigger_menu_action("Transfer GNN","Transfer Learning - Multiple Models",),
+
+            "predict_sdf": lambda: self.trigger_menu_action("Test GNN", "Predict SDF"),
             "test_model": lambda: self.trigger_menu_action("Test GNN", "Test Model"),
             "test_all_models": lambda: self.trigger_menu_action("Test GNN", "Test All Models"),
+            "inspect_model": lambda: self.trigger_menu_action("Test GNN", "Inspect Model"),
+
             "open_results_page": self.show_results_page,
             "open_settings_page": self.show_settings_page,
 
@@ -137,21 +144,27 @@ class MainWindow(QMainWindow):
             ),
 
             "graph_explainer": lambda: self.trigger_menu_action("Explainer GNN", "Run GraphExplainer"),
+            "gnn_explainer": lambda: self.trigger_menu_action("Explainer GNN","Run GNNExplainer",),
             "compare_explainers": lambda: self.trigger_menu_action("Explainer GNN", "Compare Explainers"),
+            "compare_explainers_batch": lambda: self.trigger_menu_action("Explainer GNN","Compare Explainers Batch",),
 
             "urv_generate": lambda: self.trigger_menu_action("URVDEEPTAF", "Generate Data"),
             "urv_train": lambda: self.trigger_menu_action("URVDEEPTAF", "Train Model"),
+            "urv_train_all": lambda: self.trigger_menu_action("URVDEEPTAF", "Train All Models"),
             "urv_evaluate": lambda: self.trigger_menu_action("URVDEEPTAF", "Evaluate Model"),
+            "urv_evaluate_all": lambda: self.trigger_menu_action("URVDEEPTAF","Evaluate All Models (Folder)",),
 
             "egnn_generate": lambda: self.trigger_menu_action("EGNN", "Generate Data"),
             "egnn_train": lambda: self.trigger_menu_action("EGNN", "Train Model"),
             "egnn_search": lambda: self.trigger_menu_action("EGNN", "Hyperparameter Search"),
             "egnn_evaluate": lambda: self.trigger_menu_action("EGNN", "Evaluate Model"),
+            "egnn_evaluate_all": lambda: self.trigger_menu_action("EGNN", "Evaluate All Models"),
 
             "ednn_generate": lambda: self.trigger_menu_action("EDNN", "Generate Data"),
             "ednn_train": lambda: self.trigger_menu_action("EDNN", "Train Model"),
             "ednn_search": lambda: self.trigger_menu_action("EDNN", "Hyperparameter Search"),
             "ednn_evaluate": lambda: self.trigger_menu_action("EDNN", "Evaluate Model"),
+            "ednn_evaluate_all": lambda: self.trigger_menu_action("EDNN", "Evaluate All Models"),
 
             "deepdta_search": lambda: self.trigger_menu_action("DeepDTA", "Hyperparameter Search"),
             "widedta_search": lambda: self.trigger_menu_action("WideDTA", "Hyperparameter Search"),

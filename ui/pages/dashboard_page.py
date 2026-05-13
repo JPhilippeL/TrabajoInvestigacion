@@ -81,6 +81,7 @@ class DashboardPage(QWidget):
             [
                 ("New", self.callbacks.get("molecule_new")),
                 ("Load", self.callbacks.get("molecule_load")),
+                ("Save", self.callbacks.get("molecule_save")),
                 ("Verify", self.callbacks.get("verify_molecule")),
             ],
         )
@@ -99,8 +100,8 @@ class DashboardPage(QWidget):
 
         self._add_card(
             quick_grid,
-            1,
             0,
+            2,
             "GNN training",
             "Train single or multiple GNN models using the configured datasets.",
             [
@@ -112,12 +113,37 @@ class DashboardPage(QWidget):
         self._add_card(
             quick_grid,
             1,
+            0,
+            "Transfer learning",
+            "Run transfer learning workflows for one model or multiple models.",
+            [
+                ("Transfer", self.callbacks.get("transfer_learning")),
+                ("Batch transfer", self.callbacks.get("transfer_learning_multiple")),
+            ],
+        )
+
+        self._add_card(
+            quick_grid,
             1,
-            "Experiments",
+            1,
+            "GNN testing",
+            "Run prediction, testing and model inspection workflows.",
+            [
+                ("Predict SDF", self.callbacks.get("predict_sdf")),
+                ("Test model", self.callbacks.get("test_model")),
+                ("Test all", self.callbacks.get("test_all_models")),
+                ("Inspect", self.callbacks.get("inspect_model")),
+            ],
+        )
+
+        self._add_card(
+            quick_grid,
+            1,
+            2,
+            "GNN hyperparameter search",
             "Launch model testing and hyperparameter search experiments.",
             [
                 ("Search", self.callbacks.get("hyperparameter_search_gnn")),
-                ("Test all", self.callbacks.get("test_all_models")),
             ],
         )
 
@@ -129,7 +155,9 @@ class DashboardPage(QWidget):
             "Run graph explainers and compare explanation outputs.",
             [
                 ("GraphExplainer", self.callbacks.get("graph_explainer")),
+                ("GNNExplainer", self.callbacks.get("gnn_explainer")),
                 ("Compare", self.callbacks.get("compare_explainers")),
+                ("Batch compare", self.callbacks.get("compare_explainers_batch")),
             ],
         )
 
@@ -146,8 +174,8 @@ class DashboardPage(QWidget):
 
         self._add_card(
             quick_grid,
-            3,
-            0,
+            2,
+            2,
             "Settings",
             "Configure dataset paths, model folders, runtime defaults and application resources.",
             [
@@ -157,6 +185,7 @@ class DashboardPage(QWidget):
 
         quick_grid.setColumnStretch(0, 1)
         quick_grid.setColumnStretch(1, 1)
+        quick_grid.setColumnStretch(2, 1)
 
         content_layout.addLayout(quick_grid)
         content_layout.addSpacing(6)
@@ -176,7 +205,9 @@ class DashboardPage(QWidget):
             [
                 ("Generate", self.callbacks.get("urv_generate")),
                 ("Train", self.callbacks.get("urv_train")),
+                ("Train all", self.callbacks.get("urv_train_all")),
                 ("Evaluate", self.callbacks.get("urv_evaluate")),
+                ("Evaluate all", self.callbacks.get("urv_evaluate_all")),
             ],
         )
 
@@ -191,6 +222,7 @@ class DashboardPage(QWidget):
                 ("Train", self.callbacks.get("egnn_train")),
                 ("Search", self.callbacks.get("egnn_search")),
                 ("Evaluate", self.callbacks.get("egnn_evaluate")),
+                ("Evaluate all", self.callbacks.get("egnn_evaluate_all")),
             ],
         )
 
@@ -205,6 +237,7 @@ class DashboardPage(QWidget):
                 ("Train", self.callbacks.get("ednn_train")),
                 ("Search", self.callbacks.get("ednn_search")),
                 ("Evaluate", self.callbacks.get("ednn_evaluate")),
+                ("Evaluate all", self.callbacks.get("ednn_evaluate_all")),
             ],
         )
 
