@@ -1,6 +1,7 @@
 import json
 import logging
 import sys
+import time
 
 from PySide6.QtWidgets import QDialog
 from ray import tune
@@ -68,5 +69,9 @@ def launch_ray_tune_hyperparameter_search(input_values, log_callback):
 
 
 if __name__ == "__main__":
+    start_hp = time.time()
     params = json.loads(sys.argv[1])
     launch_ray_tune_hyperparameter_search(params, log_callback=logger)
+    end_hp = time.time()
+    elapsed_time = end_hp - start_hp
+    logger.info(f"Time elapsed for hyperparameter tuning is: {elapsed_time} seconds ")
