@@ -4,11 +4,12 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu
 
 from CheapNet_GUI.view.dialogs.generate_graph_dialog import DBGenerationDialog
-from CheapNet_GUI.view.dialogs.train_dialog import TrainDialog
-from CheapNet_GUI.workers import DBGenerationThread
-from CheapNet_GUI.workers import TrainCheapNetThread
+from CheapNet_GUI.view.dialogs.hyperparameter_tuning_dialog import HyperparameterSearchDialog
 from CheapNet_GUI.view.dialogs.prediction_dialog import PredictDialog
+from CheapNet_GUI.view.dialogs.train_dialog import TrainDialog
+from CheapNet_GUI.workers import DBGenerationThread, HyperparameterTuningProcess
 from CheapNet_GUI.workers import PredictThread
+from CheapNet_GUI.workers import TrainCheapNetThread
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,10 @@ class MenuCheapNet(QMenu):
         prediction_action = QAction("Prediction", self)
         prediction_action.triggered.connect(self.predict_cheapnet)
         self.addAction(prediction_action)
+
+        hp_action = QAction("Hyperparameter Tuning", self)
+        hp_action.triggered.connect(self.tune_cheapnet)
+        self.addAction(hp_action)
 
     def generate_db(self):
         dialog = DBGenerationDialog(self.main_window)
@@ -101,7 +106,6 @@ class MenuCheapNet(QMenu):
         self.main_window.setEnabled(True)
         self.train_thread = None
 
-
     def predict_cheapnet(self):
         dialog = PredictDialog(self.main_window)
 
@@ -131,3 +135,28 @@ class MenuCheapNet(QMenu):
         self.main_window.setEnabled(True)
         self.predict_thread = None
 
+    def tune_cheapnet(self):
+        dialog = HyperparameterSearchDialog(self.main_window)
+
+        if dialog.exec():
+            params = dialog.get_values()
+            logger.info("[HP Tuning]Init hyperparameter tuning...")
+            logger.info("[HP Tuning]Please wait...")
+
+            self.main_window.setEnabled(False)
+
+            self.hp_process = HyperparameterTuningProcess(params, self)
+            self.hp_process.log_message.connect(logger.info)
+            self.hp_process.finished_success.connect(self.on_success_hp)
+            self.hp_process.finished_error.connect(self.on_error_hp)
+            self.hp_process.start()
+
+    def on_success_hp(self):
+        logger.info("Hyperparameter tuning finished successfully.")
+        self.main_window.setEnabled(True)
+        self.hp_process = None
+
+    def on_error_hp(self):
+        logger.info("Hyperparameter tuning failed.")
+        self.main_window.setEnabled(True)
+        self.hp_process = None
