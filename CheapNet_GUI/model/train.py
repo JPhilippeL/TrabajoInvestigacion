@@ -122,7 +122,7 @@ def train_cheapnet(save_dir, train_split_file, val_split_file, test_split_file, 
 
                 torch.save(
                     {
-                        "model_state_dict": model.state_dict(),
+                        "model": model,
                         "y_mean": y_mean,
                         "y_std": y_std,
                     },

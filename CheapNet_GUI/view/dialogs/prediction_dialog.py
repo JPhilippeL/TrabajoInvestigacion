@@ -11,9 +11,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QVBoxLayout,
-    QWidget,
-    QSpinBox,
-    QDoubleSpinBox
+    QWidget
 )
 
 logger = logging.getLogger(__name__)
@@ -72,29 +70,6 @@ class PredictDialog(QDialog):
         self.output_dir_btn = QPushButton("Select...")
         self.output_dir_btn.clicked.connect(self.browse_output_dir)
 
-        self.parameter_file_input = QLineEdit()
-        self.parameter_file_input.setPlaceholderText(
-            "File with hyparameters used for training"
-        )
-        self.drop_rate_input = QDoubleSpinBox()
-        self.drop_rate_input.setValue(self.settings.value("train_cheapnet/drop_rate", 0))
-        self.drop_rate_input.setButtonSymbols(QDoubleSpinBox.NoButtons)
-        self.drop_rate_input.setReadOnly(True)
-
-        self.node_dim = QSpinBox()
-        self.drop_rate_input.setValue(14)
-        self.drop_rate_input.setReadOnly(True)
-        self.drop_rate_input.setButtonSymbols(QSpinBox.NoButtons)
-
-        self.hidden_dim = QSpinBox()
-        self.hidden_dim.setValue(self.settings.value("train_cheapnet/hidden_dim", 0))
-        self.hidden_dim.setReadOnly(True)
-        self.hidden_dim.setButtonSymbols(QSpinBox.NoButtons)
-
-        self.batch_size = QSpinBox()
-        self.batch_size.setValue(self.settings.value("train_cheapnet/batch_size", 0))
-        self.batch_size.setReadOnly(True)
-        self.batch_size.setButtonSymbols(QSpinBox.NoButtons)
         form_layout = QFormLayout()
 
         form_layout.addRow(QLabel("<b>Required files/directories</b>"))
@@ -120,11 +95,7 @@ class PredictDialog(QDialog):
             "Target file:",
             self._with_button(self.pic50_file_input, self.pic50_btn),
         )
-        form_layout.addRow(QLabel("<b>Training hyperparameters (from last train)</b>"))
-        form_layout.addRow("Dropout rate:", self.drop_rate_input)
-        form_layout.addRow("Node dimension:", self.node_dim)
-        form_layout.addRow("Hidden dimension:", self.hidden_dim)
-        form_layout.addRow("Batch size:", self.batch_size)
+
         layout = QVBoxLayout()
         layout.addLayout(form_layout)
 
@@ -223,8 +194,4 @@ class PredictDialog(QDialog):
             "test_split_file": self.test_split_input.text().strip(),
             "output_dir": self.output_dir_input.text().strip(),
             "pic50_txt": self.pic50_file_input.text().strip(),
-            "node_dim": self.node_dim.value(),
-            "batch_size": self.batch_size.value(),
-            "hidden_dim": self.hidden_dim.value(),
-            "drop_rate": self.drop_rate_input.value(),
         }

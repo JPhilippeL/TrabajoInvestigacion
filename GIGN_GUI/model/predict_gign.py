@@ -14,8 +14,6 @@ from sklearn.metrics import mean_squared_error
 from torch_geometric.loader import DataLoader
 from GIGN_GUI.model.utils import URVGraphDataset, load_split_txt
 
-from GIGN_GUI.model.gign_model import GIGN
-
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
@@ -139,10 +137,7 @@ def predict(
         test_split_file,
         output_dir,
         log_callback,
-        node_dim,
-        drop_rate,
-        hidden_dim,
-        batch_size
+        batch_size=32
 
 ):
     debut_prediction = time()
@@ -153,7 +148,7 @@ def predict(
     all_results = []
     all_labels_global = []
     all_preds_global = []
-    for split_idx in range(5):
+    for split_idx in range(len(test_splits)):
         if log_callback:
             log_callback.info(f"\n===== SPLIT {split_idx:02d} =====")
 
@@ -162,16 +157,25 @@ def predict(
         test_loader = DataLoader(
             test_set, batch_size=batch_size, shuffle=False
         )
-        model = GIGN(
-            node_dim, hidden_dim, drop_rate
-        ).to(DEVICE)
 
         model_path = os.path.join(
             model_dir, f"split_{split_idx:02d}", "best_model.pt"
         )
-        model.load_state_dict(torch.load(model_path, map_location=DEVICE))
+        checkpoint = torch.load(model_path, map_location=DEVICE)
+        model = checkpoint["model"]
+        model = checkpoint["model"]
+        y_mean = checkpoint["y_mean"]
+        y_std = checkpoint["y_std"]
 
-        rmse, pearson, spearman, labels, preds = evaluate(model, test_loader)
+        model = model.to(DEVICE)
+
+        rmse, pearson, spearman, labels, preds = evaluate(
+            model,
+            test_loader,
+            y_mean,
+            y_std
+        )
+
         if log_callback:
             log_callback.info(f"RMSE: {rmse:.4f}")
             log_callback.info(f"Pearson: {pearson:.4f}")

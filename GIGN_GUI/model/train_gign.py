@@ -81,7 +81,6 @@ def train_gign(
         split_save_dir = os.path.join(save_dir, f"split_{split_id:02d}")
         os.makedirs(split_save_dir, exist_ok=True)
 
-        # ---------------- Training loop ----------------
         for epoch in range(epochs):
             model.train()
             epoch_loss = 0.0
@@ -116,7 +115,7 @@ def train_gign(
                 patience_counter = 0
 
                 torch.save(
-                    model.state_dict(),
+                    model,
                     os.path.join(split_save_dir, "best_model.pt"),
                 )
                 if log_callback:

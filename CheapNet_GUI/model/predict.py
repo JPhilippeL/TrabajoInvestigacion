@@ -12,25 +12,27 @@ from scipy.stats import spearmanr
 from sklearn.metrics import mean_squared_error
 from torch_geometric.loader import DataLoader
 
-from CheapNet_GUI.model.CheapNet_model import CheapNet
 from CheapNet_GUI.model.utils import load_split_txt, URVGraphDataset, escala_global
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def evaluate(model, dataloader):
+def evaluate(model, dataloader, y_mean, y_std):
     model.eval()
     preds, labels = [], []
 
+    y_mean = torch.as_tensor(y_mean, device=DEVICE, dtype=torch.float32)
+    y_std = torch.as_tensor(y_std, device=DEVICE, dtype=torch.float32)
     with torch.no_grad():
         for data in dataloader:
             data = data.to(DEVICE)
-            pred = model(data)
+            pred_norm = model(data)
+            pred = pred_norm * y_std + y_mean
             preds.append(pred.cpu().numpy())
             labels.append(data.y.cpu().numpy())
 
-    preds = np.concatenate(preds)
-    labels = np.concatenate(labels)
+    preds = np.concatenate(preds).reshape(-1)
+    labels = np.concatenate(labels).reshape(-1)
 
     rmse = np.sqrt(mean_squared_error(labels, preds))
     pearson = np.corrcoef(labels, preds)[0, 1]
@@ -106,9 +108,8 @@ def plot_global_scatter(
     plt.close()
 
 
-def predict(pic50_txt, test_split_file, graph_dir, model_dir, output_dir, log_callback, node_dim, hidden_dim, drop_rate,
-            batch_size,
-            num_cluster=[28, 156]):
+def predict(pic50_txt, test_split_file, graph_dir, model_dir, output_dir, log_callback,
+            batch_size=32):
     debut_prediction = time()
     all_results = []
     all_labels_global = []
@@ -119,9 +120,10 @@ def predict(pic50_txt, test_split_file, graph_dir, model_dir, output_dir, log_ca
 
     for split_idx in range(5):
         split_name = f"Split {split_idx:02d}"
-        print(f"\n==============================")
-        print(f"        {split_name}")
-        print(f"==============================")
+        if log_callback:
+            log_callback.info(f"\n==============================")
+            log_callback.info(f"        {split_name}")
+            log_callback.info(f"==============================")
 
         test_ids = test_splits[split_idx]
 
@@ -133,14 +135,13 @@ def predict(pic50_txt, test_split_file, graph_dir, model_dir, output_dir, log_ca
         model_path = os.path.join(split_model_dir, "best_model.pt")
 
         if not os.path.exists(model_path):
-            print(
-                f"[WARNING] No hi ha best_model.pt a {split_model_dir}, s'omet aquest split"
-            )
+            if log_callback:
+                log_callback.info(
+                    f"[WARNING CHEAPNET] No directory with {model_path} in {split_model_dir}"
+                )
             continue
-        model = CheapNet(
-            node_dim=node_dim, hidden_dim=hidden_dim, drop_rate=drop_rate,
-            num_clusters=num_cluster
-        ).to(device)
+        model = torch.load(model_path, map_location=DEVICE)
+        model = model.to(DEVICE)
 
         checkpoint = torch.load(model_path, map_location=device)
 
@@ -150,16 +151,17 @@ def predict(pic50_txt, test_split_file, graph_dir, model_dir, output_dir, log_ca
 
         # Avaluar modelo
         rmse, pearson, spearman, labels, preds = evaluate(model, test_loader)
-        print(f"RMSE: {rmse:.4f}")
-        print(f"Pearson: {pearson:.4f}")
-        print(f"Spearman: {spearman:.4f}")
+        if log_callback:
+            log_callback.info(f"RMSE: {rmse:.4f}")
+            log_callback.info(f"Pearson: {pearson:.4f}")
+            log_callback.info(f"Spearman: {spearman:.4f}")
 
-        print("Pred mean:", preds.mean())
-        print("Pred std:", preds.std())
-        print("Label mean:", labels.mean())
-        print("Label std:", labels.std())
-        print("Pred min/max:", preds.min(), preds.max())
-        print("Label min/max:", labels.min(), labels.max())
+            log_callback.info("Pred mean:", preds.mean())
+            log_callback.info("Pred std:", preds.std())
+            log_callback.info("Label mean:", labels.mean())
+            log_callback.info("Label std:", labels.std())
+            log_callback.info("Pred min/max:", preds.min(), preds.max())
+            log_callback.info("Label min/max:", labels.min(), labels.max())
 
         plot_split_scatter(labels, preds, split_name, output_dir, rmse, pearson, global_min, global_max)
 
@@ -194,9 +196,9 @@ def predict(pic50_txt, test_split_file, graph_dir, model_dir, output_dir, log_ca
         }
     )
     summary_df.to_csv(os.path.join(output_dir, "metrics_summary.csv"), index=False)
-
-    print("\n=== RESULTADOS FINALES ===")
-    print(summary_df)
+    if log_callback:
+        log_callback.info("\n=== RESULTADOS FINALES ===")
+        log_callback.info(summary_df)
 
     # =========================================================
     # Scatter global con promedios
@@ -219,5 +221,6 @@ def predict(pic50_txt, test_split_file, graph_dir, model_dir, output_dir, log_ca
         global_max
     )
     end_prediction = time()
-    print(f"it took {end_prediction - debut_prediction:.2f} seconds")
-    print(f"\nScatter global guardado en: {scatter_path}")
+    if log_callback:
+        log_callback.info(f"it took {end_prediction - debut_prediction:.2f} seconds")
+        log_callback.info(f"\nScatter global guardado en: {scatter_path}")

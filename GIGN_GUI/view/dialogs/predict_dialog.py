@@ -11,9 +11,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QVBoxLayout,
-    QWidget,
-    QSpinBox,
-    QDoubleSpinBox
+    QWidget
 )
 
 logger = logging.getLogger(__name__)
@@ -72,37 +70,6 @@ class PredictDialog(QDialog):
         self.output_dir_btn = QPushButton("Select...")
         self.output_dir_btn.clicked.connect(self.browse_output_dir)
 
-        self.node_dim_input = QSpinBox()
-        self.node_dim_input.setRange(14, 14)
-        self.node_dim_input.setValue(14)
-        self.node_dim_input.setReadOnly(True)
-        self.node_dim_input.setButtonSymbols(QSpinBox.NoButtons)
-
-        self.hidden_dim_input = QSpinBox()
-        self.hidden_dim_input.setRange(1, 100000)
-        self.hidden_dim_input.setValue(
-            int(self.settings.value("train_gign/hidden_dim", 128))
-        )
-        self.hidden_dim_input.setReadOnly(True)
-        self.hidden_dim_input.setButtonSymbols(QSpinBox.NoButtons)
-        self.batch_size_input = QSpinBox()
-        self.batch_size_input.setRange(1, 100000)
-        self.batch_size_input.setValue(
-            int(self.settings.value("train_gign/batch_size", 32))
-        )
-        self.batch_size_input.setReadOnly(True)
-        self.batch_size_input.setButtonSymbols(QSpinBox.NoButtons)
-
-        self.drop_out_input = QDoubleSpinBox()
-        self.drop_out_input.setDecimals(4)
-        self.drop_out_input.setRange(0.0, 1.0)
-        self.drop_out_input.setReadOnly(True)
-        self.drop_out_input.setSingleStep(0.05)
-        self.drop_out_input.setValue(
-            float(self.settings.value("train_gign/drop_out", 0.1))
-        )
-        self.drop_out_input.setButtonSymbols(QDoubleSpinBox.NoButtons)
-
         form_layout = QFormLayout()
 
         form_layout.addRow(QLabel("<b>Required files/directories</b>"))
@@ -128,11 +95,6 @@ class PredictDialog(QDialog):
             "Target file:",
             self._with_button(self.pic50_file_input, self.pic50_btn),
         )
-        form_layout.addRow(QLabel("<b>Model Hyperparameters (reported from last train)</b>"))
-        form_layout.addRow("Node dim:", self.node_dim_input)
-        form_layout.addRow("Hidden dim:", self.hidden_dim_input)
-        form_layout.addRow("Drop rate:", self.drop_out_input)
-        form_layout.addRow("Batch size:", self.batch_size_input)
 
         layout = QVBoxLayout()
         layout.addLayout(form_layout)
@@ -221,9 +183,6 @@ class PredictDialog(QDialog):
         self.settings.setValue(
             "dbGen/pic50_txt", self.pic50_file_input.text().strip()
         )
-        self.settings.setValue("train_gign/hidden_dim", self.hidden_dim_input.value())
-        self.settings.setValue("train_gign/batch_size", self.batch_size_input.value())
-        self.settings.setValue("train_gign/drop_out", self.drop_out_input.value())
 
         super().accept()
 
@@ -234,8 +193,4 @@ class PredictDialog(QDialog):
             "test_split_file": self.test_split_input.text().strip(),
             "output_dir": self.output_dir_input.text().strip(),
             "pic50_txt": self.pic50_file_input.text().strip(),
-            "node_dim": self.node_dim_input.value(),
-            "hidden_dim": self.hidden_dim_input.value(),
-            "batch_size": self.batch_size_input.value(),
-            "drop_rate": self.drop_out_input.value(),
         }
