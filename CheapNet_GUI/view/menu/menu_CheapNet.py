@@ -149,7 +149,7 @@ class MenuCheapNet(QMenu):
             self.hp_process.log_message.connect(logger.info)
             self.hp_process.finished_success.connect(self.on_success_hp)
             self.hp_process.finished_error.connect(self.on_error_hp)
-            self.hp_process.start()
+            self.hp_process.start(payload=params)
 
     def on_success_hp(self):
         logger.info("Hyperparameter tuning finished successfully.")

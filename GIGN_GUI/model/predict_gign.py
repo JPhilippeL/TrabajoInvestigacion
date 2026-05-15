@@ -161,20 +161,9 @@ def predict(
         model_path = os.path.join(
             model_dir, f"split_{split_idx:02d}", "best_model.pt"
         )
-        checkpoint = torch.load(model_path, map_location=DEVICE)
-        model = checkpoint["model"]
-        model = checkpoint["model"]
-        y_mean = checkpoint["y_mean"]
-        y_std = checkpoint["y_std"]
-
+        model = torch.load(model_path, DEVICE)
         model = model.to(DEVICE)
-
-        rmse, pearson, spearman, labels, preds = evaluate(
-            model,
-            test_loader,
-            y_mean,
-            y_std
-        )
+        rmse, pearson, spearman, labels, preds = evaluate(model, test_loader)
 
         if log_callback:
             log_callback.info(f"RMSE: {rmse:.4f}")

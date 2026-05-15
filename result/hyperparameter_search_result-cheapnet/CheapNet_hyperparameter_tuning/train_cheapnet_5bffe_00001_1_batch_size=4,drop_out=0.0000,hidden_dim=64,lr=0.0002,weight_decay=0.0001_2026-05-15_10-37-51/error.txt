@@ -1,0 +1,49 @@
+Failure # 1 (occurred at 2026-05-15_10-39-43)
+[36mray::ImplicitFunc.train()[39m (pid=564141, ip=10.112.78.183, actor_id=9e070fabfc01a646c89d808301000000, repr=train_cheapnet)
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/ray/tune/trainable/trainable.py", line 324, in train
+    raise skipped from exception_cause(skipped)
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/ray/air/_internal/util.py", line 98, in run
+    self._ret = self._target(*self._args, **self._kwargs)
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/ray/tune/trainable/function_trainable.py", line 44, in <lambda>
+    training_func=lambda: self._trainable_func(self.config),
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/ray/tune/trainable/function_trainable.py", line 249, in _trainable_func
+    output = fn()
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/ray/tune/trainable/util.py", line 130, in inner
+    return trainable(config, **fn_kwargs)
+  File "/home/andromeda/Documentos/mohamedA/TrabajoInvestigacion/CheapNet_GUI/model/hyperparameter_search.py", line 104, in train_cheapnet
+    pred = model(data).view(-1)
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1532, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1541, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/andromeda/Documentos/mohamedA/TrabajoInvestigacion/CheapNet_GUI/model/CheapNet_model.py", line 246, in forward
+    l2p, _ = self.attblock1(x_lig, x_pro, x_pro)
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1532, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1541, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/andromeda/Documentos/mohamedA/TrabajoInvestigacion/CheapNet_GUI/model/CheapNet_model.py", line 202, in forward
+    x = self.W_O(x) + res
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1532, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1541, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/andromeda/Documentos/mohamedA/TrabajoInvestigacion/CheapNet_GUI/model/CheapNet_model.py", line 42, in forward
+    return self.mlp(x)
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1532, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1541, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/torch/nn/modules/container.py", line 217, in forward
+    input = module(input)
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1532, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1541, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/torch/nn/modules/batchnorm.py", line 175, in forward
+    return F.batch_norm(
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/torch/nn/functional.py", line 2507, in batch_norm
+    _verify_batch_size(input.size())
+  File "/home/andromeda/miniconda3/envs/Philippe_v2/lib/python3.10/site-packages/torch/nn/functional.py", line 2475, in _verify_batch_size
+    raise ValueError(f"Expected more than 1 value per channel when training, got input size {size}")
+ValueError: Expected more than 1 value per channel when training, got input size torch.Size([1, 64])

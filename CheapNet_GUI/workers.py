@@ -108,7 +108,7 @@ class HyperparameterTuningProcess(QObject):
 
     def start(self, payload):
         params = json.dumps(payload)
-        self.process.start(sys.executable, ["-u", "CheapNet_GUI/adapter/hyperparameter_tuning_adapter", params])
+        self.process.start(sys.executable, ["-u", "CheapNet_GUI/adapter/hyperparameter_adapter.py", params])
 
     def __read_stdout(self):
         data = self.process.readAllStandardOutput()

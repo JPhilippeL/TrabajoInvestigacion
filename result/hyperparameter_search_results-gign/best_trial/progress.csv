@@ -1,0 +1,2 @@
+mean_val_rmse,mean_test_rmse,mean_test_pearson,timestamp,checkpoint_dir_name,done,training_iteration,trial_id,date,time_this_iter_s,time_total_s,pid,hostname,node_ip,time_since_restore,iterations_since_restore
+0.626567947233394,0.7656487239419212,0.637534850628833,1778492545,,False,1,8fc8b_00033,2026-05-11_11-42-25,48.67526578903198,48.67526578903198,239950,andromeda-System-Product-Name,10.112.78.183,48.67526578903198,1

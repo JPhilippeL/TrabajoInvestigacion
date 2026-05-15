@@ -1,0 +1,10 @@
+{
+  "EPOCHS": 50,
+  "NODE_DIM": 14,
+  "PATIENCE": 15,
+  "batch_size": 32,
+  "drop_out": 0.1,
+  "hidden_dim": 256,
+  "lr": 0.00010890081295791456,
+  "weight_decay": 1.2074621565356046e-06
+}

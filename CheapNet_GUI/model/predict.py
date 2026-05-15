@@ -140,17 +140,23 @@ def predict(pic50_txt, test_split_file, graph_dir, model_dir, output_dir, log_ca
                     f"[WARNING CHEAPNET] No directory with {model_path} in {split_model_dir}"
                 )
             continue
-        model = torch.load(model_path, map_location=DEVICE)
-        model = model.to(DEVICE)
-
-        checkpoint = torch.load(model_path, map_location=device)
-
-        model.load_state_dict(checkpoint["model_state_dict"])
+        model_path = os.path.join(
+            model_dir, f"split_{split_idx:02d}", "best_model.pt"
+        )
+        checkpoint = torch.load(model_path, map_location=DEVICE)
+        model = checkpoint["model"]
+        model = checkpoint["model"]
         y_mean = checkpoint["y_mean"]
         y_std = checkpoint["y_std"]
 
-        # Avaluar modelo
-        rmse, pearson, spearman, labels, preds = evaluate(model, test_loader)
+        model = model.to(DEVICE)
+
+        rmse, pearson, spearman, labels, preds = evaluate(
+            model,
+            test_loader,
+            y_mean,
+            y_std
+        )
         if log_callback:
             log_callback.info(f"RMSE: {rmse:.4f}")
             log_callback.info(f"Pearson: {pearson:.4f}")
