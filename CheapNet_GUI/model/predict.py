@@ -21,13 +21,11 @@ def evaluate(model, dataloader, y_mean, y_std):
     model.eval()
     preds, labels = [], []
 
-    y_mean = torch.as_tensor(y_mean, device=DEVICE, dtype=torch.float32)
-    y_std = torch.as_tensor(y_std, device=DEVICE, dtype=torch.float32)
     with torch.no_grad():
         for data in dataloader:
             data = data.to(DEVICE)
-            pred_norm = model(data)
-            pred = pred_norm * y_std + y_mean
+            pred = model(data)
+            pred = pred * y_std + y_mean
             preds.append(pred.cpu().numpy())
             labels.append(data.y.cpu().numpy())
 
@@ -145,7 +143,6 @@ def predict(pic50_txt, test_split_file, graph_dir, model_dir, output_dir, log_ca
         )
         checkpoint = torch.load(model_path, map_location=DEVICE)
         model = checkpoint["model"]
-        model = checkpoint["model"]
         y_mean = checkpoint["y_mean"]
         y_std = checkpoint["y_std"]
 
@@ -162,12 +159,12 @@ def predict(pic50_txt, test_split_file, graph_dir, model_dir, output_dir, log_ca
             log_callback.info(f"Pearson: {pearson:.4f}")
             log_callback.info(f"Spearman: {spearman:.4f}")
 
-            log_callback.info("Pred mean:", preds.mean())
-            log_callback.info("Pred std:", preds.std())
-            log_callback.info("Label mean:", labels.mean())
-            log_callback.info("Label std:", labels.std())
-            log_callback.info("Pred min/max:", preds.min(), preds.max())
-            log_callback.info("Label min/max:", labels.min(), labels.max())
+            log_callback.info(f"Pred mean: {preds.mean():.4f}")
+            log_callback.info(f"Pred std: {preds.std():.4f}")
+            log_callback.info(f"Label mean: {labels.mean():.4f}")
+            log_callback.info(f"Label std: {labels.std():.4f}")
+            log_callback.info(f"Pred min/max: {preds.min():.4f} / {preds.max():.4f}")
+            log_callback.info(f"Label min/max: {labels.min():.4f} / {labels.max():.4f}")
 
         plot_split_scatter(labels, preds, split_name, output_dir, rmse, pearson, global_min, global_max)
 

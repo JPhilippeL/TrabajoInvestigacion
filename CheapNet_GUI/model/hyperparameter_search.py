@@ -149,8 +149,8 @@ def train_cheapnet(config, train_file, test_file, val_file, log_callback, graph_
 
             train_rmse = np.sqrt(epoch_loss / n_train)
 
-            test_rmse, test_pr = val(model, test_loader, device)
-            val_rmse, _ = val(model, val_loader, device)
+            test_rmse, test_pr = val(model, test_loader, device, y_mean, y_std)
+            val_rmse, _ = val(model, val_loader, device, y_mean, y_std)
 
             if log_callback:
                 log_callback.info(
@@ -197,7 +197,10 @@ def train_cheapnet(config, train_file, test_file, val_file, log_callback, graph_
 
         model.load_state_dict(checkpoint["model_state_dict"])
 
-        test_rmse, test_pr = val(model, test_loader, device)
+        y_mean = checkpoint["y_mean"].to(device)
+        y_std = checkpoint["y_std"].to(device)
+
+        test_rmse, test_pr = val(model, test_loader, device, y_mean, y_std)
 
         split_best_val_rmses.append(best_val_rmse)
         split_test_rmses.append(test_rmse)

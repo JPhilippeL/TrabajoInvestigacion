@@ -35,24 +35,22 @@ def seed_everything(seed):
     torch.cuda.manual_seed_all(seed)
 
 
-def val(model, dataloader, device):
+def val(model, dataloader, device, y_mean, y_std):
     model.eval()
     pred_list, label_list = [], []
 
-    for data in dataloader:
-        data = data.to(device)
-        with torch.no_grad():
+    with torch.no_grad():
+        for data in dataloader:
+            data = data.to(device)
             pred = model(data)
+            pred = pred * y_std + y_mean
+            pred_list.append(pred.cpu().numpy())
+            label_list.append(data.y.cpu().numpy())
 
-        pred_list.append(pred.cpu().numpy())
-        label_list.append(data.y.cpu().numpy())
-
-    pred = np.concatenate(pred_list)
-    label = np.concatenate(label_list)
-
+    pred = np.concatenate(pred_list).reshape(-1)
+    label = np.concatenate(label_list).reshape(-1)
     rmse = np.sqrt(mean_squared_error(label, pred))
-    pearson = np.corrcoef(pred, label)[0, 1]
-
+    pearson = np.corrcoef(label, pred)[0, 1]
     model.train()
     return rmse, pearson
 

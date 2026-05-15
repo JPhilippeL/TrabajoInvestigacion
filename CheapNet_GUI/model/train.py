@@ -60,14 +60,13 @@ def train_cheapnet(save_dir, train_split_file, val_split_file, test_split_file, 
         y_mean = all_train_y.mean().to(device)
         y_std = all_train_y.std().to(device)
         if log_callback:
-            log_callback.info("Target mean:", y_mean.item())
-            log_callback.info("Target std:", y_std.item())
+            log_callback.info(f"Target mean:{y_mean.item()}")
+            log_callback.info(f"Target std: {y_std.item()}")
 
             log_callback.info(f"Train samples: {len(train_set)}")
             log_callback.info(f"Test samples: {len(test_set)}")
             log_callback.info(f"Validation samples: {len(val_set)}")
 
-        # ---------------- Model ----------------
         model = CheapNet(node_dim, hidden_dim, drop_rate, num_clusters).to(device)
         if log_callback:
             log_callback.info(
@@ -105,8 +104,8 @@ def train_cheapnet(save_dir, train_split_file, val_split_file, test_split_file, 
                 epoch_loss += loss.item() * data.y.size(0)
 
             train_rmse = np.sqrt(epoch_loss / len(train_set))
-            test_rmse, test_pr = val(model, test_loader, device)
-            val_rmse, _ = val(model, val_loader, device)
+            test_rmse, test_pr = val(model, test_loader, device, y_mean, y_std)
+            val_rmse, _ = val(model, val_loader, device, y_mean, y_std)
             if log_callback:
                 log_callback.info(
                     f"Epoch {epoch:03d} | "
