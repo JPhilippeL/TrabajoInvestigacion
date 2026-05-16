@@ -14,12 +14,11 @@ from torch_geometric.loader import DataLoader
 
 from CheapNet_GUI.model.utils import load_split_txt, URVGraphDataset, escala_global
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-
 
 def evaluate(model, dataloader, y_mean, y_std):
     model.eval()
     preds, labels = [], []
+    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
     with torch.no_grad():
         for data in dataloader:
@@ -113,7 +112,7 @@ def predict(pic50_txt, test_split_file, graph_dir, model_dir, output_dir, log_ca
     all_labels_global = []
     all_preds_global = []
     global_min, global_max = escala_global(pic50_txt)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     test_splits = load_split_txt(test_split_file)
 
     for split_idx in range(5):
@@ -179,10 +178,6 @@ def predict(pic50_txt, test_split_file, graph_dir, model_dir, output_dir, log_ca
         all_labels_global.append(labels)
         all_preds_global.append(preds)
 
-    # =========================================================
-    # Summary de las métricas
-    # =========================================================
-
     results_df = pd.DataFrame(all_results)
     results_df.to_csv(
         os.path.join(output_dir, "metrics_per_split.csv"), index=False
@@ -202,10 +197,6 @@ def predict(pic50_txt, test_split_file, graph_dir, model_dir, output_dir, log_ca
     if log_callback:
         log_callback.info("\n=== RESULTADOS FINALES ===")
         log_callback.info(summary_df)
-
-    # =========================================================
-    # Scatter global con promedios
-    # =========================================================
 
     all_labels_global = np.concatenate(all_labels_global)
     all_preds_global = np.concatenate(all_preds_global)

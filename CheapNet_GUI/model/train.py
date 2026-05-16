@@ -85,7 +85,6 @@ def train_cheapnet(save_dir, train_split_file, val_split_file, test_split_file, 
         split_save_dir = os.path.join(save_dir, f"split_{split_id:02d}")
         os.makedirs(split_save_dir, exist_ok=True)
 
-        # ---------------- Training loop ----------------
         for epoch in range(epochs):
             model.train()
             epoch_loss = 0.0

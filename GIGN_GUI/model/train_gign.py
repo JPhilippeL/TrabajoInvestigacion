@@ -140,7 +140,7 @@ def train_gign(
     end_training = time()
     if log_callback:
         log_callback.info(f"train total time: {end_training - debut_training:.2f} seconds")
-        log_callback.info(f"The parameters used are stored in {save_dir}/hyperparameters.txt")
+        log_callback.info(f"The parameters used are stored in {save_dir}/hyperparameters_gign.txt")
     write_hyperparameter_into_a_file(
         epochs,
         node_dim,
@@ -150,5 +150,5 @@ def train_gign(
         lr,
         weight_decay,
         patience,
-        os.path.join(save_dir, "hyperparameters.txt"),
+        os.path.join(save_dir, "hyperparameters_gign.txt"),
     )

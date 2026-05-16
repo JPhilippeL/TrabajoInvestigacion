@@ -12,35 +12,16 @@ import matplotlib.pyplot as plt
 from scipy.stats import spearmanr
 from sklearn.metrics import mean_squared_error
 from torch_geometric.loader import DataLoader
-from GIGN_GUI.model.utils import URVGraphDataset, load_split_txt
-
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-
-
-def escala_global(file_path):
-    labels = np.loadtxt(file_path, usecols=1)
-
-    real_min = labels.min()
-    real_max = labels.max()
-
-    margin = 0.2
-    global_min = real_min - margin
-    global_max = real_max + margin
-
-    print("Global axis limits:", global_min, global_max)
-
-    np.save("global_axis.npy", [global_min, global_max])
-
-    return global_min, global_max
+from GIGN_GUI.model.utils import URVGraphDataset, load_split_txt, escala_global
 
 
 def evaluate(model, dataloader):
     model.eval()
     preds, labels = [], []
-
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     with torch.no_grad():
         for data in dataloader:
-            data = data.to(DEVICE)
+            data = data.to(device)
             pred = model(data)
             preds.append(pred.cpu().numpy())
             labels.append(data.y.cpu().numpy())
@@ -74,7 +55,6 @@ def plot_split_scatter(
     )
     plt.plot([global_min, global_max], [global_min, global_max], "r--")
 
-    # Nota al pie del gráfico
     if n_out > 0:
         plt.figtext(
             0.5,
@@ -142,6 +122,7 @@ def predict(
 ):
     debut_prediction = time()
     global_min, global_max = escala_global(pic50_txt)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     test_splits = load_split_txt(test_split_file)
 
@@ -161,8 +142,8 @@ def predict(
         model_path = os.path.join(
             model_dir, f"split_{split_idx:02d}", "best_model.pt"
         )
-        model = torch.load(model_path, DEVICE)
-        model = model.to(DEVICE)
+        model = torch.load(model_path, device)
+        model = model.to(device)
         rmse, pearson, spearman, labels, preds = evaluate(model, test_loader)
 
         if log_callback:
@@ -193,10 +174,6 @@ def predict(
         all_labels_global.append(labels)
         all_preds_global.append(preds)
 
-    # =========================================================
-    # Summary
-    # =========================================================
-
     results_df = pd.DataFrame(all_results)
     results_df.to_csv(
         os.path.join(output_dir, "metrics_per_split.csv"), index=False
@@ -220,10 +197,6 @@ def predict(
     if log_callback:
         log_callback.info("\n=== RESULTADOS FINALES ===")
         log_callback.info(summary_df)
-
-    # =========================================================
-    # Scatter global con promedios
-    # =========================================================
 
     all_labels_global = np.concatenate(all_labels_global)
     all_preds_global = np.concatenate(all_preds_global)

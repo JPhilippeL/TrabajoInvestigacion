@@ -39,12 +39,12 @@ All my work and experiments are based on the PyTorch tutorial for hyperparameter
 
 
 def train(
-    search_space_dictionary,
-    sdf_directory,
-    target_file,
-    gnn_model_name,
-    valid_split,
-    gnn_model_pseudo,
+        search_space_dictionary,
+        sdf_directory,
+        target_file,
+        gnn_model_name,
+        valid_split,
+        gnn_model_pseudo,
 ):
     best_model_tmp_path = os.path.join(
         tempfile.gettempdir(),
@@ -191,7 +191,7 @@ def train(
 
 
 def write_results_to_file(model_name, best_results, hyperparemeters, output_file):
-    with open(output_file, "a") as f:
+    with open(output_file, "w") as f:
         f.write(f"Model: {model_name}\n")
         f.write(f"Best Validation Loss (MSE): {best_results['best_val_loss']:.4f}\n")
         f.write("Best Hyperparameters:\n")
@@ -225,7 +225,7 @@ if __name__ == "__main__":
         """ Note that some parameters are not changeable via the gui so we have to change them from the file GNNs/model_trainer.py.
             such as drop_out.
         """
-        # Please check the range of values for each hyperparameter (specially the embedding dimensions) and the patience value
+        # Please check the range of dialog_inputs for each hyperparameter (specially the embedding dimensions) and the patience value
         config = {
             "batch_size": tune.choice([4, 8, 16]),
             "atom_emb_dim": tune.choice([0.2, 0.3, 0.4]),
@@ -282,7 +282,7 @@ if __name__ == "__main__":
             model,
             best_result.metrics,
             best_result.config,
-            "hyperparameter_tuning_results.txt",
+            "hyperparameter_tuning_results_" + model + ".txt",
         )
     end_tuning = time()
     elapsed_time = end_tuning - debut_tuning

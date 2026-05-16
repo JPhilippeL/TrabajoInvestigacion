@@ -123,7 +123,6 @@ def train_cheapnet(config, train_file, test_file, val_file, log_callback, graph_
 
         best_model_path = os.path.join(split_save_dir, "best_model.pt")
 
-        # ---------------- Training loop ----------------
         for epoch in range(config["EPOCHS"]):
             model.train()
 
@@ -280,7 +279,6 @@ def run_hyperparameter_search(
     ray.init(
         ignore_reinit_error=True,
         include_dashboard=False,
-        num_cpus=20,
     )
 
     trainable = tune.with_parameters(

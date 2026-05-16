@@ -1,12 +1,11 @@
 import ast
-import json
 import os
 import random
 
 import numpy as np
 import torch
 from sklearn.metrics import mean_squared_error
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 
 
 def load_split_txt(path):
@@ -84,75 +83,20 @@ def write_hyperparameter_into_a_file(
         f.write(f"patience: {patience}\n")
 
 
-def load_data_for_split(
-        split_id, batch_size, train_splits, val_splits, test_splits, graph_dir
-):
-    train_ids = train_splits[split_id]
-    val_ids = val_splits[split_id]
-    test_ids = test_splits[split_id]
-
-    train_set = URVGraphDataset(graph_dir, train_ids)
-    val_set = URVGraphDataset(graph_dir, val_ids)
-    test_set = URVGraphDataset(graph_dir, test_ids)
-
-    train_loader = DataLoader(
-        train_set, batch_size=batch_size, shuffle=True, drop_last=False
-    )
-    val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False)
-
-    return train_loader, val_loader, test_loader
 
 
-def is_finite_number(number):
-    return number is not None and np.isfinite(number)
+def escala_global(file_path):
+    labels = np.loadtxt(file_path, usecols=1)
 
+    real_min = labels.min()
+    real_max = labels.max()
 
-# to avoid NAN and INF
-def safe_mean_std(values, empty_mean=float("inf"), empty_std=float("inf")):
-    arr = np.asarray(values, dtype=float)
-    arr = arr[np.isfinite(arr)]
+    margin = 0.2
+    global_min = real_min - margin
+    global_max = real_max + margin
 
-    if arr.size == 0:
-        return empty_mean, empty_std
+    print("Global axis limits:", global_min, global_max)
 
-    return float(np.mean(arr)), float(np.std(arr))
+    np.save("global_axis.npy", [global_min, global_max])
 
-
-def save_tuning_in_a_file(results, file):
-    best_result = results.get_best_result(metric="mean_val_rmse", mode="min")
-    df = results.get_dataframe()
-
-    with open(file, "w", encoding="UTF-8") as f:
-        f.write("GIGN Hyperparameter Tuning Results\n")
-        f.write("//BEST CONFIG:\n")
-        f.write(json.dumps(best_result.config, indent=4, ensure_ascii=False))
-        f.write("\n\n")
-
-        f.write("//METRIC:\n")
-        best_metrics = {
-            "mean_val_rmse": best_result.metrics.get("mean_val_rmse"),
-            "std_val_rmse": best_result.metrics.get("std_val_rmse"),
-            "mean_val_pearson": best_result.metrics.get("mean_val_pearson"),
-            "std_val_pearson": best_result.metrics.get("std_val_pearson"),
-        }
-        f.write(json.dumps(best_metrics, indent=4, ensure_ascii=False))
-        f.write("\n\n")
-
-        f.write("//ALL CONFIG:\n")
-        # Output files in Ray Tune starts with config
-        config_cols = [c for c in df.columns if c.startswith("config/")]
-
-        for _, row in df.iterrows():
-            config_dict = {}
-            for col in config_cols:
-                key = col.replace("config/", "")
-                value = row[col]
-
-                if hasattr(value, "item"):
-                    value = value.item()
-
-                config_dict[key] = value
-
-            f.write(json.dumps(config_dict, ensure_ascii=False))
-            f.write("\n")
+    return global_min, global_max

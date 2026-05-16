@@ -6,7 +6,7 @@ import numpy as np
 import ray
 import torch
 import torch.nn as nn
-from ray import tune, train
+from ray import tune
 from torch_geometric.loader import DataLoader
 
 from GIGN_GUI.model.gign_model import GIGN

@@ -51,7 +51,7 @@ class DBGenerationDialog(QDialog):
 
         self.output_dir_input = QLineEdit()
         self.output_dir_input.setPlaceholderText(
-            "Optional (default output directory)"
+            "Output directory"
         )
         self.output_dir_input.setText(
             self.settings.value("dbGen/last_output_dir", "")
@@ -73,7 +73,6 @@ class DBGenerationDialog(QDialog):
             "Proteins dir:", self._with_button(self.pdb_dir_input, self.pdb_btn)
         )
 
-        form_layout.addRow(QLabel("<b>Optional</b>"))
         form_layout.addRow(
             "Output dir:",
             self._with_button(self.output_dir_input, self.output_btn),

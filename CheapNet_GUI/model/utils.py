@@ -72,65 +72,6 @@ def write_hyperparameter_in_a_file(hidden_dim, node_dim, drop_rate, epochs, batc
         f.write(f"patience: {patience}\n")
 
 
-# for prediction
-def evaluate(model, dataloader):
-    model.eval()
-    preds, labels = [], []
-
-    with torch.no_grad():
-        for data in dataloader:
-            data = data.to(DEVICE)
-            pred = model(data)
-            pred = pred * y_std + y_mean
-            preds.append(pred.cpu().numpy())
-            labels.append(data.y.cpu().numpy())
-
-    preds = np.concatenate(preds)
-    labels = np.concatenate(labels)
-
-    rmse = np.sqrt(mean_squared_error(labels, preds))
-    pearson = np.corrcoef(labels, preds)[0, 1]
-    spearman = spearmanr(labels, preds)[0]
-
-    return rmse, pearson, spearman, labels, preds
-
-
-def parse_parameter_file(file):
-    if not os.path.isfile(file):
-        raise FileNotFoundError(f"Parameter file not found: {file}")
-
-    params = dict.fromkeys(
-        ["node_dim", "hidden_dim", "drop_rate", "batch_size"], None
-    )
-
-    with open(file) as f:
-        for line in f:
-            line = line.strip()
-
-            if not line:
-                continue
-
-            if ":" not in line:
-                continue
-
-            key, value = line.split(":", 1)
-            key = key.strip()
-            value = value.strip()
-
-            if key not in params:
-                continue
-
-            try:
-                value = ast.literal_eval(value)
-            except (ValueError, SyntaxError):
-                print(f"Error parsing value for key '{key}': {value}")
-                return None
-
-            params[key] = value
-
-    return params
-
-
 def escala_global(file_path):
     labels = np.loadtxt(file_path, usecols=1)
 

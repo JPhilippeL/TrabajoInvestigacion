@@ -18,8 +18,8 @@ def dialog_accepted(dialog):
     return None
 
 
-def pop_unused_key(values):
-    config = values.copy()
+def pop_unused_key(dialog_inputs):
+    config = dialog_inputs.copy()
     unused_keys = ["train_file", "test_file", "val_file", "save_directory", "graph_directory", "cpu_per_trials",
                    "gpu_per_trials", "number_of_trials"]
     for key in unused_keys:
@@ -28,8 +28,8 @@ def pop_unused_key(values):
     return config
 
 
-def create_ray_tune_config(values):
-    config = pop_unused_key(values)
+def create_ray_tune_config(dialog_inputs):
+    config = pop_unused_key(dialog_inputs)
     hidden_dim_interval = []
     hidden_dim_min = config["hidden_dim_min"]
     while hidden_dim_min <= config["hidden_dim_max"]:
@@ -51,23 +51,24 @@ def create_ray_tune_config(values):
         "NODE_DIM": config["NODE_DIM"],
         "hidden_dim": tune.choice(hidden_dim_interval),
         "batch_size": tune.choice(batch_size_interval),
-        "lr": tune.loguniform(values["lr_min"], values["lr_max"]),
-        "weight_decay": tune.loguniform(values["weight_decay_min"], values["weight_decay_max"]),
+        "lr": tune.loguniform(dialog_inputs["lr_min"], dialog_inputs["lr_max"]),
+        "weight_decay": tune.loguniform(dialog_inputs["weight_decay_min"], dialog_inputs["weight_decay_max"]),
         "EPOCHS": config["EPOCHS"],
         "PATIENCE": config["PATIENCE"],
         "drop_out": tune.choice(drop_out_interval),
     }
 
 
-def launch_ray_tune_hyperparameter_search(input_values, log_callback):
-    config = create_ray_tune_config(input_values)
+def launch_ray_tune_hyperparameter_search(dialog_input, log_callback):
+    config = create_ray_tune_config(dialog_input)
     run_hyperparameter_search(
-        input_values["save_directory"], input_values["train_file"], input_values["test_file"], input_values["val_file"],
-        config, input_values["graph_directory"], input_values["cpu_per_trials"], input_values["gpu_per_trials"],
-        input_values["number_of_trials"], log_callback=log_callback
+        dialog_input["save_directory"], dialog_input["train_file"], dialog_input["test_file"], dialog_input["val_file"],
+        config, dialog_input["graph_directory"], dialog_input["cpu_per_trials"], dialog_input["gpu_per_trials"],
+        dialog_input["number_of_trials"], log_callback=log_callback
     )
 
 
+# This will run our hyperparameter search on a separate process than Qt.
 if __name__ == "__main__":
     start_hp = time.time()
     params = json.loads(sys.argv[1])

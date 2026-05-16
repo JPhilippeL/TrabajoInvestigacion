@@ -1,7 +1,6 @@
 import os
 from time import time
 
-import networkx as nx
 import pandas as pd
 import torch
 from Bio.PDB import PDBParser
@@ -9,11 +8,6 @@ from rdkit import Chem
 from scipy.spatial import distance_matrix
 from torch_geometric.data import Data
 from tqdm import tqdm
-
-
-# =========================================================
-# pIC50 loader
-# =========================================================
 
 
 def load_pic50(pic50_path):
@@ -27,9 +21,6 @@ def load_pic50(pic50_path):
     return dict(zip(df["pdb_id"], df["pIC50"]))
 
 
-# =========================================================
-# Atomic feature helpers
-# =========================================================
 ATOM_TYPES = ["C", "N", "O", "S", "H", "P", "F", "Cl", "Br", "I"]
 
 
@@ -53,9 +44,6 @@ def protein_atom_features(atom_name):
     return atom_type_onehot(symbol) + [0, 0]
 
 
-# =========================================================
-# Coordinate and graph helpers
-# =========================================================
 def load_ligand(sdf_path):
     mol = Chem.MolFromMolFile(sdf_path, removeHs=False)
     if mol is None:
@@ -89,7 +77,6 @@ def load_protein(pdb_path):
 
 
 def filter_protein_atoms_by_distance(prot_coords, lig_coords, cutoff=5.0):
-    """Mantiene solo átomos de la proteína dentro de `cutoff` Å de algún átomo del ligando."""
     if not prot_coords or not lig_coords:
         return {}
     prot_keys = list(prot_coords.keys())
@@ -103,36 +90,6 @@ def filter_protein_atoms_by_distance(prot_coords, lig_coords, cutoff=5.0):
     return {k: prot_coords[k] for k in filtered_keys}
 
 
-def mol2graph(mol):
-    graph = nx.Graph()
-    for atom in mol.GetAtoms():
-        atom_feats = torch.tensor(ligand_atom_features(atom))
-        graph.add_node(atom.GetIdx(), feats=atom_feats)
-    for bond in mol.GetBonds():
-        i, j = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
-        graph.add_edge(i, j)
-    graph = graph.to_directed()
-    x = torch.stack([feats["feats"] for n, feats in graph.nodes(data=True)])
-    edge_index = torch.stack(
-        [torch.LongTensor((u, v)) for u, v in graph.edges(data=False)]
-    ).T
-    return x, edge_index
-
-
-def inter_graph(ligand_mol, protein_mol, pos_l, pos_p, dis_threshold=5.0):
-    num_l, num_p = pos_l.shape[0], pos_p.shape[0]
-    dist_mat = distance_matrix(pos_l, pos_p)
-    idx = torch.nonzero(torch.tensor(dist_mat) < dis_threshold)
-    edges = [[i, j + num_l] for i, j in idx]
-    edges += [[j + num_l, i] for i, j in idx]  # bidirectional
-    return (
-        torch.tensor(edges).T if edges else torch.empty(2, 0, dtype=torch.long)
-    )
-
-
-# =========================================================
-# Build graph compatible with CheapNet original (v04 FIXED)
-# =========================================================
 def build_graph_for_original(ligand_sdf_dir, proteine_pdb_dir, pdb_id, pic50_dict, dis_threshold=5.0, cutoff_prot=6.0):
     lig_coords, lig_feats, lig_mol = load_ligand(os.path.join(ligand_sdf_dir, f"{pdb_id}_ligand.sdf"))
     prot_coords, prot_feats, _ = load_protein(os.path.join(proteine_pdb_dir, f"{pdb_id}_protein.pdb"))
@@ -140,9 +97,6 @@ def build_graph_for_original(ligand_sdf_dir, proteine_pdb_dir, pdb_id, pic50_dic
     if not lig_coords or not prot_coords:
         return None
 
-    # -----------------------------------------------------
-    # Filtrar proteína por proximidad al ligando
-    # -----------------------------------------------------
     prot_coords = filter_protein_atoms_by_distance(
         prot_coords, lig_coords, cutoff=cutoff_prot
     )
@@ -151,26 +105,6 @@ def build_graph_for_original(ligand_sdf_dir, proteine_pdb_dir, pdb_id, pic50_dic
     if not prot_coords:
         return None
 
-    # -----------------------------------------------------
-    # Construcción de nodos
-    # -----------------------------------------------------
-    nodes = {}
-    ligand_nodes, protein_nodes = set(), set()
-    i_counter = 0
-
-    for k in lig_coords.keys():
-        nodes[k] = i_counter
-        ligand_nodes.add(k)
-        i_counter += 1
-
-    for k in prot_coords.keys():
-        nodes[k] = i_counter
-        protein_nodes.add(k)
-        i_counter += 1
-
-    # -----------------------------------------------------
-    # Posiciones y features base
-    # -----------------------------------------------------
     pos_l_tensor = torch.stack([lig_coords[k] for k in lig_coords])
     pos_p_tensor = torch.stack([prot_coords[k] for k in prot_coords])
 
@@ -184,9 +118,6 @@ def build_graph_for_original(ligand_sdf_dir, proteine_pdb_dir, pdb_id, pic50_dic
     num_l = pos_l_tensor.shape[0]
     num_p = pos_p_tensor.shape[0]
 
-    # -----------------------------------------------------
-    # INTRA-LIGAND (enlaces químicos RDKit)
-    # -----------------------------------------------------
     edge_l = []
     for bond in lig_mol.GetBonds():
         i = bond.GetBeginAtomIdx()
@@ -200,9 +131,6 @@ def build_graph_for_original(ligand_sdf_dir, proteine_pdb_dir, pdb_id, pic50_dic
         else torch.empty(2, 0, dtype=torch.long)
     )
 
-    # -----------------------------------------------------
-    # INTRA-PROTEIN (por distancia)
-    # -----------------------------------------------------
     dist_pp = distance_matrix(pos_p_tensor.numpy(), pos_p_tensor.numpy())
 
     edges_pro = []
@@ -217,16 +145,10 @@ def build_graph_for_original(ligand_sdf_dir, proteine_pdb_dir, pdb_id, pic50_dic
         else torch.empty(2, 0, dtype=torch.long)
     )
 
-    # -----------------------------------------------------
-    # INTRA TOTAL
-    # -----------------------------------------------------
     edge_index_intra = torch.cat(
         [edge_index_intra_lig, edge_index_intra_pro], dim=1
     )
 
-    # -----------------------------------------------------
-    # INTER (ligando-proteína por distancia)
-    # -----------------------------------------------------
     dist_lp = distance_matrix(pos_l_tensor.numpy(), pos_p_tensor.numpy())
 
     edges_inter = []
@@ -242,14 +164,8 @@ def build_graph_for_original(ligand_sdf_dir, proteine_pdb_dir, pdb_id, pic50_dic
         else torch.empty(2, 0, dtype=torch.long)
     )
 
-    # -----------------------------------------------------
-    # EDGE TOTAL
-    # -----------------------------------------------------
     edge_index_total = torch.cat([edge_index_intra, edge_index_inter], dim=1)
 
-    # -----------------------------------------------------
-    # Features geométricas (grado + distancia media)
-    # -----------------------------------------------------
     deg = (
         torch.bincount(edge_index_total[0], minlength=pos.shape[0])
         .float()
@@ -264,27 +180,15 @@ def build_graph_for_original(ligand_sdf_dir, proteine_pdb_dir, pdb_id, pic50_dic
 
     x = torch.cat([x, deg, dist_feat], dim=1)
 
-    # -----------------------------------------------------
-    # Target
-    # -----------------------------------------------------
     y = torch.tensor([pic50_dict[pdb_id]], dtype=torch.float32)
 
-    # -----------------------------------------------------
-    # Split ligand/protein
-    # -----------------------------------------------------
     split = torch.zeros(pos.shape[0], dtype=torch.long)
     split[:num_l] = 1  # ligand = 1, protein = 0
 
-    # -----------------------------------------------------
-    # Edge attributes
-    # -----------------------------------------------------
     edge_attr = torch.norm(
         pos[edge_index_total[0]] - pos[edge_index_total[1]], dim=1, keepdim=True
     )
 
-    # -----------------------------------------------------
-    # Batch
-    # -----------------------------------------------------
     batch = torch.zeros(pos.shape[0], dtype=torch.long)
 
     return Data(
