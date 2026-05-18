@@ -301,9 +301,9 @@ def explicar_y_guardar_molecula_individual(
 # ==========================================
 # (Asegúrate de tener data_list cargado)
 
-RUTA_MODELO = "Modelos/NuevaPruebaNuevasFeatures/split_0/GraphTransformer_4capas_pIC50.pt"
+RUTA_MODELO = "Modelos/GT_4_Split3.pt"
 DATA_PATH = "/home/philippe/Documents/Databases/3_A_node_id/pocket_BD.pt"
-MOL_OBJETIVO = "7GJO"
+MOL_OBJETIVO = "7GKN"
 
 train_loader, val_loader, device, targetname = prepare_pt_training_data(
     pt_file_path=DATA_PATH, 
@@ -311,13 +311,10 @@ train_loader, val_loader, device, targetname = prepare_pt_training_data(
     valid_split=0.0   # <-- 0% validación, 100% de los datos van a train_loader
 )
 
-# 2. Le pasas directamente el dataset completo a tu función
-ruta_resumen = f"{RESULTADOS_DIR}/importancias_beta_{targetname}.csv"
-
-df_resumen, df_crudo = calcular_y_guardar_importancias_beta(
-    data_list=train_loader.dataset,  # <-- Usamos .dataset para evitar el empaquetado del DataLoader
-    checkpoint_path=RUTA_MODELO, 
-)
+# df_resumen, df_crudo = calcular_y_guardar_importancias_beta(
+#     data_list=train_loader.dataset,  # <-- Usamos .dataset para evitar el empaquetado del DataLoader
+#     checkpoint_path=RUTA_MODELO, 
+# )
 
 # Ejecutar la función para una sola molécula
 df_resultado = explicar_y_guardar_molecula_individual(

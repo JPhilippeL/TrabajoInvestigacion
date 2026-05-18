@@ -318,10 +318,10 @@ def obtener_graph_explainer(
     if batch_mode:
         return {
             'mol_name': mol_name, # Para usarlo como llave en el bucle
-            'alfa': alfa_sorted.detach().cpu() if alfa is not None else None,
-            'beta': beta_np.detach().cpu() if beta is not None else None,
-            'gamma': gamma_sorted.detach().cpu() if gamma is not None else None,
-            'delta': delta_normalized.detach().cpu() if delta is not None else None
+            'alfa': alfa_sorted if alfa is not None else None,
+            'beta': beta_np if beta is not None else None,
+            'gamma': gamma_sorted if gamma is not None else None,
+            'delta': delta_normalized if delta is not None else None
         }
 
     guardar_pesos(alfa, beta, gamma, delta, model_folder_name,

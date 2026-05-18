@@ -79,23 +79,23 @@ def obtener_graph_explainer(
     # ==========================================================================
 
     # 1. ALFA (Node Features) -> Filtrar -> Ordenar -> Normalizar
-    node_feature_names = NODE_FEATURE_NAMES_ONE_HOT
-    alfa_sorted, row_labels_alfa = procesar_features_onehot(
-        alfa, node_feature_names, muestra.x
-    )
+    # node_feature_names = NODE_FEATURE_NAMES_ONE_HOT
+    # alfa_sorted, row_labels_alfa = procesar_features_onehot(
+    #     alfa, node_feature_names, muestra.x
+    # )
 
-    # 2. GAMMA (Edge Features) -> Filtrar -> Ordenar -> Normalizar
-    # Reemplaza a Beta en el segundo heatmap
-    if muestra.edge_attr is not None:
-        # edge_feature_names = ["Bond Type", "Distance"]
-        edge_feature_names = EDGE_FEATURE_NAMES
+    # # 2. GAMMA (Edge Features) -> Filtrar -> Ordenar -> Normalizar
+    # # Reemplaza a Beta en el segundo heatmap
+    # if muestra.edge_attr is not None:
+    #     # edge_feature_names = ["Bond Type", "Distance"]
+    #     edge_feature_names = EDGE_FEATURE_NAMES
         
-        gamma_sorted, row_labels_gamma = procesar_features_onehot(
-            gamma, edge_feature_names, muestra.edge_attr
-        )
-    else:
-        gamma_sorted = np.array([])
-        row_labels_gamma = []
+    #     gamma_sorted, row_labels_gamma = procesar_features_onehot(
+    #         gamma, edge_feature_names, muestra.edge_attr
+    #     )
+    # else:
+    #     gamma_sorted = np.array([])
+    #     row_labels_gamma = []
 
     # --- BETA (Nodos) ---
     beta_np = tensor_to_abs_numpy(beta)
@@ -115,10 +115,10 @@ def obtener_graph_explainer(
     if batch_mode:
         return {
             'mol_name': mol_name, # Para usarlo como llave en el bucle
-            'alfa': alfa_sorted.detach().cpu() if alfa is not None else None,
-            'beta': beta_np.detach().cpu() if beta is not None else None,
-            'gamma': gamma_sorted.detach().cpu() if gamma is not None else None,
-            'delta': delta_normalized.detach().cpu() if delta is not None else None
+            #'alfa': alfa_sorted if alfa is not None else None,
+            'beta': beta_np if beta is not None else None,
+            #'gamma': gamma_sorted if gamma is not None else None,
+            'delta': delta_normalized if delta is not None else None
         }
     
     return 0
