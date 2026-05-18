@@ -93,7 +93,7 @@ def train_gign(
             for data in train_loader:
                 data = data.to(device)
 
-                pred = model(data).view(-1)
+                pred = model(data)
                 target = data.y.view(-1)
                 loss = criterion(pred, target)
 
@@ -152,7 +152,7 @@ def train_gign(
                     log_callback.info(">>> Early stopping activado")
                 break
 
-        checkpoint = model.load(best_model_path, map_location=device, weights_only=False)
+        checkpoint = torch.load(best_model_path, map_location=device, weights_only=False)
         model.load_state_dict(checkpoint["model_state_dict"])
         best_test_rmse, best_test_pr = val(model, test_loader, device)
         split_best_val_rmses.append(checkpoint["best_val_rmse"])

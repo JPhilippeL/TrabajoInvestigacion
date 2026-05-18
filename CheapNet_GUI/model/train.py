@@ -97,7 +97,7 @@ def train_cheapnet(save_dir, train_split_file, val_split_file, test_split_file, 
             for data in train_loader:
                 data = data.to(device)
 
-                pred = model(data).view(-1)
+                pred = model(data)
                 target = data.y.view(-1)
                 y = (target - y_mean) / y_std
                 loss = criterion(pred, y)
