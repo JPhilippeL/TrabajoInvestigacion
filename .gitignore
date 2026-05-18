@@ -18,3 +18,4 @@ __pycache__/
 .idea
 global_axis.npy
 pyproject.toml
+result
