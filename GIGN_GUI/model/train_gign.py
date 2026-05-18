@@ -126,10 +126,10 @@ def train_gign(
                     {
                         "split_id": split_id,
                         "best_epoch": best_epoch,
-                        "best_rmse": best_rmse,
+                        "best_val_rmse": best_rmse,
                         "model_state_dict": model.state_dict(),
                         "config": {
-                            "epochs": epochs,
+                            "epochs": epoch,
                             "node_dim": node_dim,
                             "hidden_dim": hidden_dim,
                             "batch_size": batch_size,

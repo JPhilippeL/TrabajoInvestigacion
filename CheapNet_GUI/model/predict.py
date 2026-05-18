@@ -1,5 +1,7 @@
 import matplotlib
 
+from CheapNet_GUI.model.CheapNet_model import CheapNet
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import os
@@ -19,14 +21,16 @@ def evaluate(model, dataloader, y_mean, y_std):
     model.eval()
     preds, labels = [], []
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-
+    y_mean = y_mean.to(DEVICE)
+    y_std = y_std.to(DEVICE)
     with torch.no_grad():
         for data in dataloader:
             data = data.to(DEVICE)
-            pred = model(data)
+            pred = model(data).view(-1)
             pred = pred * y_std + y_mean
+            target = data.y.view(-1)
             preds.append(pred.cpu().numpy())
-            labels.append(data.y.cpu().numpy())
+            labels.append(target.cpu().numpy())
 
     preds = np.concatenate(preds).reshape(-1)
     labels = np.concatenate(labels).reshape(-1)
@@ -118,16 +122,15 @@ def predict(pic50_txt, test_split_file, graph_dir, model_dir, output_dir, log_ca
     for split_idx in range(5):
         split_name = f"Split {split_idx:02d}"
         if log_callback:
-            log_callback.info(f"\n==============================")
+            log_callback.info("\n==============================")
             log_callback.info(f"        {split_name}")
-            log_callback.info(f"==============================")
+            log_callback.info("==============================")
 
         test_ids = test_splits[split_idx]
 
         test_set = URVGraphDataset(graph_dir, test_ids)
         test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False)
 
-        # Cargar modelo
         split_model_dir = os.path.join(model_dir, f"split_{split_idx:02d}")
         model_path = os.path.join(split_model_dir, "best_model.pt")
 
@@ -140,19 +143,25 @@ def predict(pic50_txt, test_split_file, graph_dir, model_dir, output_dir, log_ca
         model_path = os.path.join(
             model_dir, f"split_{split_idx:02d}", "best_model.pt"
         )
-        checkpoint = torch.load(model_path, map_location=DEVICE)
-        model = checkpoint["model"]
-        y_mean = checkpoint["y_mean"]
-        y_std = checkpoint["y_std"]
+        checkpoint = torch.load(model_path, map_location=DEVICE, weights_only=False)
+        config = checkpoint["config"]
+        q_lig = [0, 20, 28, 37, 177]
+        q_pro = [0, 130, 156, 186, 500]
+        q_i_lig = 2
+        q_i_pro = 2
+        num_clusters = [q_lig[q_i_lig], q_pro[q_i_pro]]
+        model = CheapNet(
+            config["node_dim"],
+            config["hidden_dim"],
+            config["drop_out"],
+            num_clusters,
+        ).to(DEVICE)
 
-        model = model.to(DEVICE)
+        model.load_state_dict(checkpoint["model_state_dict"])
 
-        rmse, pearson, spearman, labels, preds = evaluate(
-            model,
-            test_loader,
-            y_mean,
-            y_std
-        )
+        y_mean = checkpoint["y_mean"].to(DEVICE)
+        y_std = checkpoint["y_std"].to(DEVICE)
+        rmse, pearson, spearman, preds, labels = evaluate(model, test_loader,y_mean,y_std)
         if log_callback:
             log_callback.info(f"RMSE: {rmse:.4f}")
             log_callback.info(f"Pearson: {pearson:.4f}")
