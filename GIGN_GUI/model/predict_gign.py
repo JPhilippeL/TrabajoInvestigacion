@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import torch
 
+from GIGN_GUI.model.gign_model import GIGN
+
 # don't remove
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -22,9 +24,10 @@ def evaluate(model, dataloader):
     with torch.no_grad():
         for data in dataloader:
             data = data.to(device)
-            pred = model(data)
+            pred = model(data).view(-1)
+            target = data.y.view(-1)
             preds.append(pred.cpu().numpy())
-            labels.append(data.y.cpu().numpy())
+            labels.append(target.cpu().numpy())
 
     preds = np.concatenate(preds)
     labels = np.concatenate(labels)
@@ -142,8 +145,21 @@ def predict(
         model_path = os.path.join(
             model_dir, f"split_{split_idx:02d}", "best_model.pt"
         )
-        model = torch.load(model_path, device)
-        model = model.to(device)
+        checkpoint = torch.load(
+            model_path,
+            map_location=device,
+            weights_only=False,
+        )
+
+        config = checkpoint["config"]
+
+        model = GIGN(
+            config["node_dim"],
+            config["hidden_dim"],
+            config["drop_out"],
+        ).to(device)
+
+        model.load_state_dict(checkpoint["model_state_dict"])
         rmse, pearson, spearman, labels, preds = evaluate(model, test_loader)
 
         if log_callback:

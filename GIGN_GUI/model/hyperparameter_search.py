@@ -255,34 +255,22 @@ def run_hyperparameter_search(
     )
 
     best_trial_dir = best_result.path
-
-    final_best_dir = os.path.join(save_directory, "best_trial")
-
-    if os.path.exists(final_best_dir):
-        shutil.rmtree(final_best_dir)
-
-    shutil.copytree(best_trial_dir, final_best_dir)
+    experiment_dir = os.path.dirname(best_trial_dir)
 
     if log_callback:
-        log_callback.info(f"Best trial copied to: {final_best_dir}")
+        log_callback.info(f"Best trial kept at: {best_trial_dir}")
         log_callback.info(f"Best config: {best_result.config}")
         log_callback.info(f"Best mean val RMSE: {best_result.metrics['mean_val_rmse']}")
-
-    experiment_dir = os.path.dirname(best_trial_dir)
+        log_callback.info(f"Best mean test RMSE: {best_result.metrics['mean_test_rmse']}")
+        log_callback.info(f"Best mean test Pearson: {best_result.metrics['mean_test_pearson']}")
 
     for item in os.listdir(experiment_dir):
         item_path = os.path.join(experiment_dir, item)
 
-        if item_path == final_best_dir:
-            continue
-
-        if item_path == best_trial_dir:
+        if os.path.abspath(item_path) == os.path.abspath(best_trial_dir):
             continue
 
         if os.path.isdir(item_path):
             shutil.rmtree(item_path, ignore_errors=True)
 
     return best_result
-
-
-
