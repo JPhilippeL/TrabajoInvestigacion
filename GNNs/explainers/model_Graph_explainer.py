@@ -3,19 +3,14 @@ from GNNs.model_tester import cargar_modelo, predecir_molecula
 import torch
 import torch.nn as nn
 import numpy as np
-from ui.utils.constants import periodic_elements, hybridization_types
-import os
 import sys
 import logging
 from GNNs.data_processing import onehot_to_indices, indices_to_onehot
-from rdkit import Chem
-from graph_managment.sdf_converter import parse_sdf
 from GNNs.explainers.explanation_helper import ( 
-    obtener_info_real, guardar_dashboard_explicacion,
-    guardar_pesos, tensor_to_abs_numpy, 
-    normalizar_por_norma, get_feature_names_embedding, 
-    procesar_features_ordenadas )
+    tensor_to_abs_numpy, normalizar_por_norma, procesar_features_onehot)
 from GNNs.explainers.graph_explainer_onehot import generate_perturbed_samples, graph_feature_distance_list
+from ui.utils.constants import (
+    EDGE_FEATURE_NAMES, NODE_FEATURE_NAMES_ONE_HOT)
 
 ALGO_NAME = "GraphExplainer"
 MININICIAL = sys.float_info.max
@@ -79,21 +74,51 @@ def obtener_graph_explainer(
     print(f"Max Alfa: {alfa.max().item():.4f}, Min Alfa: {alfa.min().item():.4f}")
     print(f"Max Beta: {beta.max().item():.4f}, Min Beta: {beta.min().item():.4f}")
 
+    # ==========================================================================
+    # PROCESAMIENTO DE MATRICES
+    # ==========================================================================
+
+    # 1. ALFA (Node Features) -> Filtrar -> Ordenar -> Normalizar
+    node_feature_names = NODE_FEATURE_NAMES_ONE_HOT
+    alfa_sorted, row_labels_alfa = procesar_features_onehot(
+        alfa, node_feature_names, muestra.x
+    )
+
+    # 2. GAMMA (Edge Features) -> Filtrar -> Ordenar -> Normalizar
+    # Reemplaza a Beta en el segundo heatmap
+    if muestra.edge_attr is not None:
+        # edge_feature_names = ["Bond Type", "Distance"]
+        edge_feature_names = EDGE_FEATURE_NAMES
+        
+        gamma_sorted, row_labels_gamma = procesar_features_onehot(
+            gamma, edge_feature_names, muestra.edge_attr
+        )
+    else:
+        gamma_sorted = np.array([])
+        row_labels_gamma = []
+
     # --- BETA (Nodos) ---
     beta_np = tensor_to_abs_numpy(beta)
     beta_np = normalizar_por_norma(beta_np)  
 
+    # --- DELTA (Aristas) ---
+    if delta is not None:
+        delta_np = tensor_to_abs_numpy(delta)
+        # CAMBIO: Usar normalizar_por_norma para evitar que una arista desaparezca si hay pocas
+        delta_normalized = normalizar_por_norma(delta_np) 
+    else:
+        delta_normalized = np.array([])
+
     # Preparamos el nombre del modelo para la carpeta
     model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
 
-    # NUEVA LÓGICA: Si es batch, preparamos el diccionario y retornamos INMEDIATAMENTE
     if batch_mode:
         return {
             'mol_name': mol_name, # Para usarlo como llave en el bucle
-            'alfa': alfa.detach().cpu() if alfa is not None else None,
-            'beta': beta_np,
-            'gamma': gamma.detach().cpu() if gamma is not None else None,
-            'delta': delta.detach().cpu() if delta is not None else None
+            'alfa': alfa_sorted.detach().cpu() if alfa is not None else None,
+            'beta': beta_np.detach().cpu() if beta is not None else None,
+            'gamma': gamma_sorted.detach().cpu() if gamma is not None else None,
+            'delta': delta_normalized.detach().cpu() if delta is not None else None
         }
     
     return 0

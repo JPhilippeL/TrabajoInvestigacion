@@ -11,7 +11,7 @@ sys.path.insert(0, dir_padre)
 from GNNs.explainers.model_Graph_explainer import obtener_graph_explainer
 from GNNs.data_processing import prepare_pt_training_data
 from GNNs.model_tester import cargar_modelo, predecir_molecula
-from ui.utils.constants import RESULTADOS_DIR
+from ui.utils.constants import RESULTADOS_DIR, BOND_CLASS_NAMES
 
 MAX_ERROR = 1
 
@@ -154,12 +154,12 @@ def explicar_y_guardar_molecula_individual(
     csv_dir=RESULTADOS_DIR,
 ):
     """
-    Busca una molécula específica, comprueba su error, calcula la importancia 
-    'beta' de sus nodos y guarda un CSV con los nodos y su importancia.
+    Busca una molécula, comprueba su error, calcula la importancia 
+    'beta' (nodos) y 'delta' (enlaces), filtra enlaces no covalentes y guarda los CSVs.
     """
     print(f"Buscando la molécula '{target_mol_name}' en el dataset...")
     
-    # 1. Buscar la molécula en la lista
+    # 1. Buscar la molécula
     target_data = None
     for data in data_list:
         if data.name == target_mol_name:
@@ -167,8 +167,8 @@ def explicar_y_guardar_molecula_individual(
             break
             
     if target_data is None:
-        print(f"❌ Error: No se encontró la molécula '{target_mol_name}' en el dataset.")
-        return None
+        print(f"❌ Error: No se encontró la molécula '{target_mol_name}'.")
+        return None, None
         
     print(f"✅ Molécula encontrada. Cargando modelo...")
 
@@ -189,8 +189,8 @@ def explicar_y_guardar_molecula_individual(
     error = abs(pred_val - real_val)
     
     if error >= MAX_ERROR:
-        print(f"⏩ Operación cancelada. El error ({error:.3f}) es mayor o igual a MAX_ERROR ({MAX_ERROR}).")
-        return None
+        print(f"⏩ Operación cancelada. El error ({error:.3f}) >= MAX_ERROR ({MAX_ERROR}).")
+        return None, None
         
     print(f"✅ Error aceptable ({error:.3f} < {MAX_ERROR}). Explicando...")
 
@@ -201,43 +201,100 @@ def explicar_y_guardar_molecula_individual(
         batch_mode=True
     )
     
+    # ==========================================================
+    # PROCESAMIENTO DE NODOS (BETA)
+    # ==========================================================
     beta = resultados['beta'] 
     original_ids = target_data.node_ids 
-    
-    # 5. Estructurar los datos para la tabla
     nodos_data = []
     
-    for importancia, n_id in zip(beta, original_ids):
+    # Función de ayuda para limpiar los IDs
+    def limpiar_id(n_id, idx_tensor):
+        if n_id is None:
+            return f"LIGAND_{idx_tensor}" # Si es None, es del ligando
+        partes = n_id.split('_')
+        if len(partes) >= 4:
+            return f"{partes[0]}_{partes[1]}_{partes[-1]}"
+        return n_id
+
+    for i, (importancia, n_id) in enumerate(zip(beta, original_ids)):
         if n_id is not None:
-            # Limpiar el node_id (Ej: "ALA_163_B_N" -> "ALA_163_N")
-            partes = n_id.split('_')
-            if len(partes) >= 4:
-                n_id_limpio = f"{partes[0]}_{partes[1]}_{partes[-1]}"
-            else:
-                n_id_limpio = n_id
-            
-            # Guardamos como un diccionario (que luego será una fila del DataFrame)
+            n_id_limpio = limpiar_id(n_id, i)
             nodos_data.append({
                 'node_id': n_id_limpio,
                 'importancia': float(importancia.item())
             })
 
-    # 6. Crear DataFrame y guardar
     df_nodos = pd.DataFrame(nodos_data)
-    
-    # Ordenar de mayor a menor importancia
     df_nodos = df_nodos.sort_values(by='importancia', ascending=False)
     
-    # Guardar en CSV
-    save_path = os.path.join(csv_dir, f"importancias_{target_mol_name}.csv")
+    save_path_nodos = os.path.join(csv_dir, f"importancias_nodos_{target_mol_name}.csv")
+    df_nodos.to_csv(save_path_nodos, index=False)
+    print(f"✅ CSV Nodos guardado: {save_path_nodos}")
+
+    # ==========================================================
+    # PROCESAMIENTO DE ENLACES (DELTA)
+    # ==========================================================
+    delta = resultados.get('delta')
+    df_edges = None
     
-    # index=False evita que Pandas guarde los números de fila (0, 1, 2...)
-    df_nodos.to_csv(save_path, index=False)
-    
-    print(f"🎉 ¡Proceso finalizado! CSV guardado en: {save_path}")
-    print(df_nodos.head()) # Mostrar los 5 más importantes por consola
-    
-    return df_nodos
+    if delta is not None and target_data.edge_index is not None:
+        edges_data = []
+        edge_index = target_data.edge_index
+        edge_attr = target_data.edge_attr
+        
+        # Set para evitar meter el enlace de ida y el de vuelta duplicados
+        enlaces_vistos = set()
+        
+        for i in range(edge_index.shape[1]):
+            nodo_u = edge_index[0, i].item()
+            nodo_v = edge_index[1, i].item()
+            
+            id_u = original_ids[nodo_u]
+            id_v = original_ids[nodo_v]
+            
+            # Condición 1: Que al menos uno de los nodos sea del pocket (tenga ID)
+            if id_u is not None or id_v is not None:
+                
+                # Obtener el índice del tipo de enlace (Columna 0 de edge_attr)
+                bond_idx = int(edge_attr[i, 0].item())
+                
+                # Condición 2: Que sea NO covalente (Índice > 3 según tu diccionario)
+                if bond_idx > 3:
+                    u_limpio = limpiar_id(id_u, nodo_u)
+                    v_limpio = limpiar_id(id_v, nodo_v)
+                    
+                    # Ordenar alfabéticamente para crear una clave única sin importar la dirección
+                    par_nodos = tuple(sorted([u_limpio, v_limpio]))
+                    
+                    if par_nodos not in enlaces_vistos:
+                        enlaces_vistos.add(par_nodos)
+                        
+                        # Extraer el nombre del enlace si está dentro del rango
+                        if bond_idx < len(BOND_CLASS_NAMES):
+                            nombre_enlace = BOND_CLASS_NAMES[bond_idx]
+                        else:
+                            nombre_enlace = "UNKNOWN"
+                            
+                        edges_data.append({
+                            'interaccion': f"{par_nodos[0]} <-> {par_nodos[1]}",
+                            'nodo_1': par_nodos[0],
+                            'nodo_2': par_nodos[1],
+                            'tipo_enlace': nombre_enlace,
+                            'importancia': float(delta[i].item())
+                        })
+                        
+        if edges_data:
+            df_edges = pd.DataFrame(edges_data)
+            df_edges = df_edges.sort_values(by='importancia', ascending=False)
+            
+            save_path_edges = os.path.join(csv_dir, f"importancias_enlaces_{target_mol_name}.csv")
+            df_edges.to_csv(save_path_edges, index=False)
+            print(f"✅ CSV Enlaces guardado: {save_path_edges}")
+        else:
+            print("⚠️ No se encontraron enlaces no covalentes conectados al pocket.")
+
+    return df_nodos, df_edges
 
 # ==========================================
 # EJEMPLO DE USO:

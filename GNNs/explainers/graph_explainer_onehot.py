@@ -279,24 +279,10 @@ def obtener_graph_explainer(
     # Preparamos el nombre del modelo para la carpeta
     model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
 
-    # NUEVA LÓGICA: Si es batch, preparamos el diccionario y retornamos INMEDIATAMENTE
-    # Esta mal esto, tengo q camiarlo pa que se normalice antes si voy a comparar entre elos, que en realidad no se si hago
-    if batch_mode:
-        return {
-            'mol_name': mol_name, # Para usarlo como llave en el bucle
-            'alfa': alfa.detach().cpu() if alfa is not None else None,
-            'beta': beta.detach().cpu() if beta is not None else None,
-            'gamma': gamma.detach().cpu() if gamma is not None else None,
-            'delta': delta.detach().cpu() if delta is not None else None
-        }
-
-    guardar_pesos(alfa, beta, gamma, delta, model_folder_name,
-                  mol_name, ALGO_NAME)
-    
     # ==========================================================================
     # PROCESAMIENTO DE MATRICES
     # ==========================================================================
-    
+
     # 1. ALFA (Node Features) -> Filtrar -> Ordenar -> Normalizar
     node_feature_names = NODE_FEATURE_NAMES_ONE_HOT
     alfa_sorted, row_labels_alfa = procesar_features_onehot(
@@ -327,7 +313,19 @@ def obtener_graph_explainer(
         delta_normalized = normalizar_por_norma(delta_np) 
     else:
         delta_normalized = np.array([])
+    
+    # NUEVA LÓGICA: Si es batch, preparamos el diccionario y retornamos INMEDIATAMENTE
+    if batch_mode:
+        return {
+            'mol_name': mol_name, # Para usarlo como llave en el bucle
+            'alfa': alfa_sorted.detach().cpu() if alfa is not None else None,
+            'beta': beta_np.detach().cpu() if beta is not None else None,
+            'gamma': gamma_sorted.detach().cpu() if gamma is not None else None,
+            'delta': delta_normalized.detach().cpu() if delta is not None else None
+        }
 
+    guardar_pesos(alfa, beta, gamma, delta, model_folder_name,
+                  mol_name, ALGO_NAME)
 
     # LLAMADA A LA FUNCIÓN Visualizacion
     plotfilename = guardar_dashboard_explicacion(
