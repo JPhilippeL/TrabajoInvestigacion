@@ -1,11 +1,12 @@
-from PySide6.QtWidgets import QMenuBar
 import logging
 
-from CheapNet_GUI.view.menu.menu_CheapNet import MenuCheapNet
-from ui.menus import MenuMolecula, MenuExplainerGNN, MenuTestGNN, MenuTrainGNN, MenuTransferGNN
-from URVDEEPTAF.ui.menus import MenuURVDEEPTAF
-from GIGN_GUI.view.menus.menu_GIGN import MenuGIGN
+from PySide6.QtWidgets import QMenuBar
 
+from CheapNet_GUI.view.menu.menu_CheapNet import MenuCheapNet
+from GIGN_GUI.view.menus.menu_GIGN import MenuGIGN
+from GraphDTA.view.menu.menuDTA import MenuDTA
+from URVDEEPTAF.ui.menus import MenuURVDEEPTAF
+from ui.menus import MenuMolecula, MenuExplainerGNN, MenuTestGNN, MenuTrainGNN, MenuTransferGNN
 
 logger = logging.getLogger(__name__)
 
@@ -46,3 +47,7 @@ class MenuBar(QMenuBar):
         # Menu CheapNet
         self.menu_cheapnet = MenuCheapNet(self.parent)
         self.addMenu(self.menu_cheapnet)
+
+        # Menu GraphDTA
+        self.menu_graphdta = MenuDTA(self.parent)
+        self.addMenu(self.menu_graphdta)
