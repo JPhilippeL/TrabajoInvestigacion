@@ -218,7 +218,7 @@ def generate_all_graphs(
     os.makedirs(out_dir, exist_ok=True)
     debut_generation = time()
     pic50_dict = load_pic50(pic50_file)
-    for pdb_id in tqdm(pic50_dict.keys(), desc="Generando grafos GIGN"):
+    for pdb_id in tqdm(pic50_dict.keys(), desc="Generation GIGN's graph"):
         g = build_graph_for_original(
             pdb_id,
             pic50_dict,
