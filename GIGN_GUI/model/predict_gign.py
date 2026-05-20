@@ -152,9 +152,15 @@ def predict(
         )
 
         config = checkpoint["config"]
+        if "node_dim" in config:
+            node_dim = config["node_dim"]
+        elif "NODE_DIM" in config:
+            node_dim = config["NODE_DIM"]
+        else:
+            raise KeyError("node dimension not found")
 
         model = GIGN(
-            config["node_dim"],
+            node_dim,
             config["hidden_dim"],
             config["drop_out"],
         ).to(device)

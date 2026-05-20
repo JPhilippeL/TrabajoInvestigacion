@@ -150,8 +150,15 @@ def predict(pic50_txt, test_split_file, graph_dir, model_dir, output_dir, log_ca
         q_i_lig = 2
         q_i_pro = 2
         num_clusters = [q_lig[q_i_lig], q_pro[q_i_pro]]
+        config = checkpoint["config"]
+        if "node_dim" in config:
+            node_dim = config["node_dim"]
+        elif "NODE_DIM" in config:
+            node_dim = config["NODE_DIM"]
+        else:
+            raise KeyError("node dimension not found")
         model = CheapNet(
-            config["node_dim"],
+            node_dim,
             config["hidden_dim"],
             config["drop_out"],
             num_clusters,
@@ -161,7 +168,7 @@ def predict(pic50_txt, test_split_file, graph_dir, model_dir, output_dir, log_ca
 
         y_mean = checkpoint["y_mean"].to(DEVICE)
         y_std = checkpoint["y_std"].to(DEVICE)
-        rmse, pearson, spearman, preds, labels = evaluate(model, test_loader,y_mean,y_std)
+        rmse, pearson, spearman, preds, labels = evaluate(model, test_loader, y_mean, y_std)
         if log_callback:
             log_callback.info(f"RMSE: {rmse:.4f}")
             log_callback.info(f"Pearson: {pearson:.4f}")
