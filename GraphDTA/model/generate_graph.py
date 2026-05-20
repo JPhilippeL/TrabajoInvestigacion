@@ -1,9 +1,11 @@
 import os
 
+import networkx as nx
 import numpy as np
 import pandas as pd
 import torch
 from Bio.PDB import PDBParser, PPBuilder
+from matplotlib import pyplot as plt
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from torch_geometric.data import Data
@@ -163,3 +165,35 @@ def generate_all_dta_dta(output_dir, pic50_file, sdf_dir, pdb_dir):
             continue
         out_path = os.path.join(output_dir, f"{pdb_id}.pt")
         torch.save(data, out_path)
+
+
+def debug_graph(file_pt):
+    data = torch.load(file_pt, weights_only=False)
+
+    print(f"Data for {data.pdb_id}:")
+    print(f"  - Number of atoms: {data.x.shape[0]}")
+    print(f"  - Atom feature dimension: {data.x.shape[1]}")
+    print(f"  - Number of edges: {data.edge_index.shape[1]}")
+    print(f"  - Target sequence length: {data.target.shape[1]}")
+    print(f"  - Affinity (pIC50): {data.y.item()}")
+
+    G = nx.Graph()
+
+    num_nodes = data.x.shape[0]
+    G.add_nodes_from(range(num_nodes))
+
+    edge_list = data.edge_index.t().cpu().numpy()
+    G.add_edges_from(edge_list)
+
+    plt.figure(figsize=(10, 10))
+    nx.draw(
+        G,
+        with_labels=True,
+        node_color="skyblue",
+        node_size=500,
+        font_size=8
+    )
+    plt.title(f"Graph for {data.pdb_id}")
+    plt.show()
+
+
