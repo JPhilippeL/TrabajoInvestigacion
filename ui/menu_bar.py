@@ -18,8 +18,8 @@ class MenuBar(QMenuBar):
         self.addMenu(self.menu_train)
 
         # 3. Menú Transfer
-        self.menu_transfer = MenuTransferGNN(self.parent)
-        self.addMenu(self.menu_transfer)
+        # self.menu_transfer = MenuTransferGNN(self.parent)
+        # self.addMenu(self.menu_transfer)
 
         # 4. Menú Test
         self.menu_test = MenuTestGNN(self.parent)
