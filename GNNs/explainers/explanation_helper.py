@@ -225,7 +225,7 @@ def plot_graph_with_importance(graph, node_importance, edge_importance=None, edg
 
     pos = {n: graph.nodes[n]["pos"] for n in graph.nodes}
     
-    # Normalización Nodos (Ahora con normalizar_por_norma como acordamos)
+    # Normalización Nodos (Ahora con normalizar_por_l2 como acordamos)
     # Si prefieres min_max en el grafo, cambia esta línea
     vmin_n, vmax_n = beta.min(), beta.max()
     norm_n = mcolors.Normalize(vmin=vmin_n, vmax=vmax_n) if vmax_n > 0 else mcolors.Normalize(vmin=0, vmax=1)
@@ -451,7 +451,7 @@ def get_feature_names_embedding():
         "Is Acceptor"
     ]
 
-def normalizar_por_norma(arr):
+def normalizar_por_l2(arr):
     """
     Normaliza el vector usando la Norma L2 (Euclidiana).
     - La suma de los cuadrados de los elementos será 1.
@@ -467,6 +467,41 @@ def normalizar_por_norma(arr):
         return np.zeros_like(arr)
         
     return arr / norma
+
+def normalizar_por_l1(arr):
+    """
+    Normaliza el vector dividiendo por la suma absoluta total (L1).
+    - La suma de todos los elementos será exactamente 1.0.
+    - Representa el "porcentaje de contribución" de cada nodo/enlace.
+    """
+    if arr is None or arr.size == 0: 
+        return arr
+    
+    # Suma total de todos los valores en el grafo
+    suma_total = np.sum(arr)
+    
+    if suma_total == 0:
+        return np.zeros_like(arr)
+        
+    return arr / suma_total
+
+def normalizar_por_maximo(arr):
+    """
+    Normaliza un arreglo dividiendo por su valor máximo.
+    """
+    # Convertimos a arreglo de numpy por seguridad
+    arr = np.array(arr, dtype=float)
+    
+    if arr.size == 0: 
+        return arr
+    
+    max_val = np.max(arr)
+    
+    # Prevenir la división por cero si el máximo es 0 (ej. arreglo de puros ceros)
+    if max_val == 0:
+        return np.zeros_like(arr)
+        
+    return arr / max_val
 
 def tensor_to_abs_numpy(tensor):
     """Convierte tensor a numpy, toma valor absoluto."""
@@ -514,9 +549,40 @@ def procesar_features_ordenadas(importance_tensor, feature_names, input_data=Non
     sorted_names = filtered_names[sort_idx]
     
     # 4. NORMALIZAR CON norma
-    final_imp = normalizar_por_norma(sorted_imp)
+    final_imp = normalizar_por_maximo(sorted_imp)
     
     return final_imp, sorted_names.tolist()
+
+
+def sort_features(normalized_imp_array, feature_names):
+    """
+    Procesa features para Heatmaps.
+    MODIFICADO: Ya recibe un array normalizado en NumPy. Solo ordena de mayor a menor.
+    """
+    if normalized_imp_array is None or len(normalized_imp_array) == 0:
+        return np.array([]), []
+    
+    filtered_imp = normalized_imp_array
+    filtered_names = np.array(feature_names)
+    
+    # Safety check de dimensiones
+    if len(filtered_names) != len(filtered_imp):
+        # logger.warning(f"Dimension mismatch...") # Opcional
+        min_len = min(len(filtered_names), len(filtered_imp))
+        filtered_names = filtered_names[:min_len]
+        filtered_imp = filtered_imp[:min_len]
+
+    if len(filtered_imp) == 0:
+        return np.array([]), []
+
+    # Ordenar (Mayor a menor)
+    sort_idx = np.argsort(filtered_imp.flatten())[::-1]
+    
+    sorted_imp = filtered_imp[sort_idx]
+    sorted_names = filtered_names[sort_idx]
+    
+    # Retornamos el array que ya venía normalizado globalmente, pero ahora ordenado
+    return sorted_imp, sorted_names.tolist()
 
 def procesar_features_onehot(importance_tensor, feature_names, input_data):
     """
@@ -575,7 +641,7 @@ def procesar_features_onehot(importance_tensor, feature_names, input_data):
     sorted_names = filtered_names[sort_idx]
     
     # 4. NORMALIZAR CON NORMA L2 (Sobre las features que quedaron)
-    final_imp = normalizar_por_norma(sorted_imp)
+    final_imp = normalizar_por_l2(sorted_imp)
     
     # === CORRECCIÓN AQUÍ ===
     # Convertimos el array 1D (9,) de vuelta a una matriz columna 2D (9, 1)
@@ -637,8 +703,8 @@ def pipeline_visualizacion_torchexplainers(
     graph_obj = parse_sdf(sdf_path)
     
     # Convertimos a numpy normalizado (Norma) para pintar y para el threshold de fidelity
-    beta_np = normalizar_por_norma(tensor_to_abs_numpy(beta_raw))
-    delta_normalized = normalizar_por_norma(tensor_to_abs_numpy(delta_raw)) if delta_raw is not None else np.array([])
+    beta_np = normalizar_por_l2(tensor_to_abs_numpy(beta_raw))
+    delta_normalized = normalizar_por_l2(tensor_to_abs_numpy(delta_raw)) if delta_raw is not None else np.array([])
 
     # ---------------------------------------------------------
     # B. CÁLCULO DE FIDELITY (Sobre datos alineados con grafos)

@@ -7,10 +7,10 @@ import sys
 import logging
 from GNNs.data_processing import onehot_to_indices, indices_to_onehot
 from GNNs.explainers.explanation_helper import ( 
-    tensor_to_abs_numpy, normalizar_por_norma, procesar_features_onehot)
+    tensor_to_abs_numpy, sort_features, normalizar_por_l2, normalizar_por_l1, normalizar_por_maximo, procesar_features_onehot, procesar_features_ordenadas)
 from GNNs.explainers.graph_explainer_onehot import generate_perturbed_samples, graph_feature_distance_list
 from ui.utils.constants import (
-    EDGE_FEATURE_NAMES, NODE_FEATURE_NAMES_ONE_HOT)
+    EDGE_FEATURE_NAMES_EMBEDDING, NODE_FEATURES_NAMES_EMBEDDING)
 
 ALGO_NAME = "GraphExplainer"
 MININICIAL = sys.float_info.max
@@ -78,49 +78,62 @@ def obtener_graph_explainer(
     # PROCESAMIENTO DE MATRICES
     # ==========================================================================
 
-    # 1. ALFA (Node Features) -> Filtrar -> Ordenar -> Normalizar
-    # node_feature_names = NODE_FEATURE_NAMES_ONE_HOT
-    # alfa_sorted, row_labels_alfa = procesar_features_onehot(
-    #     alfa, node_feature_names, muestra.x
-    # )
+    # ====================================================================
+    # NORMALIZACIÓN GLOBAL
+    # ====================================================================
+    
+    # 1. Convertir todos los tensores a NumPy (Valores absolutos crudos)
+    alfa_raw = tensor_to_abs_numpy(alfa)
+    beta_raw = tensor_to_abs_numpy(beta)
+    gamma_raw = tensor_to_abs_numpy(gamma) if gamma is not None else np.array([])
+    delta_raw = tensor_to_abs_numpy(delta) if delta is not None else np.array([])
 
-    # # 2. GAMMA (Edge Features) -> Filtrar -> Ordenar -> Normalizar
-    # # Reemplaza a Beta en el segundo heatmap
-    # if muestra.edge_attr is not None:
-    #     # edge_feature_names = ["Bond Type", "Distance"]
-    #     edge_feature_names = EDGE_FEATURE_NAMES
-        
-    #     gamma_sorted, row_labels_gamma = procesar_features_onehot(
-    #         gamma, edge_feature_names, muestra.edge_attr
-    #     )
-    # else:
-    #     gamma_sorted = np.array([])
-    #     row_labels_gamma = []
-
-    # --- BETA (Nodos) ---
-    beta_np = tensor_to_abs_numpy(beta)
-    beta_np = normalizar_por_norma(beta_np)  
-
-    # --- DELTA (Aristas) ---
-    if delta is not None:
-        delta_np = tensor_to_abs_numpy(delta)
-        # CAMBIO: Usar normalizar_por_norma para evitar que una arista desaparezca si hay pocas
-        delta_normalized = normalizar_por_norma(delta_np) 
+    # 2. Encontrar el MÁXIMO GLOBAL entre todos los arreglos
+    arreglos_validos = [arr for arr in (alfa_raw, beta_raw, gamma_raw, delta_raw) if arr is not None and arr.size > 0]
+    
+    if arreglos_validos:
+        max_global = max([np.max(arr) for arr in arreglos_validos])
     else:
-        delta_normalized = np.array([])
+        max_global = 1.0
+        
+    if max_global == 0:
+        max_global = 1.0 # Seguridad para evitar división por cero
+        
+    # 3. Aplicar la normalización global a todos (Manteniendo la escala relativa)
+    alfa_norm = alfa_raw / max_global if alfa_raw is not None else None
+    beta_norm = beta_raw / max_global if beta_raw is not None else None
+    gamma_norm = gamma_raw / max_global if gamma_raw.size > 0 else np.array([])
+    delta_norm = delta_raw / max_global if delta_raw.size > 0 else np.array([])
+
+    # ====================================================================
+    # PROCESAMIENTO Y ORDENAMIENTO (Usando los arrays ya normalizados)
+    # ====================================================================
+
+    # 1. ALFA (Node Features)
+    node_feature_names = NODE_FEATURES_NAMES_EMBEDDING
+    alfa_sorted, row_labels_alfa = sort_features(alfa_norm, node_feature_names)
+
+    # 2. GAMMA (Edge Features)
+    if muestra.edge_attr is not None and gamma_norm.size > 0:
+        edge_feature_names = EDGE_FEATURE_NAMES_EMBEDDING
+        gamma_sorted, row_labels_gamma = sort_features(gamma_norm, edge_feature_names)
+    else:
+        gamma_sorted = np.array([])
+        row_labels_gamma = []
 
     # Preparamos el nombre del modelo para la carpeta
     model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
 
+    # Retorno en Batch Mode
     if batch_mode:
         return {
-            'mol_name': mol_name, # Para usarlo como llave en el bucle
-            #'alfa': alfa_sorted if alfa is not None else None,
-            'beta': beta_np if beta is not None else None,
-            #'gamma': gamma_sorted if gamma is not None else None,
-            'delta': delta_normalized if delta is not None else None
+            'mol_name': mol_name, 
+            'alfa': alfa_sorted,  
+            'beta': beta_norm,    # Los nodos no se ordenan aquí, los ordenas en tu otro script
+            'gamma': gamma_sorted,
+            'delta': delta_norm   # Los enlaces tampoco
         }
-    
+        
     return 0
 
 def obtener_argmin(feature_distances, predicciones_perturbadas, 

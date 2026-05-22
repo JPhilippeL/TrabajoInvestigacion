@@ -14,7 +14,7 @@ from graph_managment.sdf_converter import parse_sdf
 from GNNs.explainers.explanation_helper import ( 
     obtener_info_real, guardar_dashboard_explicacion,
     guardar_pesos, tensor_to_abs_numpy, 
-    normalizar_por_norma, 
+    normalizar_por_l2, 
     procesar_features_onehot )
 from ui.utils.constants import (
     EDGE_FEATURE_NAMES, NODE_FEATURE_NAMES_ONE_HOT,
@@ -304,13 +304,13 @@ def obtener_graph_explainer(
 
     # --- BETA (Nodos) ---
     beta_np = tensor_to_abs_numpy(beta)
-    beta_np = normalizar_por_norma(beta_np)  
+    beta_np = normalizar_por_l2(beta_np)  
 
     # --- DELTA (Aristas) ---
     if delta is not None:
         delta_np = tensor_to_abs_numpy(delta)
-        # CAMBIO: Usar normalizar_por_norma para evitar que una arista desaparezca si hay pocas
-        delta_normalized = normalizar_por_norma(delta_np) 
+        # CAMBIO: Usar normalizar_por_l2 para evitar que una arista desaparezca si hay pocas
+        delta_normalized = normalizar_por_l2(delta_np) 
     else:
         delta_normalized = np.array([])
     

@@ -58,6 +58,12 @@ NODE_FEATURE_NAMES_ONE_HOT = (
     [f"Hybrid_{h}" for h in hybridization_types]
 )
 
+NODE_FEATURES_NAMES_EMBEDDING = (
+    ["AtomSymbol"] + 
+    ["Degree", "Total_Hs", "Is_Aromatic", "Is_Donor", "Is_Acceptor"] + 
+    ["Hybridization"]
+)
+
 # Grupos para facilitar la lógica
 CATEGORICAL_INDICES = [EMBEDDING_INDICES["ATOM_SYMBOL"], EMBEDDING_INDICES["HYBRIDIZATION"]]
 
@@ -132,6 +138,8 @@ BOND_CLASS_NAMES = [
 
 # Y ahora tu lista final de features para aristas será perfecta:
 EDGE_FEATURE_NAMES = BOND_CLASS_NAMES + ["Distance", "Flexibility"]
+
+EDGE_FEATURE_NAMES_EMBEDDING = ["BondType", "Distance", "Flexibility"]
 
 # Variable auxiliar para el índice de "Unknown Bond"
 UNKNOWN_BOND_IDX = BOND_TYPE_TO_INT[Chem.rdchem.BondType.OTHER]

@@ -15,6 +15,15 @@ from ui.utils.constants import RESULTADOS_DIR, BOND_CLASS_NAMES
 
 MAX_ERROR = 1
 
+# Función de ayuda para limpiar los IDs
+def limpiar_id(n_id, idx_tensor):
+    if n_id is None:
+        return f"LIGAND_{idx_tensor}" # Si es None, es del ligando
+    partes = n_id.split('_')
+    if len(partes) >= 4:
+        return f"{partes[0]}_{partes[1]}_{partes[-1]}"
+    return n_id
+
 def calcular_y_guardar_importancias_beta(
     data_list, 
     checkpoint_path, 
@@ -205,32 +214,24 @@ def explicar_y_guardar_molecula_individual(
     # PROCESAMIENTO DE NODOS (BETA)
     # ==========================================================
     beta = resultados['beta'] 
-    original_ids = target_data.node_ids 
+    # Protección por si el data no tiene node_ids definido
+    original_ids = getattr(target_data, 'node_ids', [None] * len(beta))
     nodos_data = []
-    
-    # Función de ayuda para limpiar los IDs
-    def limpiar_id(n_id, idx_tensor):
-        if n_id is None:
-            return f"LIGAND_{idx_tensor}" # Si es None, es del ligando
-        partes = n_id.split('_')
-        if len(partes) >= 4:
-            return f"{partes[0]}_{partes[1]}_{partes[-1]}"
-        return n_id
 
+    # CAMBIO: Sin condicional 'if n_id is not None'. Agregamos todos.
     for i, (importancia, n_id) in enumerate(zip(beta, original_ids)):
-        if n_id is not None:
-            n_id_limpio = limpiar_id(n_id, i)
-            nodos_data.append({
-                'node_id': n_id_limpio,
-                'importancia': float(importancia.item())
-            })
+        n_id_limpio = limpiar_id(n_id, i)
+        nodos_data.append({
+            'node_id': n_id_limpio,
+            'importancia': float(importancia.item())
+        })
 
     df_nodos = pd.DataFrame(nodos_data)
     df_nodos = df_nodos.sort_values(by='importancia', ascending=False)
     
     save_path_nodos = os.path.join(csv_dir, f"importancias_nodos_{target_mol_name}.csv")
     df_nodos.to_csv(save_path_nodos, index=False)
-    print(f"✅ CSV Nodos guardado: {save_path_nodos}")
+    print(f"✅ CSV Nodos guardado (Total: {len(df_nodos)}): {save_path_nodos}")
 
     # ==========================================================
     # PROCESAMIENTO DE ENLACES (DELTA)
@@ -239,12 +240,11 @@ def explicar_y_guardar_molecula_individual(
     df_edges = None
     
     if delta is not None and target_data.edge_index is not None:
-        edges_data = []
         edge_index = target_data.edge_index
         edge_attr = target_data.edge_attr
         
-        # Set para evitar meter el enlace de ida y el de vuelta duplicados
-        enlaces_vistos = set()
+        # CAMBIO: Usaremos un diccionario para agrupar la ida y la vuelta
+        diccionario_enlaces = {}
         
         for i in range(edge_index.shape[1]):
             nodo_u = edge_index[0, i].item()
@@ -252,37 +252,45 @@ def explicar_y_guardar_molecula_individual(
             
             id_u = original_ids[nodo_u]
             id_v = original_ids[nodo_v]
+            bond_idx = int(edge_attr[i, 0].item())
             
-            # Condición 1: Que al menos uno de los nodos sea del pocket (tenga ID)
-            if id_u is not None or id_v is not None:
-                
-                # Obtener el índice del tipo de enlace (Columna 0 de edge_attr)
-                bond_idx = int(edge_attr[i, 0].item())
-                
-                # Condición 2: Que sea NO covalente (Índice > 3 según tu diccionario)
-                if bond_idx > 3:
-                    u_limpio = limpiar_id(id_u, nodo_u)
-                    v_limpio = limpiar_id(id_v, nodo_v)
+            u_limpio = limpiar_id(id_u, nodo_u)
+            v_limpio = limpiar_id(id_v, nodo_v)
+            
+            # Ordenar alfabéticamente para crear una clave única
+            par_nodos = tuple(sorted([u_limpio, v_limpio]))
+            
+            # Si es la primera vez que vemos este enlace, lo creamos
+            if par_nodos not in diccionario_enlaces:
+                if bond_idx < len(BOND_CLASS_NAMES):
+                    nombre_enlace = BOND_CLASS_NAMES[bond_idx]
+                else:
+                    nombre_enlace = "UNKNOWN"
                     
-                    # Ordenar alfabéticamente para crear una clave única sin importar la dirección
-                    par_nodos = tuple(sorted([u_limpio, v_limpio]))
-                    
-                    if par_nodos not in enlaces_vistos:
-                        enlaces_vistos.add(par_nodos)
-                        
-                        # Extraer el nombre del enlace si está dentro del rango
-                        if bond_idx < len(BOND_CLASS_NAMES):
-                            nombre_enlace = BOND_CLASS_NAMES[bond_idx]
-                        else:
-                            nombre_enlace = "UNKNOWN"
-                            
-                        edges_data.append({
-                            'interaccion': f"{par_nodos[0]} <-> {par_nodos[1]}",
-                            'nodo_1': par_nodos[0],
-                            'nodo_2': par_nodos[1],
-                            'tipo_enlace': nombre_enlace,
-                            'importancia': float(delta[i].item())
-                        })
+                diccionario_enlaces[par_nodos] = {
+                    'interaccion': f"{par_nodos[0]} <-> {par_nodos[1]}",
+                    'nodo_1': par_nodos[0],
+                    'nodo_2': par_nodos[1],
+                    'tipo_enlace': nombre_enlace,
+                    'importancias_temporales': [] # Aquí guardaremos los valores
+                }
+            
+            # Guardamos la importancia de esta dirección (ida o vuelta)
+            diccionario_enlaces[par_nodos]['importancias_temporales'].append(float(delta[i].item()))
+            
+        # Ahora construimos la lista final resolviendo los duplicados
+        edges_data = []
+        for par, datos in diccionario_enlaces.items():
+            # Nos quedamos con el valor máximo entre la ida y la vuelta para no perder el 1.0
+            importancia_final = max(datos['importancias_temporales'])
+            
+            edges_data.append({
+                'interaccion': datos['interaccion'],
+                'nodo_1': datos['nodo_1'],
+                'nodo_2': datos['nodo_2'],
+                'tipo_enlace': datos['tipo_enlace'],
+                'importancia': importancia_final
+            })
                         
         if edges_data:
             df_edges = pd.DataFrame(edges_data)
@@ -290,9 +298,9 @@ def explicar_y_guardar_molecula_individual(
             
             save_path_edges = os.path.join(csv_dir, f"importancias_enlaces_{target_mol_name}.csv")
             df_edges.to_csv(save_path_edges, index=False)
-            print(f"✅ CSV Enlaces guardado: {save_path_edges}")
+            print(f"✅ CSV Enlaces guardado (Total: {len(df_edges)}): {save_path_edges}")
         else:
-            print("⚠️ No se encontraron enlaces no covalentes conectados al pocket.")
+            print("⚠️ No se encontraron enlaces para guardar.")
 
     return df_nodos, df_edges
 
@@ -301,9 +309,10 @@ def explicar_y_guardar_molecula_individual(
 # ==========================================
 # (Asegúrate de tener data_list cargado)
 
-RUTA_MODELO = "Modelos/GT_4_Split3.pt"
+RUTA_MODELO = "Modelos/Explainer_BindingAffinity/GT_4_Split3.pt"
 DATA_PATH = "/home/philippe/Documents/Databases/3_A_node_id/pocket_BD.pt"
-MOL_OBJETIVO = "7GKN"
+MOL_OBJETIVO = "7EN8"
+OBJETIVOS = ["7GBZ", "7GHB", "5RGX", "7GCK","7GH7", "7UR9", "9GIL", "8DZ0", "9KSK", "9VS1"]
 
 train_loader, val_loader, device, targetname = prepare_pt_training_data(
     pt_file_path=DATA_PATH, 
@@ -317,8 +326,9 @@ train_loader, val_loader, device, targetname = prepare_pt_training_data(
 # )
 
 # Ejecutar la función para una sola molécula
-df_resultado = explicar_y_guardar_molecula_individual(
-    data_list=train_loader.dataset,
-    checkpoint_path=RUTA_MODELO,
-    target_mol_name=MOL_OBJETIVO
-)
+for molecula in OBJETIVOS:
+    df_resultado = explicar_y_guardar_molecula_individual(
+        data_list=train_loader.dataset,
+        checkpoint_path=RUTA_MODELO,
+        target_mol_name=molecula
+    )
