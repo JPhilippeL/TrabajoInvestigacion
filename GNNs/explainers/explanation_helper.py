@@ -652,33 +652,43 @@ def procesar_features_onehot(importance_tensor, feature_names, input_data):
 # ====================================================================
 def extraer_pesos_torchexplainers(explanation):
     """
-    Convierte la salida compleja de GNNExplainer en los 4 tensores base (Raw).
+    Convierte la salida compleja de GNNExplainer/Captum en los 4 tensores base (Raw).
     Mantiene el orden original de los nodos (índices).
     """
     node_mask = explanation.node_mask
     edge_mask = explanation.edge_mask
 
     # --- ALFA (Features Importancia Global) ---
-    # Promedio por columna (features). Mantiene dimensión [Num_Features]
-    if node_mask.ndim > 1:
-        alfa_raw = node_mask.mean(dim=0) 
-    else:
-        alfa_raw = node_mask
+    alfa_raw = None
+    if node_mask is not None:
+        if node_mask.ndim > 1:
+            alfa_raw = node_mask.mean(dim=0) 
+        else:
+            alfa_raw = node_mask
 
     # --- BETA (Nodos Importancia Estructural) ---
-    # Promedio por fila (nodos). Mantiene dimensión [Num_Nodos]
-    # CRÍTICO: Mantiene el orden de índices para Fidelity
-    if node_mask.ndim > 1:
-        beta_raw = node_mask.mean(dim=1)
-    else:
-        beta_raw = node_mask
+    beta_raw = None
+    if node_mask is not None:
+        if node_mask.ndim > 1:
+            beta_raw = node_mask.mean(dim=1)
+        else:
+            beta_raw = node_mask
 
-    # --- DELTA (Aristas) ---
-    delta_raw = edge_mask if edge_mask is not None else None
-    
-    # --- GAMMA (Features Arista) ---
-    # GNNExplainer estándar no suele devolver feature mask para aristas
+    # --- DELTA Y GAMMA (Aristas) ---
+    delta_raw = None
     gamma_raw = None 
+
+    if edge_mask is not None:
+        if edge_mask.ndim > 1:
+            # CASO A: El explicador generó pesos para atributos de aristas (Shape 2D)
+            # Promedio por arista para obtener topología pura (Delta)
+            delta_raw = edge_mask.mean(dim=1)
+            # Promedio por columna (feature) para obtener importancia global de las features (Gamma)
+            gamma_raw = edge_mask.mean(dim=0)
+        else:
+            # CASO B: El explicador solo devolvió topología (Shape 1D plano)
+            delta_raw = edge_mask
+            gamma_raw = None
 
     return alfa_raw, beta_raw, gamma_raw, delta_raw
 

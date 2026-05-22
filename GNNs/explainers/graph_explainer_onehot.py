@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import os
+from torch_geometric.data import Batch
 import sys
 import logging
 from GNNs.data_processing import mol_to_graph_data, onehot_to_indices
@@ -32,7 +33,9 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1, 1], noise_leve
     data_new = data.clone()
     x = data_new.x
     num_nodes = x.shape[0]
+    device = x.device
     
+    # === 0. ANÁLISIS DE SPARSITY ===
     # === 0. ANÁLISIS DE SPARSITY ===
     active_x_cols = (x != 0).any(dim=0)
     
@@ -41,7 +44,7 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1, 1], noise_leve
         feature_mask = list(feature_mask) + [False] * (FEATURE_MASK_LENGTH - len(feature_mask))
 
     # ==========================================
-    # 1. PERTURBACIÓN DE NODOS
+    # 1. PERTURBACIÓN DE NODOS (100% Vectorizado)
     # ==========================================
     for i in range(num_nodes):
         
@@ -93,7 +96,7 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1, 1], noise_leve
     data_new.x = x
 
     # ==========================================
-    # 2. PERTURBACIÓN DE ARISTAS
+    # 2. PERTURBACIÓN DE ARISTAS (Simetría Inteligente)
     # ==========================================
     if data_new.edge_attr is not None:
         edge_attr = data_new.edge_attr
@@ -145,7 +148,7 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1, 1], noise_leve
             # Mantener simetría (u,v) == (v,u)
             if modified and (v, u) in edge_map:
                 sym_idx = edge_map[(v, u)]
-                edge_attr[sym_idx] = edge_attr[i].clone()
+                edge_attr[sym_idx] = edge_attr[idx]
 
         data_new.edge_attr = edge_attr
 
@@ -161,8 +164,6 @@ def generate_perturbed_samples(data, feature_mask, num_samples=50, noise_level=0
         perturbed_sample = perturb_features_sample(data, feature_mask, noise_level, sample_specific_prob)
         perturbed_samples.append(perturbed_sample)
     return perturbed_samples
-
-import torch
 
 def calculate_frobenius_distance(tensor_a, tensor_b):
     """Calcula la distancia Frobenius normalizada por el tamaño."""
@@ -234,6 +235,7 @@ def obtener_graph_explainer(
 
     # --- 1. OBTENER INFORMACIÓN REAL ---
     target_name_str, real_val = obtener_info_real(target_data_path, mol_id)
+    print(real_val)
     
     # Generar muestras perturbadas
     perturbed_samples = generate_perturbed_samples(muestra, feature_mask, num_samples, noise_level)
@@ -245,14 +247,19 @@ def obtener_graph_explainer(
     muestra_for_model = onehot_to_indices(muestra.to(device))
     prediccion_original = predecir_molecula(model, muestra_for_model, device)
 
-    # Predecir las muestras perturbadas
-    predicciones_perturbadas = []
-    for perturbed in perturbed_samples:
-        perturbed = perturbed.to(device)
-        perturbed_for_model = onehot_to_indices(perturbed)  # <-- aquí el puente
-        pred = predecir_molecula(model, perturbed_for_model, device)
-        predicciones_perturbadas.append(pred)
-        # perturbed_samples_embedding.append(perturbed_for_model)
+    # 1. Convertir todas las muestras al formato del modelo en una lista
+    muestras_procesadas = [onehot_to_indices(p.to(device)) for p in perturbed_samples]
+    
+    # 2. Unirlas en un solo "Súper Grafo" (Batch)
+    batch_data = Batch.from_data_list(muestras_procesadas)
+    
+    # 3. Hacer UNA SOLA predicción masiva
+    with torch.no_grad():
+        # Asumimos que tu modelo acepta (x, edge_index, edge_attr, batch)
+        predicciones_perturbadas = model(batch_data.x, batch_data.edge_index, batch_data.edge_attr, batch_data.batch)
+    
+    # Asegurar la forma [num_samples, 1]
+    predicciones_perturbadas = predicciones_perturbadas.view(-1, 1)
 
     # Convertir a tensor [num_samples,1]
     predicciones_perturbadas = torch.tensor(predicciones_perturbadas, dtype=torch.float, device=device).unsqueeze(1)
@@ -346,25 +353,6 @@ def obtener_graph_explainer(
         algo_name=ALGO_NAME,
         model_name=model_folder_name
     )
-
-    # 1. Calcular Curvas de FIABILIDAD
-    # k_vals, fiab_minus = calcular_curvas_fidelity_general(
-    #     model, 
-    #     muestra_for_model, 
-    #     beta.abs(), 
-    #     device
-    # )
-
-    # 3. Guardar (Solo pasamos datos puros)
-    # fiab_path = guardar_plot_fidelity(
-    #     k_values=k_vals,
-    #     fiab_minus=fiab_minus, 
-    #     model_name=model_folder_name,
-    #     mol_name=mol_name,
-    #     algo_name=ALGO_NAME
-    # )
-    
-    # logger.info(f"Gráfico fidelity guardado en: {fiab_path}")
 
     return plotfilename
 
