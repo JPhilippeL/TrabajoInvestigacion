@@ -194,12 +194,13 @@ def obtener_Captum_Explainer(checkpoint_path, sdf_path, target_data_path=None, b
     batch = torch.zeros(data.x.shape[0], dtype=torch.long, device=device)
 
     # --- 2. EJECUCIÓN CAPTUM EXPLAINER ---
+    # --- 2. EJECUCIÓN CAPTUM EXPLAINER ---
     explainer = Explainer(
         model=model,
-        algorithm=CaptumExplainer(captum_method), # <--- CAMBIO PRINCIPAL AQUÍ
+        algorithm=CaptumExplainer(captum_method),
         explanation_type='model',
         node_mask_type='attributes',
-        edge_mask_type='object',
+        edge_mask_type='object', # <--- CAMBIADO DE 'attributes' A 'object'
         model_config=dict(mode='regression', task_level='graph', return_type='raw'),
     )
 

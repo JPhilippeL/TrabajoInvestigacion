@@ -6,6 +6,7 @@ import torch.nn as nn
 import numpy as np
 from ui.utils.constants import periodic_elements, hybridization_types, EDGE_FEATURE_NAMES
 import os
+from torch_geometric.data import Batch
 import sys
 import logging
 from GNNs.data_processing import mol_to_graph_data, onehot_to_indices
@@ -25,14 +26,13 @@ logger = logging.getLogger(__name__)
 
 # Función para dada una muestra (x), genere una muestra perturbada (Z)
 # Dado un vector binario de las características a perturbar
-def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1], noise_level=0.05, perturb_prob = 0.5):
+def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1], noise_level=0.05, perturb_prob=0.5):
     data_new = data.clone()
     x = data_new.x
     num_nodes = x.shape[0]
+    device = x.device
     
-    # === 0. ANÁLISIS DE SPARSITY (Columnas activas) ===
-    # Detectamos qué columnas tienen al menos un valor distinto de 0 en toda la molécula.
-    # Si una columna es todo 0s, active_x_cols[idx] será False.
+    # === 0. ANÁLISIS DE SPARSITY ===
     active_x_cols = (x != 0).any(dim=0)
     
     # === DEFINICIÓN DE INDICES ===
@@ -43,119 +43,101 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1], noise_level=0
     start_hybrid = x.shape[1] - len_hybrid
     end_hybrid = x.shape[1]
     
-    # Rellenar máscara
     if len(feature_mask) < 6:
         feature_mask = list(feature_mask) + [False] * (6 - len(feature_mask))
 
     # ==========================================
-    # 1. PERTURBACIÓN DE NODOS
+    # 1. PERTURBACIÓN DE NODOS (100% Vectorizado)
     # ==========================================
-    for i in range(num_nodes):
+    # Tiramos TODAS las monedas a la vez: crea un tensor [num_nodes, 1] de booleanos
+    monedas_nodos = (torch.rand(num_nodes, 1, device=device) < perturb_prob)
+
+    # A. TIPO DE ÁTOMO (One-Hot Masking)
+    if feature_mask[0]:
+        # ~monedas_nodos invierte True a False. Al pasarlo a float:
+        # Si tocó perturbar (True -> False -> 0.0), multiplicamos por 0 (lo apaga)
+        # Si no (False -> True -> 1.0), multiplicamos por 1 (lo deja igual)
+        x[:, start_atom:end_atom] *= (~monedas_nodos).float()
+
+    # B. FEATURES CONTINUAS (Ruido)
+    if feature_mask[1]:
+        indices_continuous = [0, 1, 3, 4] 
+        indices_absolutos = [idx + end_atom for idx in indices_continuous]
+        indices_validos_abs = [idx for idx in indices_absolutos if active_x_cols[idx]]
         
-        # A. TIPO DE ÁTOMO (One-Hot) - Masking
-        # Solo perturbamos si este nodo es elegido (perturb_prob)
-        # Si es elegido y es 1, lo pasamos a 0
-        if feature_mask[0] and torch.rand(1).item() < perturb_prob:
-            # Obtenemos el slice del átomo
-            onehot = x[i, start_atom:end_atom]
+        if len(indices_validos_abs) > 0:
+            # Generamos todo el ruido a la vez
+            ruido = noise_level * torch.randn(num_nodes, len(indices_validos_abs), device=device)
+            # Solo aplicamos el ruido donde la moneda cayó en True
+            ruido_aplicado = ruido * monedas_nodos.float()
             
-            # Lógica: Si hay un 1, tiramos moneda para ver si lo apagamos.
-            # No encendemos nada nuevo (evitamos crear átomos de la nada).
-            # onehot.nonzero() devuelve los índices donde hay un 1.
-            indices_activos = onehot.nonzero(as_tuple=False)
-            
-            if indices_activos.numel() > 0:
-                # Si existe un átomo definido (debería), lo apagamos
-                onehot[:] = 0 # El nodo se queda "mudo" (sin identidad atómica)
+            x[:, indices_validos_abs] += ruido_aplicado
+            x[:, indices_validos_abs] = torch.clamp(x[:, indices_validos_abs], min=0.0, max=1.0)
 
-        # B. FEATURES CONTINUAS (Ruido)
-        # SUGERENCIA: Añadido chequeo de probabilidad para consistencia
-        if feature_mask[1] and torch.rand(1).item() < perturb_prob:
-            indices_continuous = [0, 1, 3, 4] 
-            vals = x[i, end_atom:start_hybrid]
-            indices_absolutos = [idx + end_atom for idx in indices_continuous]
-            
-            indices_validos_rel = []
-            for k, idx_abs in enumerate(indices_absolutos):
-                if active_x_cols[idx_abs]:
-                    indices_validos_rel.append(indices_continuous[k])
-            
-            if len(indices_validos_rel) > 0:
-                noise = noise_level * torch.randn(len(indices_validos_rel))
-                vals[indices_validos_rel] += noise
-                vals[indices_validos_rel] = torch.clamp(vals[indices_validos_rel], min=0.0, max=1.0)
+    # C. FEATURES BINARIAS (Flip 1 -> 0 only)
+    if feature_mask[2]:
+        indices_binary = [2, 5, 6] 
+        indices_bin_abs = [idx + end_atom for idx in indices_binary]
+        
+        # Máscara booleana: ¿Toca perturbar? Y ¿el valor es > 0.5?
+        # Expandimos la moneda para que encaje con el número de columnas binarias
+        condicion_flip = monedas_nodos & (x[:, indices_bin_abs] > 0.5)
+        
+        # PyTorch permite asignar valores directamente usando máscaras booleanas al instante
+        x_bin_view = x[:, indices_bin_abs]
+        x_bin_view[condicion_flip] = 0.0
+        x[:, indices_bin_abs] = x_bin_view
 
-        # C. FEATURES BINARIAS (Flip 1 -> 0 only)
-        if feature_mask[2]:
-            indices_binary = [2, 5, 6] # Aromatic, Donor, Acceptor
-            vals = x[i, end_atom:start_hybrid]
-            
-            for idx_rel in indices_binary:
-                # 1. Chequeamos PERTURB_PROB (si toca perturbar este nodo)
-                # 2. Chequeamos si vale 1 (solo perturbamos lo que existe)
-                if torch.rand(1).item() < perturb_prob and vals[idx_rel] > 0.5:
-                    vals[idx_rel] = 0.0
-                
-                # NOTA: Al chequear `vals[idx_rel] > 0.5`, implícitamente cumplimos
-                # la regla de "si la columna es todo 0 no se perturba", 
-                # porque nunca entraremos en el if.
-
-        # D. HIBRIDACIÓN (One-Hot) - Masking
-        if feature_mask[3] and torch.rand(1).item() < perturb_prob:
-            onehot = x[i, start_hybrid:end_hybrid]
-            # Si tiene hibridación definida, probamos apagarla
-            if (onehot == 1).any():
-                onehot[:] = 0
+    # D. HIBRIDACIÓN (One-Hot Masking)
+    if feature_mask[3]:
+        x[:, start_hybrid:end_hybrid] *= (~monedas_nodos).float()
 
     data_new.x = x
 
     # ==========================================
-    # 2. PERTURBACIÓN DE ARISTAS
+    # 2. PERTURBACIÓN DE ARISTAS (Simetría Inteligente)
     # ==========================================
     if data_new.edge_attr is not None:
         edge_attr = data_new.edge_attr
         edge_index = data_new.edge_index
         num_edges = edge_attr.shape[0]
         
-        # Mapa para mantener simetría en grafos no dirigidos
-        edge_map = {(edge_index[0, k].item(), edge_index[1, k].item()): k for k in range(num_edges)}
         dist_idx = -1 
         num_bond_cols = edge_attr.shape[1] - 1 
-        
-        # Chequeo de columnas activas en aristas (para distancia)
         active_e_cols = (edge_attr != 0).any(dim=0)
 
-        for i in range(num_edges):
-            u, v = edge_index[0, i].item(), edge_index[1, i].item()
-            if u > v: continue 
+        # Para vectorizar aristas y no romper la simetría (u,v == v,u), 
+        # aislamos las aristas únicas (solo donde nodo_origen < nodo_destino)
+        mask_unique = edge_index[0] < edge_index[1]
+        indices_unique = torch.where(mask_unique)[0]
+        num_unique = indices_unique.shape[0]
 
-            modified = False
-            
-            # Perturbar Tipo Enlace (One-Hot Masking)
-            if feature_mask[4] and torch.rand(1).item() < perturb_prob:
-                onehot_bond = edge_attr[i, :num_bond_cols]
-                # Si hay enlace definido (debería), probamos borrarlo (hacerlo 0)
-                # Esto equivale a eliminar la arista para la GNN
-                if (onehot_bond == 1).any():
-                    onehot_bond[:] = 0
-                    modified = True
-            
-            # Perturbar Distancia (Solo si la feature existe globalmente)
-            # dist_idx suele ser el último índice (-1)
-            # SUGERENCIA: Añadido chequeo de probabilidad
-            dist_idx_abs = edge_attr.shape[1] - 1
-            if feature_mask[5] and active_e_cols[dist_idx_abs]:
-                # Solo añadimos ruido si toca perturbar
-                if torch.rand(1).item() < perturb_prob: 
-                    noise = noise_level * torch.randn(1).item()
-                    edge_attr[i, dist_idx] += noise
-                    edge_attr[i, dist_idx] = torch.clamp(edge_attr[i, dist_idx], min=0.0)
-                    modified = True
+        # Tiramos monedas solo para las aristas maestras
+        monedas_edges = (torch.rand(num_unique, 1, device=device) < perturb_prob)
 
-            # Mantener simetría (u,v) == (v,u)
-            if modified and (v, u) in edge_map:
+        # Perturbar Tipo Enlace
+        if feature_mask[4]:
+            edge_attr[indices_unique, :num_bond_cols] *= (~monedas_edges).float()
+
+        # Perturbar Distancia
+        dist_idx_abs = edge_attr.shape[1] - 1
+        if feature_mask[5] and active_e_cols[dist_idx_abs]:
+            ruido_e = noise_level * torch.randn(num_unique, 1, device=device)
+            ruido_e_aplicado = ruido_e * monedas_edges.float()
+            
+            # Usamos dist_idx:dist_idx+1 para mantener el slicing en 2D
+            edge_attr[indices_unique, dist_idx:dist_idx+1] += ruido_e_aplicado
+            edge_attr[indices_unique, dist_idx:dist_idx+1] = torch.clamp(edge_attr[indices_unique, dist_idx:dist_idx+1], min=0.0)
+
+        # -- REPLICAR SIMETRÍA RÁPIDAMENTE --
+        edge_map = {(edge_index[0, k].item(), edge_index[1, k].item()): k for k in range(num_edges)}
+        
+        # Copiamos la arista perturbada a su arista espejo
+        for idx in indices_unique.tolist():
+            u, v = edge_index[0, idx].item(), edge_index[1, idx].item()
+            if (v, u) in edge_map:
                 sym_idx = edge_map[(v, u)]
-                edge_attr[sym_idx] = edge_attr[i].clone()
+                edge_attr[sym_idx] = edge_attr[idx]
 
         data_new.edge_attr = edge_attr
 
@@ -171,8 +153,6 @@ def generate_perturbed_samples(data, feature_mask, num_samples=50, noise_level=0
         perturbed_sample = perturb_features_sample(data, feature_mask, noise_level, sample_specific_prob)
         perturbed_samples.append(perturbed_sample)
     return perturbed_samples
-
-import torch
 
 def calculate_frobenius_distance(tensor_a, tensor_b):
     """Calcula la distancia Frobenius normalizada por el tamaño."""
@@ -244,6 +224,7 @@ def obtener_graph_explainer(
 
     # --- 1. OBTENER INFORMACIÓN REAL ---
     target_name_str, real_val = obtener_info_real(target_data_path, mol_id)
+    print(real_val)
     
     # Generar muestras perturbadas
     perturbed_samples = generate_perturbed_samples(muestra, feature_mask, num_samples, noise_level)
@@ -255,14 +236,19 @@ def obtener_graph_explainer(
     muestra_for_model = onehot_to_indices(muestra.to(device))
     prediccion_original = predecir_molecula(model, muestra_for_model, device)
 
-    # Predecir las muestras perturbadas
-    predicciones_perturbadas = []
-    for perturbed in perturbed_samples:
-        perturbed = perturbed.to(device)
-        perturbed_for_model = onehot_to_indices(perturbed)  # <-- aquí el puente
-        pred = predecir_molecula(model, perturbed_for_model, device)
-        predicciones_perturbadas.append(pred)
-        # perturbed_samples_embedding.append(perturbed_for_model)
+    # 1. Convertir todas las muestras al formato del modelo en una lista
+    muestras_procesadas = [onehot_to_indices(p.to(device)) for p in perturbed_samples]
+    
+    # 2. Unirlas en un solo "Súper Grafo" (Batch)
+    batch_data = Batch.from_data_list(muestras_procesadas)
+    
+    # 3. Hacer UNA SOLA predicción masiva
+    with torch.no_grad():
+        # Asumimos que tu modelo acepta (x, edge_index, edge_attr, batch)
+        predicciones_perturbadas = model(batch_data.x, batch_data.edge_index, batch_data.edge_attr, batch_data.batch)
+    
+    # Asegurar la forma [num_samples, 1]
+    predicciones_perturbadas = predicciones_perturbadas.view(-1, 1)
 
     # Convertir a tensor [num_samples,1]
     predicciones_perturbadas = torch.tensor(predicciones_perturbadas, dtype=torch.float, device=device).unsqueeze(1)
@@ -358,25 +344,6 @@ def obtener_graph_explainer(
         algo_name=ALGO_NAME,
         model_name=model_folder_name
     )
-
-    # 1. Calcular Curvas de FIABILIDAD
-    # k_vals, fiab_minus = calcular_curvas_fidelity_general(
-    #     model, 
-    #     muestra_for_model, 
-    #     beta.abs(), 
-    #     device
-    # )
-
-    # 3. Guardar (Solo pasamos datos puros)
-    # fiab_path = guardar_plot_fidelity(
-    #     k_values=k_vals,
-    #     fiab_minus=fiab_minus, 
-    #     model_name=model_folder_name,
-    #     mol_name=mol_name,
-    #     algo_name=ALGO_NAME
-    # )
-    
-    # logger.info(f"Gráfico fidelity guardado en: {fiab_path}")
 
     return plotfilename
 

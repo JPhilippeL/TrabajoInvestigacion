@@ -79,7 +79,7 @@ class MenuExplainerGNN(QMenu):
                     # Asume que importaste obtener_Captum_Explainer al inicio del archivo
                     plot_path = obtener_Captum_Explainer(
                         model_path, sdf_path, target_path, 
-                        imagen=True, captum_method=captum_method
+                        batch_mode=False, captum_method=captum_method
                     )
                     
                 elif explainer_name == "DummyExplainer":
