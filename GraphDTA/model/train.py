@@ -80,7 +80,24 @@ def train(model_name, output_dir, train_split_file, val_split_file, test_split_f
                 best_rmse = val_rmse
                 best_epoch = epoch
 
-                torch.save(model.state_dict(), best_model_path)
+                torch.save(
+                    {
+                        "model_name": model_name,
+                        "model_state_dict": model.state_dict(),
+                        "best_epoch": best_epoch,
+                        "best_val_rmse": best_rmse,
+                        "config": {
+                            "n_filters": n_filters,
+                            "dropout": dropout,
+                            "batch_size": batch_size,
+                            "lr": lr,
+                            "weight_decay": weight_decay,
+                            "patience": patience,
+                            "epochs": 50,
+                        },
+                    },
+                    best_model_path,
+                )
                 patience_counter = 0
                 if log_callback:
                     log_callback.info(">>> Better model stocked")
@@ -90,10 +107,17 @@ def train(model_name, output_dir, train_split_file, val_split_file, test_split_f
                 if log_callback:
                     log_callback.info(">>> Early Stopped")
                 break
-        best_model = initialize_model(model_name=model_name, n_filters=n_filters, drop_out=dropout)
-        best_model.load_state_dict(torch.load(best_model_path, map_location=device))
-        best_model.to(device)
+        checkpoint = torch.load(best_model_path, map_location=device, weights_only=False)
 
+        config = checkpoint["config"]
+
+        best_model = initialize_model(
+            model_name=checkpoint["model_name"],
+            n_filters=config["n_filters"],
+            drop_out=config["dropout"],
+        ).to(device)
+
+        best_model.load_state_dict(checkpoint["model_state_dict"])
         test_rmse, test_pr = val(best_model, test_loader, device)
         if log_callback:
             log_callback.info(
