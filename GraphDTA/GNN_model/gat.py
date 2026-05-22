@@ -10,6 +10,7 @@ class GATNet(torch.nn.Module):
     def __init__(self, num_features_xd=78, n_output=1, num_features_xt=25,
                      n_filters=32, embed_dim=128, output_dim=128, dropout=0.2):
         super(GATNet, self).__init__()
+        self.n_filters = n_filters
 
         # graph layers
         self.gcn1 = GATConv(num_features_xd, num_features_xd, heads=10, dropout=dropout)
@@ -19,7 +20,7 @@ class GATNet(torch.nn.Module):
         # 1D convolution on protein sequence
         self.embedding_xt = nn.Embedding(num_features_xt + 1, embed_dim)
         self.conv_xt1 = nn.Conv1d(in_channels=1000, out_channels=n_filters, kernel_size=8)
-        self.fc_xt1 = nn.Linear(32*121, output_dim)
+        self.fc_xt1 = nn.Linear(n_filters*121, output_dim)
 
         # combined layers
         self.fc1 = nn.Linear(256, 1024)
@@ -50,7 +51,7 @@ class GATNet(torch.nn.Module):
         conv_xt = self.relu(conv_xt)
 
         # flatten
-        xt = conv_xt.view(-1, 32 * 121)
+        xt = conv_xt.view(-1, self.n_filters * 121)
         xt = self.fc_xt1(xt)
 
         # concat
