@@ -52,6 +52,7 @@ def val(model, dataloader, device):
 
 
 def initialize_model(model_name, n_filters, drop_out):
+    model = None
     if model_name == "GAT":
         model = GATNet(n_filters=n_filters, dropout=drop_out)
     elif model_name == "GAT_GCN":
