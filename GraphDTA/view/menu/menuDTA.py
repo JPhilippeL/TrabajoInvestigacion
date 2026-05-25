@@ -4,7 +4,9 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu
 
 from GraphDTA.view.dialog.generate_data_dialog import DBGenerationDialog
-from GraphDTA.worker import DBGenerationThread
+from GraphDTA.view.dialog.predict_dialog import PredictDialog
+from GraphDTA.view.dialog.train_dialog import TrainGraphDTADialog
+from GraphDTA.worker import DBGenerationThread, TrainDTAThread, PredictDTAThread
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,14 @@ class MenuDTA(QMenu):
         gendata_action = QAction("DB Generation", self)
         gendata_action.triggered.connect(self.generate_db)
         self.addAction(gendata_action)
+
+        train_action = QAction("Train Model", self)
+        train_action.triggered.connect(self.train_dta)
+        self.addAction(train_action)
+
+        predict_action = QAction("Predict Model", self)
+        predict_action.triggered.connect(self.predict_dta)
+        self.addAction(predict_action)
 
     def generate_db(self):
         dialog = DBGenerationDialog(self.main_window)
@@ -60,3 +70,49 @@ class MenuDTA(QMenu):
         logger.error(f"DB generation failed: {error_message}")
         self.main_window.setEnabled(True)
         self.db_thread = None
+
+    def train_dta(self):
+        dialog = TrainGraphDTADialog(self.main_window)
+        if dialog.exec():
+            params = dialog.get_inputs()
+
+            logger.info("[INIT TRAIN DTA] WAIT PLEASE")
+            self.main_window.setEnabled(False)
+            self.train_thread = TrainDTAThread(params, self)
+            self.train_thread.finished_success.connect(self.on_train_success)
+            self.train_thread.finished_error.connect(self.on_train_error)
+            self.train_thread.log_message.connect(logger.info)
+            self.train_thread.start()
+
+    def on_train_success(self):
+        logger.info("[TRAIN DTA] finished successfully.")
+        self.main_window.setEnabled(True)
+        self.train_thread = None
+
+    def on_train_error(self, error_message):
+        logger.error(f"[INIT TRAIN DTA] ERROR: {error_message}")
+        self.main_window.setEnabled(True)
+        self.train_thread = None
+
+    def predict_dta(self):
+        dialog = PredictDialog(self.main_window)
+        if dialog.exec():
+            params = dialog.get_inputs()
+
+            logger.info("[INIT PREDICT DTA] WAIT PLEASE")
+            self.main_window.setEnabled(False)
+            self.predict_thread = PredictDTAThread(params, self)
+            self.predict_thread.finished_success.connect(self.on_predict_success)
+            self.predict_thread.finished_error.connect(self.on_predict_error)
+            self.predict_thread.log_message.connect(logger.info)
+            self.predict_thread.start()
+
+    def on_predict_success(self):
+        logger.info("[PREDICT DTA] finished successfully.")
+        self.main_window.setEnabled(True)
+        self.predict_thread = None
+
+    def on_predict_error(self, error_message):
+        logger.error(f"[INIT PREDICT DTA] ERROR: {error_message}")
+        self.main_window.setEnabled(True)
+        self.predict_thread = None
