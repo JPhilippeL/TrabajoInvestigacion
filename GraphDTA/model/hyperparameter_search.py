@@ -24,6 +24,16 @@ def train_dta(config, model_name, output_dir, train_split_file, val_split_file, 
     split_test_pearsons = []
 
     patience = 15
+    trial_config = {
+        "model_name": model_name,
+        "n_filters": config["n_filters"],
+        "dropout": config["dropout"],
+        "batch_size": config["batch_size"],
+        "lr": config["lr"],
+        "weight_decay": config["weight_decay"],
+        "patience": patience,
+        "epochs": config["epochs"],
+    }
     for split_id in range(len(train_split)):
         if log_callback:
             log_callback.info(f"SPLIT: {split_id}")
@@ -91,15 +101,7 @@ def train_dta(config, model_name, output_dir, train_split_file, val_split_file, 
                         "model_state_dict": model.state_dict(),
                         "best_epoch": best_epoch,
                         "best_val_rmse": best_rmse,
-                        "config": {
-                            "n_filters": config["n_filters"],
-                            "dropout": config["dropout"],
-                            "batch_size": config["batch_size"],
-                            "lr": config["lr"],
-                            "weight_decay": config["weight_decay"],
-                            "patience": patience,
-                            "epochs": 50,
-                        },
+                        "config": trial_config,
                     },
                     best_model_path,
                 )
@@ -150,19 +152,18 @@ def train_dta(config, model_name, output_dir, train_split_file, val_split_file, 
             f"Mean Test Pearson: {mean_test_pearson:.4f} std {np.std(split_test_pearsons):.4f}")
 
     hyperparameter_path = os.path.join(trial_dir, f"hyperparameters_{model_name}.txt")
-    with open(hyperparameter_path, "w") as f:
-        for key, value in checkpoint_config.items():
-            f.write(f"{key}: {value}\n")
-        f.write("\n")
-        f.write(f"Mean Best Val RMSE: {mean_val_rmse:.4f} std {np.std(split_best_val_rmses):.4f}")
-        f.write(f"Mean Test RMSE: {mean_test_rmse:.4f} std  {np.std(split_test_rmses):.4f}")
-        f.write(f"Mean Test Pearson: {mean_test_pearson:.4f} std {np.std(split_test_pearsons):.4f}")
 
+    with open(hyperparameter_path, "w") as f:
+        for key, value in trial_config.items():
+            f.write(f"{key}: {value}\n")
+
+        f.write("\n")
+        f.write(f"Mean Best Val RMSE: {mean_val_rmse:.4f} std {np.std(split_best_val_rmses):.4f}\n")
+        f.write(f"Mean Test RMSE: {mean_test_rmse:.4f} std {np.std(split_test_rmses):.4f}\n")
+        f.write(f"Mean Test Pearson: {mean_test_pearson:.4f} std {np.std(split_test_pearsons):.4f}\n")
     tune.report(
         {
             "mean_val_rmse": mean_val_rmse,
-            "mean_test_rmse": mean_test_rmse,
-            "mean_test_pearson": mean_test_pearson,
         }
     )
 
@@ -170,15 +171,15 @@ def train_dta(config, model_name, output_dir, train_split_file, val_split_file, 
 if __name__ == "__main__":
     ray.shutdown()
     ray.init(ignore_reinit_error=True, include_dashboard=False)
-    output_dir = "/home/administrateur/Bureau/TrabajoInvestigacion/GraphDTA/results_hp"
+    output_dir = "/home/andromeda/Documentos/mohamedA/TrabajoInvestigacion/GraphDTA/results_hp"
     os.makedirs(output_dir, exist_ok=True)
-    train_split_file = "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/Splits/train_index_folder.txt"
-    val_split_file = "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/Splits/valid_index_folder.txt"
-    test_split_file = "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/Splits/test_index_folder.txt"
-    graph_dir = "/home/administrateur/Bureau/TrabajoInvestigacion/GraphDTA/graph"
+    train_split_file = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/Splits/train_index_folder.txt"
+    val_split_file = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/Splits/valid_index_folder.txt"
+    test_split_file = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/Splits/test_index_folder.txt"
+    graph_dir = "/home/andromeda/Documentos/mohamedA/TrabajoInvestigacion/GraphDTA/GRAPH"
     model_name = ["GINConvNet", "GAT", "GCN", "GAT_GCN"]
     config = {
-        "batch_size": tune.choice([16, 32, 64, 128, 256]),
+        "batch_size": tune.choice([16, 32, 64, 128]),
         "lr": tune.loguniform(1e-4, 1e-3),
         "weight_decay": tune.loguniform(1e-6, 1e-4),
         "dropout": tune.choice([0.0, 0.05, 0.1, 0.2]),
@@ -186,6 +187,7 @@ if __name__ == "__main__":
         "epochs": 50,
     }
     for name in model_name:
+        print(name)
         trainable = tune.with_parameters(
             train_dta,
             model_name=name,
@@ -209,7 +211,7 @@ if __name__ == "__main__":
             tune_config=tune.TuneConfig(
                 metric="mean_val_rmse",
                 mode="min",
-                num_samples=30,
+                num_samples=40,
             ),
             param_space=config,
             run_config=ray.tune.RunConfig(
@@ -224,17 +226,16 @@ if __name__ == "__main__":
             mode="min",
         )
         best_trial_dir = best_result.path
-        expirement_dir = os.path.join(best_trial_dir)
+        experiment_dir = os.path.dirname(best_trial_dir)
         print(f"Best trial kept at: {best_trial_dir}")
         print(f"Best config: {best_result.config}")
         print(f"Best mean val RMSE: {best_result.metrics['mean_val_rmse']}")
-        print(f"Best mean test RMSE: {best_result.metrics['mean_test_rmse']}")
-        print(f"Best mean test Pearson: {best_result.metrics['mean_test_pearson']}")
 
-        for item in os.listdir(expirement_dir):
-            item_path = os.path.join(expirement_dir, item)
+        for item in os.listdir(experiment_dir):
+            item_path = os.path.join(experiment_dir, item)
 
             if os.path.abspath(item_path) == os.path.abspath(best_trial_dir):
                 continue
+
             if os.path.isdir(item_path):
                 shutil.rmtree(item_path, ignore_errors=True)
