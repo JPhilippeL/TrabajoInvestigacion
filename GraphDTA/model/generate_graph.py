@@ -195,5 +195,3 @@ def debug_graph(file_pt):
     )
     plt.title(f"Graph for {data.pdb_id}")
     plt.show()
-
-

@@ -8,7 +8,7 @@ from GraphDTA.model.utils import val, initialize_model, seed_everything, load_sp
 
 
 def train(model_name, output_dir, train_split_file, val_split_file, test_split_file, graph_dir, batch_size, lr,
-          n_filters, dropout, weight_decay, log_callback=None):
+          n_filters, dropout, weight_decay, epochs, log_callback=None):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     os.makedirs(output_dir, exist_ok=True)
     train_split = load_split_txt(train_split_file)
@@ -50,7 +50,7 @@ def train(model_name, output_dir, train_split_file, val_split_file, test_split_f
         os.makedirs(split_save_dir, exist_ok=True)
         best_model_path = os.path.join(split_save_dir, "best_model.pt")
 
-        for epoch in range(50):
+        for epoch in range(epochs):
             model.train()
             epoch_loss = 0.0
             n_train = 0
