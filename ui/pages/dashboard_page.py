@@ -228,8 +228,8 @@ class DashboardPage(QWidget):
 
         self._add_card(
             model_grid,
-            1,
             0,
+            2,
             "EDNN",
             "Generate data, train, search hyperparameters and evaluate EDNN models.",
             [
@@ -244,7 +244,7 @@ class DashboardPage(QWidget):
         self._add_card(
             model_grid,
             1,
-            1,
+            0,
             "DeepDTA",
             "Launch DeepDTA-specific hyperparameter search workflow.",
             [
@@ -254,12 +254,25 @@ class DashboardPage(QWidget):
 
         self._add_card(
             model_grid,
-            2,
-            0,
+            1,
+            1,
             "WideDTA",
             "Launch WideDTA-specific hyperparameter search workflow.",
             [
                 ("Search", self.callbacks.get("widedta_search")),
+            ],
+        )
+
+        self._add_card(
+            model_grid,
+            1,
+            2,
+            "DCML",
+            "Train, search hyperparameters and evaluate DCML model.",
+            [
+                ("Train", self.callbacks.get("dcml_train")),
+                ("Search", self.callbacks.get("dcml_search")),
+                ("Evaluate", self.callbacks.get("dcml_evaluate")),
             ],
         )
 

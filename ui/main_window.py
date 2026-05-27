@@ -168,6 +168,10 @@ class MainWindow(QMainWindow):
 
             "deepdta_search": lambda: self.trigger_menu_action("DeepDTA", "Hyperparameter Search"),
             "widedta_search": lambda: self.trigger_menu_action("WideDTA", "Hyperparameter Search"),
+
+            "dcml_train": lambda: self.trigger_menu_action("DCML", "Train Model"),
+            "dcml_search": lambda: self.trigger_menu_action("DCML", "Hyperparameter Search"),
+            "dcml_evaluate": lambda: self.trigger_menu_action("DCML", "Evaluate Model"),
         }
 
     def trigger_menu_action(self, menu_title: str, action_text: str) -> None:
