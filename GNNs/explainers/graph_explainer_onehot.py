@@ -395,11 +395,11 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
     beta = nn.Parameter(torch.randn(N_nodes, 1, device=device) * 0.1)
     
     mean_pred = predicciones_perturbadas.mean().item()
-    # mu = nn.Parameter(torch.tensor([mean_pred], device=device, dtype=torch.float))
-    mu = nn.Parameter(torch.tensor([0.0], device=device, dtype=torch.float))
+    mu = nn.Parameter(torch.tensor([mean_pred], device=device, dtype=torch.float))
+    # mu = nn.Parameter(torch.tensor([0.0], device=device, dtype=torch.float))
 
-    # params = [alfa, beta, mu]
-    params = [alfa, beta]
+    params = [alfa, beta, mu]
+    # params = [alfa, beta]
     
     gamma = None
     delta = None
@@ -456,7 +456,7 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
         # term_nodes = torch.matmul(alfa.t(), Eb).view(-1, 1)
         term_nodes = (Ea * beta).sum(dim=1)
         
-        pred_approx = (term_nodes * scale_nodes) # + mu
+        pred_approx = (term_nodes * scale_nodes) + mu
         # pred_approx = term_nodes * scale_nodes
 
         # --- Edges ---
