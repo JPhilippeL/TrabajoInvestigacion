@@ -1,0 +1,25 @@
+model_name: DCML
+backend: sklearn
+model_type: gradient_boosting
+
+paths:
+  train_feature_zip: data/train_feature.zip
+  train_label_npy: data/train_label.npy
+  validation_feature_zip: data/test_feature.zip
+  validation_label_npy: data/test_label.npy
+  output_model: DCML/results/DCML.pt
+  output_dir: DCML/results/train
+
+runtime:
+  device: cpu
+  cast_float32: true
+  seed: 42
+
+hyperparameters:
+  n_estimators: 300
+  max_depth: 6
+  learning_rate: 0.01
+  min_samples_split: 2
+  subsample: 0.7
+  max_features: sqrt
+  loss: squared_error
