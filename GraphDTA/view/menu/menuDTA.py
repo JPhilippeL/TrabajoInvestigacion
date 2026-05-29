@@ -4,9 +4,10 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu
 
 from GraphDTA.view.dialog.generate_data_dialog import DBGenerationDialog
+from GraphDTA.view.dialog.hyperparameter_search_dialog import GraphDTAHyperparameterSearchDialog
 from GraphDTA.view.dialog.predict_dialog import PredictDialog
 from GraphDTA.view.dialog.train_dialog import TrainGraphDTADialog
-from GraphDTA.worker import DBGenerationThread, TrainDTAThread, PredictDTAThread
+from GraphDTA.worker import DBGenerationThread, TrainDTAThread, PredictDTAThread, HPProcess
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,10 @@ class MenuDTA(QMenu):
         predict_action = QAction("Predict Model", self)
         predict_action.triggered.connect(self.predict_dta)
         self.addAction(predict_action)
+
+        hp_action = QAction("Hyperparameter Tuning", self)
+        hp_action.triggered.connect(self.hp_dta)
+        self.addAction(hp_action)
 
     def generate_db(self):
         dialog = DBGenerationDialog(self.main_window)
@@ -116,3 +121,26 @@ class MenuDTA(QMenu):
         logger.error(f"[INIT PREDICT DTA] ERROR: {error_message}")
         self.main_window.setEnabled(True)
         self.predict_thread = None
+
+    def hp_dta(self):
+        dialog = GraphDTAHyperparameterSearchDialog(self.main_window)
+        if dialog.exec():
+            params = dialog.get_values()
+
+            logger.info("[INIT HP DTA] WAIT PLEASE")
+            self.main_window.setEnabled(False)
+            self.hp_process = HPProcess(params)
+            self.hp_process.log_message.connect(logger.info)
+            self.hp_process.finished_error.connect(self.on_hp_error)
+            self.hp_process.finished_success.connect(self.on_hp_success)
+            self.hp_process.start()
+
+    def on_hp_success(self):
+        logger.info("[HP DTA] finished successfully.")
+        self.main_window.setEnabled(True)
+        self.hp_process = None
+
+    def on_hp_error(self, error_message):
+        logger.error(f"[INIT HP DTA] ERROR: {error_message}")
+        self.main_window.setEnabled(True)
+        self.hp_process = None
