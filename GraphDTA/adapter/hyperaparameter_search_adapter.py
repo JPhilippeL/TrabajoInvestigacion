@@ -1,0 +1,129 @@
+import json
+import logging
+import sys
+import time
+
+from PySide6.QtWidgets import QDialog
+from ray import tune
+
+from GraphDTA.model.hyperparameter_search import launch_hyperparametre_search
+
+logger = logging.getLogger(__name__)
+
+
+def dialog_accepted(dialog):
+    if dialog.exec() == QDialog.DialogCode.Accepted:
+        return dialog.get_values()
+
+    return None
+
+
+def pop_unused_key(dialog_inputs):
+    config = dialog_inputs.copy()
+
+    unused_keys = [
+        "train_file",
+        "test_file",
+        "val_file",
+        "save_directory",
+        "graph_directory",
+        "cpu_per_trials",
+        "gpu_per_trials",
+        "number_of_trials",
+        "model_name",
+        "PATIENCE",
+    ]
+
+    for key in unused_keys:
+        config.pop(key, None)
+
+    return config
+
+
+def create_interval_by_multiplication(min_value, max_value):
+    values = []
+
+    current = min_value
+    while current <= max_value:
+        values.append(current)
+        current *= 2
+
+    if not values:
+        values.append(min_value)
+
+    return values
+
+
+def create_ray_tune_config(dialog_inputs):
+    config = pop_unused_key(dialog_inputs)
+
+    n_filters_interval = create_interval_by_multiplication(
+        config["n_filters_min"],
+        config["n_filters_max"],
+    )
+
+    batch_size_interval = create_interval_by_multiplication(
+        config["batch_size_min"],
+        config["batch_size_max"],
+    )
+
+    return {
+        "batch_size": tune.choice(batch_size_interval),
+
+        "lr": tune.loguniform(
+            dialog_inputs["lr_min"],
+            dialog_inputs["lr_max"],
+        ),
+
+        "weight_decay": tune.loguniform(
+            dialog_inputs["weight_decay_min"],
+            dialog_inputs["weight_decay_max"],
+        ),
+
+        "dropout": tune.uniform(
+            dialog_inputs["dropout_min"],
+            dialog_inputs["dropout_max"],
+        ),
+
+        "n_filters": tune.choice(n_filters_interval),
+
+        "epochs": config["EPOCHS"],
+    }
+
+
+def launch_ray_tune_hyperparameter_search(dialog_inputs, log_callback):
+    config = create_ray_tune_config(dialog_inputs)
+
+    launch_hyperparametre_search(
+        config=config,
+        cpu_per_trial=dialog_inputs["cpu_per_trials"],
+        gpu_per_trial=dialog_inputs["gpu_per_trials"],
+        num_samples=dialog_inputs["number_of_trials"],
+        output_dir=dialog_inputs["save_directory"],
+        model_name=dialog_inputs["model_name"],
+        train_split_file=dialog_inputs["train_file"],
+        val_split_file=dialog_inputs["val_file"],
+        test_split_file=dialog_inputs["test_file"],
+        graph_dir=dialog_inputs["graph_directory"],
+        log_callback=log_callback,
+    )
+
+
+# This will run our hyperparameter search on a separate process than Qt.
+if __name__ == "__main__":
+    start_hp = time.time()
+
+    params = json.loads(sys.argv[1])
+
+    launch_ray_tune_hyperparameter_search(
+        params,
+        log_callback=logger,
+    )
+
+    end_hp = time.time()
+    elapsed_time = end_hp - start_hp
+
+    logger.info(
+        f"Time elapsed for GraphDTA hyperparameter tuning is: "
+        f"{elapsed_time:.2f} seconds"
+    )

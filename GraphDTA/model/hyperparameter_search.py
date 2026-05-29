@@ -168,25 +168,12 @@ def train_dta(config, model_name, output_dir, train_split_file, val_split_file, 
     )
 
 
-if __name__ == "__main__":
+def tune_all_dta(config, output_dir, train_split_file, val_split_file, test_split_file, graph_dir, log_callback=None):
     ray.shutdown()
     ray.init(ignore_reinit_error=True, include_dashboard=False)
-    output_dir = "/home/andromeda/Documentos/mohamedA/TrabajoInvestigacion/GraphDTA/results_hp"
     os.makedirs(output_dir, exist_ok=True)
-    train_split_file = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/Splits/train_index_folder.txt"
-    val_split_file = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/Splits/valid_index_folder.txt"
-    test_split_file = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/Splits/test_index_folder.txt"
-    graph_dir = "/home/andromeda/Documentos/mohamedA/TrabajoInvestigacion/GraphDTA/GRAPH"
-    model_name = ["GINConvNet", "GAT", "GCN", "GAT_GCN"]
-    config = {
-        "batch_size": tune.choice([16, 32, 64, 128]),
-        "lr": tune.loguniform(1e-4, 1e-3),
-        "weight_decay": tune.loguniform(1e-6, 1e-4),
-        "dropout": tune.choice([0.0, 0.05, 0.1, 0.2]),
-        "n_filters": tune.choice([16, 32, 64, 128]),
-        "epochs": 50,
-    }
-    for name in model_name:
+    models_name = ["GINConvNet", "GAT", "GCN", "GAT_GCN"]
+    for name in models_name:
         print(name)
         trainable = tune.with_parameters(
             train_dta,
@@ -239,3 +226,62 @@ if __name__ == "__main__":
 
             if os.path.isdir(item_path):
                 shutil.rmtree(item_path, ignore_errors=True)
+
+
+def launch_hyperparametre_search(config, cpu_per_trial,gpu_per_trial,num_samples,output_dir, model_name, train_split_file, val_split_file, test_split_file,
+                                 graph_dir, log_callback=None):
+    ray.shutdown()
+    ray.init(ignore_reinit_error=True, include_dashboard=False)
+    os.makedirs(output_dir, exist_ok=True)
+
+    trainable = tune.with_parameters(
+        train_dta,
+        model_name=model_name,
+        output_dir=output_dir,
+        train_split_file=train_split_file,
+        val_split_file=val_split_file,
+        test_split_file=test_split_file,
+        graph_dir=graph_dir,
+        log_callback=None
+
+    )
+
+    tuner = tune.Tuner(
+        tune.with_resources(
+            trainable,
+            resources={
+                "cpu": cpu_per_trial,
+                "gpu": gpu_per_trial,
+            },
+        ),
+        tune_config=tune.TuneConfig(
+            metric="mean_val_rmse",
+            mode="min",
+            num_samples=num_samples,
+        ),
+        param_space=config,
+        run_config=ray.tune.RunConfig(
+            name=f"GRAPHDTA_{model_name}",
+            storage_path=output_dir,
+        ),
+    )
+    results = tuner.fit()
+
+    best_result = results.get_best_result(
+        metric="mean_val_rmse",
+        mode="min",
+    )
+    best_trial_dir = best_result.path
+    experiment_dir = os.path.dirname(best_trial_dir)
+    print(f"Best trial kept at: {best_trial_dir}")
+    print(f"Best config: {best_result.config}")
+    print(f"Best mean val RMSE: {best_result.metrics['mean_val_rmse']}")
+
+    for item in os.listdir(experiment_dir):
+        item_path = os.path.join(experiment_dir, item)
+
+        if os.path.abspath(item_path) == os.path.abspath(best_trial_dir):
+            continue
+
+        if os.path.isdir(item_path):
+            shutil.rmtree(item_path, ignore_errors=True)
