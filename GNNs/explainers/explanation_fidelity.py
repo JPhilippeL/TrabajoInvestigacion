@@ -7,7 +7,7 @@ import statistics  # <--- IMPORTANTE: Importar esto
 from rdkit import Chem
 from ui.utils.constants import (
     RESULTADOS_DIR, EXPLAINERS,
-    EMBEDDING_INDICES, 
+    EMBEDDING_INDICES, CATEGORICAL_INDICES, 
     EDGE_EMBEDDING_INDICES,
 )
 from ui.utils.plot_style import apply_paper_style, save_paper_figure
@@ -92,8 +92,8 @@ def generar_comparativa_fidelity(
 # FUNCION PARA CARGAR PESOS Y CALCULAR LOS DATOS DE LOS DOS
 def calcular_metricas_comparativas(
     model, device, mol, 
-    weights_paths_dict, 
-    mode, reg_fidelity_mas, usar_porcentaje=False
+    weights_dict, # <-- Cambiado: ahora recibe el diccionario con los datos, no las rutas
+    mode, reg_fidelity_mas, data=None, usar_porcentaje=False
 ):
     """
     Retorna un diccionario: 
@@ -101,12 +101,8 @@ def calcular_metricas_comparativas(
     """
     metrics_dict = {}
 
-    for explainer_name, path in weights_paths_dict.items():
-        try:
-            tensor_weights = cargar_pesos_tensor(path, device)
-        except Exception as e:
-            logger.warning(f"Error cargando pesos de {explainer_name}: {e}")
-            continue
+    # Iteramos directamente sobre el nombre y los pesos en memoria
+    for explainer_name, tensor_weights in weights_dict.items():
         
         # Omitimos GNNExplainer en gamma (no soporta feature de aristas)
         if explainer_name == 'GNNExplainer' and mode == 'gamma':
@@ -116,10 +112,34 @@ def calcular_metricas_comparativas(
         is_onehot = (explainer_name == 'GraphExplainer')
 
         try:
-            k_vals, fiab = calcular_curvas_fidelity(
-                model=model, importance=tensor_weights, device=device, 
-                mol=mol, is_onehot_explainer=is_onehot, 
-                mode=mode, usar_porcentaje=usar_porcentaje, 
+            # 1. Preparar datos: pasamos tensor_weights DIRECTAMENTE a importance
+            graph_model, graph_masking, sorted_indices, limit = preparar_datos_fidelity(
+                importance=tensor_weights, 
+                device=device, 
+                mol=mol, 
+                data=data, 
+                mode=mode, 
+                usar_porcentaje=usar_porcentaje, 
+                is_onehot_explainer=is_onehot, 
+                reg_fidelity_mas=reg_fidelity_mas
+            )
+
+            # Condición de salida temprana (ej. modo gamma sin atributos de arista)
+            if graph_model is None:
+                # SOLUCIÓN DE BUG: Hacemos continue en lugar de retornar [], [] 
+                # para no romper el tipo de dato que espera recibir la función principal
+                continue
+
+            # 2. Ejecutar el modelo predictivo y generar la curva
+            k_vals, fiab = ejecutar_bucle_perturbacion(
+                model=model, 
+                device=device, 
+                graph_model=graph_model, 
+                graph_masking=graph_masking, 
+                sorted_indices=sorted_indices, 
+                limit=limit, 
+                mode=mode, 
+                is_onehot_explainer=is_onehot, 
                 reg_fidelity_mas=reg_fidelity_mas
             )
             
@@ -131,182 +151,149 @@ def calcular_metricas_comparativas(
                 'auc': auc_val
             }
         except Exception as e:
+            # Si un explicador falla (ej. error de dimensiones), no aborta el resto
             logger.error(f"Fallo al calcular curvas para {explainer_name}: {e}")
 
     return metrics_dict
 
-# FUNCION PARA CALCULAR DATOS DE UNO
-def calcular_curvas_fidelity(
-    model, 
+# Se encarga puramente del procesamiento de tensores, máscaras y ordenamiento de índices.
+def preparar_datos_fidelity(
     importance, 
     device, 
     mol=None,        
     data=None,       
     mode="beta", 
-    usar_porcentaje = False,
+    usar_porcentaje=False,
     is_onehot_explainer=False, 
-    reg_fidelity_mas=True # True: Fidelidad (Ascendente), False: Infidelidad/Daño (Descendente)
+    reg_fidelity_mas=True
 ):
-    model.eval()
-
-    # === 1. PREPARACIÓN DE DATOS ROBUSTA ===
-    # El objetivo es tener dos copias INDEPENDIENTES:
-    # - data_gpu: Para inferencia en el modelo (GPU)
-    # - data_cpu: Para analizar ceros y filtrar features (CPU)
-
-    if is_onehot_explainer:
+    """
+    Prepara los grafos y calcula los índices a perturbar antes de entrar al bucle.
+    Retorna: graph_model, graph_masking, sorted_indices, limit
+    """
+    # === 1. PREPARACIÓN DE DATOS ===
+    if is_onehot_explainer and data is None:
         if mol is None:
             raise ValueError("Modo One-Hot requiere pasar el objeto 'mol' de RDKit.")
         
-        # Generamos instancias frescas para evitar problemas de referencia
-        data_gpu = mol_to_graph_data(mol).to(device)
-        data_cpu = mol_to_graph_data(mol, 'one_hot') # Se queda en CPU
+        graph_model = mol_to_graph_data(mol).to(device)
+        graph_masking = mol_to_graph_data(mol, 'one_hot') 
     else:
-        if data is None:
-            if mol is not None:
-                # Generamos desde cero si tenemos mol
-                data_gpu = mol_to_graph_data(mol).to(device)
-                data_cpu = mol_to_graph_data(mol) # CPU por defecto
-            else:
-                raise ValueError("Modo Indices requiere 'data' o 'mol'.")
+        if data is not None:
+            graph_model = data.clone().to(device)
+        elif mol is not None:
+            graph_model = mol_to_graph_data(mol).to(device)
         else:
-            # Si viene 'data', CLONAMOS para romper referencias antes de mover
-            data_gpu = data.clone().to(device)
-            data_cpu = data.clone().cpu()
+            raise ValueError("Modo Indices requiere 'data' o 'mol'.")
+        
+        graph_masking = graph_model 
 
-    # Manejo explícito del batch si es None (para evitar errores en modelos sensibles)
-    if data_gpu.batch is None:
-        data_gpu.batch = torch.zeros(data_gpu.x.shape[0], dtype=torch.long, device=device)
+    if graph_model.batch is None:
+        graph_model.batch = torch.zeros(graph_model.x.shape[0], dtype=torch.long, device=device)
 
-    # === 2. DETERMINAR TOTAL ELEMENTOS ===
-    # Usamos data_cpu para ver dimensiones y contenido
+    # === 2. DETERMINAR TOTAL DE ELEMENTOS ===
     if mode == 'alfa':
-        total_elements = data_cpu.x.shape[1] 
+        total_elements = graph_masking.x.shape[1] 
     elif mode == 'beta':
-        total_elements = data_gpu.x.shape[0] 
+        total_elements = graph_model.x.shape[0] 
     elif mode == 'gamma':
-        if data_gpu.edge_attr is None: return [], []
-        total_elements = data_cpu.edge_attr.shape[1] 
+        if graph_model.edge_attr is None: 
+            return None, None, [], 0 # Señal para abortar anticipadamente
+        total_elements = graph_masking.edge_attr.shape[1] 
     elif mode == 'delta':
-        total_elements = data_gpu.edge_index.shape[1] 
+        total_elements = graph_model.edge_index.shape[1] 
     else:
         raise ValueError(f"Modo {mode} no reconocido.")
 
     # Procesar Importancia
-    if torch.is_tensor(importance):
-        imp = importance.detach().cpu().numpy().flatten()
-    else:
-        imp = np.array(importance).flatten()
-
+    imp = importance.detach().cpu().numpy().flatten() if torch.is_tensor(importance) else np.array(importance).flatten()
     imp = np.abs(imp)
 
-    # === En calcular_curvas_fidelity, después de imp = np.abs(imp) ===
     if mode in ['beta', 'delta'] and len(imp) != total_elements:
-        raise ValueError(
-            f"MISMATCH DE DIMENSIONES: La molécula tiene {total_elements} elementos ({mode}), "
-            f"pero el tensor de pesos tiene {len(imp)}."
-        )
+        raise ValueError(f"MISMATCH: Molécula tiene {total_elements} elementos ({mode}), pero hay {len(imp)} pesos.")
     
-    # === LÓGICA DE ORDENAMIENTO (Ascendente vs Descendente) ===
-    if reg_fidelity_mas:
-        # Fidelity+: Borramos lo MENOS importante primero.
-        # Esperamos que la curva se mantenga alta (1.0) y caiga al final.
-        sorted_indices = np.argsort(imp).copy()
-    else:
-        # Fidelity-: Borramos lo MÁS importante primero.
-        # Esperamos que la curva (de impacto) suba rápido a 1.0.
-        sorted_indices = np.argsort(imp)[::-1].copy()
+    sorted_indices = np.argsort(imp).copy() if reg_fidelity_mas else np.argsort(imp)[::-1].copy()
 
-    # =========================================================================
-    # 3. LÓGICA DE FILTRADO (DIVERGENCIA)
-    # =========================================================================
-    
+    # === 3. LÓGICA DE FILTRADO (DIVERGENCIA) ===
     indices_activos_reales = sorted_indices 
 
-    # --- RAMA A: LOGICA ONE-HOT (GraphExplainer) ---
     if is_onehot_explainer:
         if mode == 'alfa':
-            # Filtrar columnas todas a cero
-            col_is_active = (data_cpu.x != 0).any(dim=0).cpu().numpy()
+            col_is_active = (graph_masking.x != 0).any(dim=0).cpu().numpy()
             indices_activos_reales = [idx for idx in sorted_indices if col_is_active[idx]]
-            
-        elif mode == 'gamma':
-            if data_cpu.edge_attr is not None:
-                col_is_active = (data_cpu.edge_attr != 0).any(dim=0).cpu().numpy()
-                indices_activos_reales = [idx for idx in sorted_indices if col_is_active[idx]]
-    
-    # --- RAMA B: LOGICA INDICES (GNNExplainer) ---
+        elif mode == 'gamma' and graph_masking.edge_attr is not None:
+            col_is_active = (graph_masking.edge_attr != 0).any(dim=0).cpu().numpy()
+            indices_activos_reales = [idx for idx in sorted_indices if col_is_active[idx]]
     else:
         if mode == 'alfa':
-            cat_cols = [EMBEDDING_INDICES["ATOM_SYMBOL"], EMBEDDING_INDICES["HYBRIDIZATION"]]
+            cat_cols = CATEGORICAL_INDICES
             filtered = []
-            x_vals = data_cpu.x # Ya está en CPU
+            x_vals = graph_masking.x.cpu() 
             
             for idx in sorted_indices:
-                if idx in cat_cols:
-                    filtered.append(idx) 
-                elif (x_vals[:, idx] != 0).any(): 
+                if idx in cat_cols or (x_vals[:, idx] != 0).any(): 
                     filtered.append(idx)
             indices_activos_reales = filtered
 
-    # Aplicar filtro
     sorted_indices = np.array(indices_activos_reales)
-    limit = len(sorted_indices)
+    limit = max(1, round(len(sorted_indices) * PORCENTAJE_K)) if usar_porcentaje else (len(sorted_indices) - 1 if mode == 'beta' else len(sorted_indices))
+
+    return graph_model, graph_masking, sorted_indices, limit
+
+# Toma los datos ya procesados, realiza la inferencia original y ejecuta el bucle de perturbaciones.
+def ejecutar_bucle_perturbacion(
+    model, 
+    device, 
+    graph_model, 
+    graph_masking, 
+    sorted_indices, 
+    limit, 
+    mode="beta", 
+    is_onehot_explainer=False, 
+    reg_fidelity_mas=True
+):
+    """
+    Ejecuta el bucle iterativo ocultando características y evaluando la respuesta del modelo.
+    """
+    model.eval()
     
-    if usar_porcentaje:
-        limit = max(1, round(limit * PORCENTAJE_K))
-    elif mode == 'beta':
-        limit = limit - 1 
-
-    # =========================================================================
-
-    # 4. PREDICCIÓN ORIGINAL
+    # === 4. PREDICCIÓN ORIGINAL ===
     with torch.no_grad():
-        # Usamos data_gpu explícitamente
-        pred_original = model(data_gpu.x, data_gpu.edge_index, data_gpu.edge_attr, data_gpu.batch)
+        pred_original = model(graph_model.x, graph_model.edge_index, graph_model.edge_attr, graph_model.batch)
         val_orig = pred_original.item()
 
     fiab_list = []
     k_values = []
 
-    # === 5. BUCLE PRINCIPAL ===
+    # === 5. BUCLE PRINCIPAL DE PERTURBACIÓN ===
     for k in range(limit + 1):
         k_values.append(k)
         current_indices = sorted_indices[:k]
 
         if k == 0:
-            data_minus = data_gpu
+            data_minus = graph_model # Baseline intacto
         else:
             # === DESPACHADOR DE PERTURBACIÓN ===
-            
-            # --- MODOS ESTRUCTURALES ---
             if mode == 'beta':
-                data_minus = eliminar_nodos_y_conexiones(data_gpu, current_indices)
+                data_minus = eliminar_nodos_y_conexiones(graph_model, current_indices)
             elif mode == 'delta':
-                data_minus = eliminar_aristas_selectivas(data_gpu, current_indices)
-            
-            # --- MODOS FEATURES ---
+                data_minus = eliminar_aristas_selectivas(graph_model, current_indices)
             elif is_onehot_explainer:
                 if mode == 'alfa':
-                    # data_cpu se usa para enmascarar en CPU, luego conversion
-                    data_aux = ocultar_features_nodos_onehot(data_cpu, current_indices)
+                    data_aux = ocultar_features_nodos_onehot(graph_masking, current_indices)
                     data_minus = onehot_to_indices(data_aux)
                 elif mode == 'gamma':
-                    data_aux = ocultar_features_aristas_onehot(data_cpu, current_indices)
+                    data_aux = ocultar_features_aristas_onehot(graph_masking, current_indices)
                     data_minus = onehot_to_indices(data_aux)
-            
             else: 
                 if mode == 'alfa':
-                    # Aquí data_gpu se modifica en GPU directamente (si la funcion soporta tensores)
-                    # Ocultar features indices usa tensores, mantiene device.
-                    data_minus = ocultar_features_nodos_indices(data_gpu, current_indices)
+                    data_minus = ocultar_features_nodos_indices(graph_model, current_indices)
                 elif mode == 'gamma':
-                    data_minus = ocultar_features_aristas_indices(data_gpu, current_indices)
+                    data_minus = ocultar_features_aristas_indices(graph_model, current_indices)
 
-        # SEGURO FINAL: Asegurar que todo esté en GPU antes de entrar al modelo
+        # Unificación: Mover siempre el resultado al dispositivo del modelo
         data_minus = data_minus.to(device)
         
-        # Parche de seguridad para batch si se perdió en la perturbación
         if data_minus.batch is None:
              data_minus.batch = torch.zeros(data_minus.x.shape[0], dtype=torch.long, device=device)
 
@@ -321,16 +308,11 @@ def calcular_curvas_fidelity(
                 pred_minus = model(data_minus.x, data_minus.edge_index, data_minus.edge_attr, data_minus.batch)
                 val_minus = pred_minus.item()
 
-        # === CÁLCULO DE LA MÉTRICA ===
+        # Cálculo de Métrica
         if reg_fidelity_mas:
-            # FIDELIDAD (Similitud): Empieza en 1.0, baja si el modelo sufre.
-            fiab_list.append(np.exp(-abs(val_orig - val_minus)))
+            fiab_list.append(np.exp(-abs(val_orig - val_minus))) # Fidelidad
         else:
-            # INFIDELIDAD (Daño): Empieza en 0.0, sube si el modelo sufre.
-            diff_minus = abs(val_orig - val_minus)
-            fidelity_score = np.exp(-diff_minus) 
-            metric_to_plot = 1.0 - fidelity_score
-            fiab_list.append(metric_to_plot)
+            fiab_list.append(1.0 - np.exp(-abs(val_orig - val_minus))) # Infidelidad
 
     return k_values, fiab_list
 
@@ -514,6 +496,120 @@ def obtener_aucs_directorio(
 
     except Exception as e:
         logger.error(f"Error global en Batch Comparer: {str(e)}", exc_info=True)
+
+# Asumo que tienes definido EXPLAINERS en algún lugar de tu script
+# EXPLAINERS = ["GraphExplainer", "GNNExplainer", "Captum_IG", ...]
+
+def obtener_aucs_pt(
+        model_path, data_list, weights_path, 
+        mode, reg_fidelity_mas
+):
+    if not os.path.exists(weights_path):
+        logger.error(f"No existe la ruta de pesos: {weights_path}")
+        return
+
+    results = [] 
+    
+    try:
+        if not data_list: 
+            logger.warning("La lista de datos (data_list) recibida está vacía.")
+            return
+
+        model, device, _ = cargar_modelo(model_path)
+        
+        # =====================================================================
+        # 1. PRE-CARGA DE DICCIONARIOS BATCH EN MEMORIA
+        # =====================================================================
+        loaded_explainers_data = {}
+        
+        # Adaptación: Verificamos si es un archivo directo o un directorio
+        if os.path.isfile(weights_path):
+            all_weight_files = [weights_path] # Convertimos a lista de un solo elemento
+            logger.info(f"Cargando archivo único de pesos: {weights_path}")
+        else:
+            all_weight_files = [os.path.join(weights_path, f) for f in os.listdir(weights_path) if f.endswith('.pt')]
+            logger.info(f"Cargando archivos batch de pesos desde directorio: {weights_path}")
+        
+        for filepath in all_weight_files:
+            filename = os.path.basename(filepath)
+            clean_explainer_name = None
+            
+            # Identificamos el explicador buscando en el nombre del archivo
+            for known in EXPLAINERS:
+                if known in filename:
+                    clean_explainer_name = known
+                    break 
+            
+            # Fallback de seguridad: si no lo encuentra en EXPLAINERS, usamos el nombre del archivo
+            if not clean_explainer_name:
+                clean_explainer_name = filename.replace('.pt', '')
+                
+            try:
+                # Cargamos el diccionario gigante en memoria
+                loaded_explainers_data[clean_explainer_name] = torch.load(filepath)
+                logger.info(f"Cargado exitosamente: {clean_explainer_name} ({len(loaded_explainers_data[clean_explainer_name])} moléculas)")
+            except Exception as e:
+                logger.error(f"Error cargando el archivo batch {filename}: {e}")
+
+        if not loaded_explainers_data:
+            logger.warning("No se pudo cargar ningún archivo batch de explicadores válido.")
+            return
+
+        # =====================================================================
+        # 2. BUCLE SOBRE LOS GRAFOS
+        # =====================================================================
+        for idx, graph_data in enumerate(data_list):
+            
+            mol_name = getattr(graph_data, 'name', f'mol_idx_{idx}')
+
+            # Extraemos los pesos específicos para ESTA molécula y ESTE modo
+            molecule_weights_dict = {}
+            
+            for exp_name, exp_dict in loaded_explainers_data.items():
+                if mol_name in exp_dict:
+                    if mode in exp_dict[mol_name]:
+                        molecule_weights_dict[exp_name] = exp_dict[mol_name][mode]
+
+            # Si no hay ningún peso para esta molécula en ningún explicador, la saltamos
+            if not molecule_weights_dict: 
+                continue
+
+            try:
+                # 3. Llamada a métricas comparativas
+                metrics_dict = calcular_metricas_comparativas(
+                    model=model, 
+                    device=device, 
+                    mol=None,
+                    data=graph_data, 
+                    weights_dict=molecule_weights_dict, 
+                    mode=mode, 
+                    reg_fidelity_mas=reg_fidelity_mas, 
+                    usar_porcentaje=False
+                )
+                
+                if metrics_dict:
+                    row_data = {"name": mol_name}
+                    for exp_name, val in metrics_dict.items():
+                        row_data[exp_name] = val['auc']
+                        
+                    results.append(row_data)
+                    logger.info(f"Procesado {mol_name} | Explainers: {list(metrics_dict.keys())}")
+
+            except Exception as e_inner:
+                logger.error(f"Error procesando {mol_name}: {e_inner}", exc_info=True)
+
+        # =====================================================================
+        # --- GUARDADO FINAL ---
+        # =====================================================================
+        if results:
+            model_name_clean = os.path.splitext(os.path.basename(model_path))[0]
+            save_auc_results_csv(results, mode, model_name_clean, reg_fidelity_mas)
+            logger.info(f"Resultados AUC guardados exitosamente para {len(results)} moléculas.")
+        else:
+            logger.warning("No se generaron resultados para el batch.")
+
+    except Exception as e:
+        logger.error(f"Error global en Batch Comparer desde .pt: {str(e)}", exc_info=True)
 
 # GUARDARLO EL CSV
 def save_auc_results_csv(results, mode, model_name, reg_fidelity_mas):

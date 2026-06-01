@@ -7,11 +7,10 @@ import sys
 import logging
 from GNNs.data_processing import onehot_to_indices, indices_to_onehot
 from GNNs.explainers.explanation_helper import ( 
-    tensor_to_abs_numpy, sort_features, normalizar_por_l2, normalizar_por_l1, normalizar_por_maximo, procesar_features_onehot, procesar_features_ordenadas)
+    tensor_to_abs_numpy, normalizar_por_l2, procesar_features_ordenadas)
 from GNNs.explainers.graph_explainer_onehot import generate_perturbed_samples, graph_feature_distance_list
-from ui.utils.constants import (
-    EDGE_FEATURE_NAMES_EMBEDDING, NODE_FEATURES_NAMES_EMBEDDING)
 from GNNs.explainers.graph_explainer_onehot import obtener_argmin
+from ui.utils.constants import NODE_FEATURES_NAMES_EMBEDDING, EDGE_FEATURE_NAMES_EMBEDDING
 
 ALGO_NAME = "GraphExplainer"
 MININICIAL = sys.float_info.max
@@ -84,43 +83,13 @@ def obtener_graph_explainer(
     # ====================================================================
     
     # 1. Convertir todos los tensores a NumPy (Valores absolutos crudos)
-    alfa_raw = tensor_to_abs_numpy(alfa)
+    alfa_norm = procesar_features_ordenadas(alfa, NODE_FEATURES_NAMES_EMBEDDING)
     beta_raw = tensor_to_abs_numpy(beta)
-    gamma_raw = tensor_to_abs_numpy(gamma) if gamma is not None else np.array([])
+    gamma_norm = procesar_features_ordenadas(gamma, EDGE_FEATURE_NAMES_EMBEDDING) if gamma is not None else np.array([])
     delta_raw = tensor_to_abs_numpy(delta) if delta is not None else np.array([])
 
-    # 2. Encontrar el MÁXIMO GLOBAL entre todos los arreglos
-    arreglos_validos = [arr for arr in (alfa_raw, beta_raw, gamma_raw, delta_raw) if arr is not None and arr.size > 0]
-    
-    if arreglos_validos:
-        max_global = max([np.max(arr) for arr in arreglos_validos])
-    else:
-        max_global = 1.0
-        
-    if max_global == 0:
-        max_global = 1.0 # Seguridad para evitar división por cero
-        
-    # 3. Aplicar la normalización global a todos (Manteniendo la escala relativa)
-    alfa_norm = alfa_raw / max_global if alfa_raw is not None else None
-    beta_norm = beta_raw / max_global if beta_raw is not None else None
-    gamma_norm = gamma_raw / max_global if gamma_raw.size > 0 else np.array([])
-    delta_norm = delta_raw / max_global if delta_raw.size > 0 else np.array([])
-
-    # ====================================================================
-    # PROCESAMIENTO Y ORDENAMIENTO (Usando los arrays ya normalizados)
-    # ====================================================================
-
-    # 1. ALFA (Node Features)
-    node_feature_names = NODE_FEATURES_NAMES_EMBEDDING
-    alfa_sorted, row_labels_alfa = sort_features(alfa_norm, node_feature_names)
-
-    # 2. GAMMA (Edge Features)
-    if muestra.edge_attr is not None and gamma_norm.size > 0:
-        edge_feature_names = EDGE_FEATURE_NAMES_EMBEDDING
-        gamma_sorted, row_labels_gamma = sort_features(gamma_norm, edge_feature_names)
-    else:
-        gamma_sorted = np.array([])
-        row_labels_gamma = []
+    beta_norm = normalizar_por_l2(beta_raw)
+    delta_norm = normalizar_por_l2(delta_raw)
 
     # Preparamos el nombre del modelo para la carpeta
     model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
@@ -129,10 +98,10 @@ def obtener_graph_explainer(
     if batch_mode:
         return {
             'mol_name': mol_name, 
-            'alfa': alfa_sorted,  
-            'beta': beta_norm,    # Los nodos no se ordenan aquí, los ordenas en tu otro script
-            'gamma': gamma_sorted,
-            'delta': delta_norm   # Los enlaces tampoco
+            'alfa': alfa_norm,  
+            'beta': beta_norm,
+            'gamma': gamma_norm ,
+            'delta': delta_norm
         }
         
     return 0

@@ -12,6 +12,8 @@ from GNNs.explainers.model_Graph_explainer import obtener_graph_explainer
 from GNNs.data_processing import prepare_pt_training_data
 from GNNs.model_tester import cargar_modelo, predecir_molecula
 from ui.utils.constants import RESULTADOS_DIR, BOND_CLASS_NAMES
+from GNNs.explainers.explanation_helper import guardar_pesos_batch
+from GNNs.explainers.explanation_fidelity import obtener_aucs_pt
 
 MAX_ERROR = 1
 
@@ -304,6 +306,78 @@ def explicar_y_guardar_molecula_individual(
 
     return df_nodos, df_edges
 
+def get_batch_explanation(model_path, data_list, explainer_name = "GraphExplainer"):     
+    # Diccionario para acumular todos los resultados del batch
+    batch_results_dict = {}
+    model_folder_name = os.path.basename(model_path).split('.')[0]
+    
+    try:
+        filas_tabla = []
+
+        # --- NUEVO: 1. Cargar el modelo antes del bucle para hacer el filtrado ---
+        # Asumo que tienes tu función cargar_modelo disponible aquí
+        model, device, target_name = cargar_modelo(model_path)
+        model.eval() # Asegurarse de que está en modo inferencia
+        
+        filas_tabla = []
+        mol_omitidas = 0 # Contador para las estadísticas finales
+
+        # 2. Bucle por cada grafo
+        for idx, data in enumerate(data_list):
+            nombre = data.name
+            
+            # --- NUEVO: 2. Control de Error ---
+            
+            # 1. Empaquetamos el grafo único en un Batch y LO ENVIAMOS AL DEVICE
+            data_batch = Batch.from_data_list([data]).to(device)
+            
+            # 2. Hacemos la predicción sobre ese Batch
+            prediccion = predecir_molecula(model, data_batch, device)
+            
+            # Extraer los valores numéricos limpios para la matemática
+            pred_val = prediccion.item() if isinstance(prediccion, torch.Tensor) else prediccion
+            
+            # Asegurarnos de que real_val también sea un float estándar
+            if isinstance(data.y, torch.Tensor):
+                real_val = data.y.item() if data.y.numel() == 1 else data.y[0].item()
+            else:
+                real_val = float(data.y)
+            
+            # Calcular el error absoluto
+            error = abs(pred_val - real_val)
+            
+            # Evaluar la condición
+            if error >= MAX_ERROR:
+                print(f"⏩ Molécula {nombre} omitida (Error: {error:.3f} >= {MAX_ERROR})")
+                mol_omitidas += 1
+                continue # Salta el resto del código y va a la siguiente molécula
+                
+            print(f"✅ Molécula {nombre} aceptada (Error: {error:.3f} < {MAX_ERROR}). Explicando...")
+            # ----------------------------------
+            
+            # Llamada a tu explainer
+            resultados = obtener_graph_explainer(
+                checkpoint_path=model_path, 
+                data_indices=data,
+                batch_mode=True
+            )
+
+            # Si el explainer devolvió datos, los guardamos en el diccionario gigante
+            if resultados:
+                # Intentamos sacar el mol_name que devuelve la función, o usamos el extraído por defecto
+                final_name = resultados.pop('mol_name') 
+                batch_results_dict[final_name] = resultados
+                print(f"Procesado en memoria correctamente: {final_name}")
+
+        # --- GUARDADO FINAL ---
+        if batch_results_dict:
+            ruta_guardada = guardar_pesos_batch(batch_results_dict, model_folder_name, explainer_name)
+            print(f"Procesamiento batch finalizado. Todo guardado en: {ruta_guardada}")
+        else:
+            print("No se generaron resultados para guardar en este batch.")
+    except Exception as e:
+        print(f"Error crítico al leer el archivo .pt o procesar el batch: {str(e)}", exc_info=True)
+
 # ==========================================
 # EJEMPLO DE USO:
 # ==========================================
@@ -326,9 +400,15 @@ train_loader, val_loader, device, targetname = prepare_pt_training_data(
 # )
 
 # Ejecutar la función para una sola molécula
-for molecula in OBJETIVOS:
-    df_resultado = explicar_y_guardar_molecula_individual(
-        data_list=train_loader.dataset,
-        checkpoint_path=RUTA_MODELO,
-        target_mol_name=molecula
-    )
+# for molecula in OBJETIVOS:
+#     df_resultado = explicar_y_guardar_molecula_individual(
+#         data_list=train_loader.dataset,
+#         checkpoint_path=RUTA_MODELO,
+#         target_mol_name=molecula
+#     )
+
+# get_batch_explanation(RUTA_MODELO, train_loader.dataset)
+WEIGHTS = "Resultados/GT_4_Split3/GraphExplainer/GT_4_Split3_GraphExplainer_BATCH_COMPLETO.pt"
+MODE = "beta"
+
+obtener_aucs_pt(RUTA_MODELO, train_loader.dataset, WEIGHTS, MODE, True)

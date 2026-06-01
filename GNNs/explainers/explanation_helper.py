@@ -468,47 +468,12 @@ def normalizar_por_l2(arr):
         
     return arr / norma
 
-def normalizar_por_l1(arr):
-    """
-    Normaliza el vector dividiendo por la suma absoluta total (L1).
-    - La suma de todos los elementos será exactamente 1.0.
-    - Representa el "porcentaje de contribución" de cada nodo/enlace.
-    """
-    if arr is None or arr.size == 0: 
-        return arr
-    
-    # Suma total de todos los valores en el grafo
-    suma_total = np.sum(arr)
-    
-    if suma_total == 0:
-        return np.zeros_like(arr)
-        
-    return arr / suma_total
-
-def normalizar_por_maximo(arr):
-    """
-    Normaliza un arreglo dividiendo por su valor máximo.
-    """
-    # Convertimos a arreglo de numpy por seguridad
-    arr = np.array(arr, dtype=float)
-    
-    if arr.size == 0: 
-        return arr
-    
-    max_val = np.max(arr)
-    
-    # Prevenir la división por cero si el máximo es 0 (ej. arreglo de puros ceros)
-    if max_val == 0:
-        return np.zeros_like(arr)
-        
-    return arr / max_val
-
 def tensor_to_abs_numpy(tensor):
     """Convierte tensor a numpy, toma valor absoluto."""
     if tensor is None: return None
     return np.abs(tensor.detach().cpu().numpy().reshape(-1, 1))
 
-def procesar_features_ordenadas(importance_tensor, feature_names, input_data=None):
+def procesar_features_ordenadas(importance_tensor, feature_names):
     """
     Procesa features para Heatmaps usando Max Scaling.
     MODIFICADO: Ya no filtra features que valen 0, porque en modo Embedding 
@@ -549,7 +514,7 @@ def procesar_features_ordenadas(importance_tensor, feature_names, input_data=Non
     sorted_names = filtered_names[sort_idx]
     
     # 4. NORMALIZAR CON norma
-    final_imp = normalizar_por_maximo(sorted_imp)
+    final_imp = normalizar_por_l2(sorted_imp)
     
     return final_imp, sorted_names.tolist()
 
