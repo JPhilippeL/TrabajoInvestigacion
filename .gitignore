@@ -38,6 +38,3 @@ Resultados 2025/
 DCML/results/*
 !DCML/results/.gitkeep
 
-DCML/datasets/*
-!DCML/datasets/.gitkeep
-!DCML/datasets/*/dataset_info.yaml
