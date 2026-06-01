@@ -33,3 +33,11 @@ dtafRuns/
 dtafruns/
 Resultados/
 Resultados 2025/
+
+# dcml
+DCML/results/*
+!DCML/results/.gitkeep
+
+DCML/datasets/*
+!DCML/datasets/.gitkeep
+!DCML/datasets/*/dataset_info.yaml
