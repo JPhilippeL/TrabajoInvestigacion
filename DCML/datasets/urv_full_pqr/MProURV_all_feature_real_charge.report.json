@@ -1,0 +1,1907 @@
+{
+  "finished_at_utc": "2026-06-01T00:37:47+00:00",
+  "elapsed_seconds": 23170.282,
+  "n_samples": 378,
+  "n_features": 118360,
+  "shape": [
+    378,
+    118360
+  ],
+  "dtype": "float32",
+  "output_mode": "full",
+  "charge_mode": "pqr",
+  "out_npy": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/dcml_input/MProURV_all_feature_real_charge.npy",
+  "out_zip": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/dcml_input/MProURV_all_feature_real_charge.zip",
+  "metadata": [
+    {
+      "pdb_id": "7GBZ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GBZ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GHB",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GHB_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GBV",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GBV_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GBS",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GBS_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GEK",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GEK_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GL6",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GL6_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GBL",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GBL_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GH1",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GH1_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GEL",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GEL_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGL",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGL_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFD",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFD_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMZ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMZ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GEZ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GEZ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GF2",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GF2_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GH5",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GH5_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "5RGX",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/5RGX_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GCK",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GCK_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "5RGV",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/5RGV_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8DII",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8DII_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GH7",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GH7_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GEY",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GEY_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GB5",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GB5_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GH3",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GH3_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GCQ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GCQ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GBI",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GBI_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFP",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFP_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GET",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GET_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGM",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGM_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKA",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKA_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFJ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFJ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GDZ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GDZ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGB",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGB_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GES",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GES_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GBD",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GBD_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GG8",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GG8_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKZ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKZ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GF6",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GF6_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7DDC",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7DDC_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GH0",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GH0_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GDI",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GDI_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GHE",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GHE_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "5RH3",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/5RH3_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGC",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGC_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GBN",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GBN_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GF5",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GF5_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "5RH2",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/5RH2_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8R12",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8R12_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GE8",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GE8_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFG",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFG_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GEN",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GEN_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKK",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKK_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GEU",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GEU_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGR",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGR_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGS",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGS_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GE9",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GE9_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7B2J",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7B2J_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFK",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFK_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKL",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKL_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GBW",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GBW_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GE4",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GE4_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFN",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFN_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGN",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGN_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GID",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GID_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GDC",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GDC_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFH",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFH_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGW",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGW_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIA",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIA_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFI",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFI_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GE2",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GE2_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJG",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJG_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGK",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGK_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GEJ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GEJ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJR",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJR_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGG",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGG_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7RN4",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7RN4_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7VTH",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7VTH_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GBX",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GBX_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GEI",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GEI_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GF0",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GF0_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GH6",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GH6_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJU",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJU_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGI",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGI_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GF1",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GF1_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GEW",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GEW_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7NEO",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7NEO_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMP",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMP_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7RMZ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7RMZ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GK2",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GK2_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7RMT",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7RMT_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGT",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGT_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJS",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJS_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFL",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFL_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8R11",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8R11_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFS",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFS_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFX",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFX_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGE",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGE_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGX",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGX_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJ0",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJ0_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8CZ7",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8CZ7_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIF",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIF_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFQ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFQ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GG5",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GG5_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIC",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIC_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIT",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIT_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8SXR",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8SXR_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GCZ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GCZ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GER",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GER_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GE3",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GE3_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7L10",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7L10_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GD3",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GD3_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GME",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GME_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFC",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFC_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJW",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJW_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFE",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFE_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GNE",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GNE_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GCV",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GCV_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GI4",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GI4_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFR",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFR_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIK",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIK_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMX",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMX_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJB",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJB_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFT",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFT_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGJ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGJ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GB6",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GB6_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GML",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GML_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GK3",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GK3_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GK5",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GK5_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GM3",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GM3_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJ2",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJ2_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJY",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJY_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMQ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMQ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8YKJ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8YKJ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMR",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMR_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GM0",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GM0_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKJ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKJ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7L0D",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7L0D_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8CZ4",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8CZ4_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8R16",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8R16_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKX",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKX_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7VIC",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7VIC_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMN",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMN_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7S4B",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7S4B_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7NBT",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7NBT_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GE1",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GE1_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJ6",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJ6_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIB",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIB_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJ1",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJ1_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIG",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIG_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKC",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKC_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GK4",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GK4_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GD5",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GD5_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GI9",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GI9_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GG2",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GG2_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMI",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMI_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJJ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJJ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMH",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMH_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GD4",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GD4_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GN3",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GN3_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKY",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKY_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFU",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFU_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJ8",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJ8_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKG",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKG_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJL",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJL_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFO",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFO_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GII",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GII_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7RME",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7RME_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8R14",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8R14_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKM",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKM_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMO",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMO_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFA",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFA_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGH",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGH_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GG7",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GG7_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GLH",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GLH_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GK6",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GK6_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GHM",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GHM_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMT",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMT_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIV",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIV_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKD",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKD_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7P2G",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7P2G_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GI6",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GI6_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIS",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIS_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIR",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIR_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKH",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKH_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIQ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIQ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "6M2N",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/6M2N_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8CYZ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8CYZ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMM",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMM_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GH4",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GH4_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMB",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMB_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJA",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJA_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKT",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKT_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GN2",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GN2_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJF",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJF_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIP",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIP_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GL7",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GL7_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GAV",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GAV_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GN0",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GN0_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIO",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIO_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMK",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMK_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GDD",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GDD_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GI5",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GI5_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJZ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJZ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8CYU",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8CYU_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIX",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIX_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7LTJ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7LTJ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJ9",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJ9_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMJ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMJ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GEB",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GEB_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GK7",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GK7_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7RMB",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7RMB_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GK1",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GK1_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GBE",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GBE_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKW",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKW_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIH",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIH_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJK",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJK_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GK0",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GK0_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKI",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKI_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJT",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJT_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8UEH",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8UEH_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGF",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGF_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GK9",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GK9_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJD",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJD_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7M8X",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7M8X_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GL0",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GL0_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GI8",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GI8_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIE",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIE_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJP",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJP_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GLC",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GLC_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8ACD",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8ACD_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8ACL",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8ACL_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMU",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMU_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7CA8",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7CA8_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7QBB",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7QBB_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GK8",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GK8_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIL",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIL_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMF",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMF_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIZ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIZ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GLA",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GLA_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GM8",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GM8_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GM7",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GM7_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7O46",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7O46_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJ4",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJ4_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMY",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMY_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKB",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKB_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKP",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKP_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJI",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJI_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8UEF",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8UEF_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7RM2",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7RM2_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7RLS",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7RLS_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GM1",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GM1_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJX",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJX_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GI7",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GI7_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFM",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFM_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGA",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGA_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKQ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKQ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIM",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIM_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GLW",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GLW_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GNG",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GNG_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GM4",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GM4_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKE",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKE_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7M90",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7M90_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7M8Z",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7M8Z_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKF",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKF_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GL9",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GL9_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJ5",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJ5_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GGQ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GGQ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIW",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIW_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GM9",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GM9_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKO",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKO_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GNF",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GNF_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJQ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJQ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GN5",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GN5_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8Q71",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8Q71_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GFB",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GFB_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GIN",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GIN_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GND",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GND_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJV",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJV_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7KX5",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7KX5_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GN6",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GN6_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GM6",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GM6_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7L14",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7L14_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKN",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKN_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GNH",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GNH_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GL3",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GL3_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJM",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJM_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKU",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKU_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMW",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMW_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GLL",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GLL_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMC",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMC_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7LMF",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7LMF_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GL5",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GL5_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GNI",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GNI_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKR",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKR_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7L11",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7L11_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7L12",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7L12_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GLZ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GLZ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GN1",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GN1_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJO",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJO_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GLE",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GLE_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7M8M",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7M8M_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GLY",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GLY_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMG",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMG_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GLG",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GLG_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GLI",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GLI_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GN4",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GN4_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GM5",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GM5_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7M8Y",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7M8Y_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7LMD",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7LMD_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GNC",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GNC_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GNS",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GNS_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GLK",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GLK_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GHN",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GHN_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8I4S",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8I4S_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8UEG",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8UEG_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7M8N",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7M8N_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GLN",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GLN_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GN7",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GN7_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GLM",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GLM_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GJ3",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GJ3_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GLD",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GLD_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GNK",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GNK_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "9GIJ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/9GIJ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKV",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKV_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GN8",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GN8_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GNT",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GNT_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GM2",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GM2_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7EN8",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7EN8_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7EN9",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7EN9_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8UDQ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8UDQ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GL4",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GL4_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GL2",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GL2_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GLT",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GLT_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GLJ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GLJ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GN9",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GN9_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GKS",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GKS_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GNR",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GNR_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GNB",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GNB_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8UR9",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8UR9_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7N44",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7N44_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GMS",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GMS_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7M8O",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7M8O_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GAW",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GAW_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7URB",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7URB_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GNQ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GNQ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8UDX",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8UDX_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GNL",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GNL_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7M91",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7M91_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7US4",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7US4_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7M8P",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7M8P_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8UDW",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8UDW_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7GLV",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7GLV_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7UR9",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7UR9_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "9GIL",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/9GIL_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7L13",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7L13_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8DZ0",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8DZ0_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8UDO",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8UDO_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8UDP",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8UDP_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8W1U",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8W1U_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7TEK",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7TEK_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "7TEL",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/7TEL_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8Y42",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8Y42_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8Y44",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8Y44_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8YLS",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8YLS_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8ZT9",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8ZT9_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "8ZUB",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/8ZUB_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "9DDF",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/9DDF_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "9DDG",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/9DDG_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "9G0H",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/9G0H_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "9G0I",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/9G0I_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "9HAJ",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/9HAJ_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "9HAK",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/9HAK_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "9HJH",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/9HJH_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "9KSI",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/9KSI_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "9KSK",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/9KSK_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "9LVR",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/9LVR_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "9MVM",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/9MVM_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "9NU6",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/9NU6_pocket.pqr",
+      "n_features": 118360
+    },
+    {
+      "pdb_id": "9VS1",
+      "charge_source": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/pdbbind_like/URV/pqr/9VS1_pocket.pqr",
+      "n_features": 118360
+    }
+  ]
+}

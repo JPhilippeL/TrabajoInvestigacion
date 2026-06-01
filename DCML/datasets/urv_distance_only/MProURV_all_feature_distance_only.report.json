@@ -1,0 +1,1907 @@
+{
+  "finished_at_utc": "2026-05-29T10:37:19+00:00",
+  "elapsed_seconds": 4668.984,
+  "n_samples": 378,
+  "n_features": 63360,
+  "shape": [
+    378,
+    63360
+  ],
+  "dtype": "float32",
+  "output_mode": "distance-only",
+  "charge_mode": "zeros",
+  "out_npy": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/dcml_input/MProURV_all_feature_distance_only.npy",
+  "out_zip": "/home/mohamed/Studies/stage/TrabajoInvestigacion/data_urv/dcml_input/MProURV_all_feature_distance_only.zip",
+  "metadata": [
+    {
+      "pdb_id": "7GBZ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GHB",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GBV",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GBS",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GEK",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GL6",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GBL",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GH1",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GEL",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGL",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFD",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMZ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GEZ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GF2",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GH5",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "5RGX",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GCK",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "5RGV",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8DII",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GH7",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GEY",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GB5",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GH3",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GCQ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GBI",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFP",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GET",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGM",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKA",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFJ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GDZ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGB",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GES",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GBD",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GG8",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKZ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GF6",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7DDC",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GH0",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GDI",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GHE",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "5RH3",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGC",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GBN",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GF5",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "5RH2",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8R12",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GE8",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFG",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GEN",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKK",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GEU",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGR",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGS",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GE9",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7B2J",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFK",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKL",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GBW",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GE4",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFN",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGN",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GID",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GDC",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFH",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGW",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIA",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFI",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GE2",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJG",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGK",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GEJ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJR",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGG",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7RN4",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7VTH",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GBX",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GEI",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GF0",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GH6",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJU",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGI",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GF1",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GEW",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7NEO",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMP",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7RMZ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GK2",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7RMT",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGT",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJS",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFL",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8R11",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFS",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFX",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGE",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGX",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJ0",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8CZ7",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIF",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFQ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GG5",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIC",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIT",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8SXR",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GCZ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GER",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GE3",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7L10",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GD3",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GME",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFC",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJW",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFE",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GNE",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GCV",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GI4",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFR",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIK",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMX",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJB",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFT",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGJ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GB6",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GML",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GK3",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GK5",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GM3",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJ2",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJY",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMQ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8YKJ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMR",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GM0",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKJ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7L0D",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8CZ4",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8R16",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKX",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7VIC",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMN",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7S4B",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7NBT",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GE1",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJ6",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIB",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJ1",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIG",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKC",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GK4",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GD5",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GI9",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GG2",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMI",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJJ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMH",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GD4",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GN3",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKY",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFU",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJ8",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKG",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJL",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFO",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GII",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7RME",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8R14",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKM",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMO",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFA",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGH",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GG7",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GLH",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GK6",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GHM",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMT",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIV",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKD",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7P2G",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GI6",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIS",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIR",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKH",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIQ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "6M2N",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8CYZ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMM",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GH4",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMB",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJA",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKT",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GN2",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJF",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIP",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GL7",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GAV",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GN0",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIO",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMK",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GDD",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GI5",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJZ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8CYU",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIX",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7LTJ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJ9",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMJ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GEB",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GK7",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7RMB",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GK1",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GBE",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKW",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIH",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJK",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GK0",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKI",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJT",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8UEH",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGF",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GK9",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJD",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7M8X",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GL0",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GI8",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIE",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJP",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GLC",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8ACD",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8ACL",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMU",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7CA8",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7QBB",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GK8",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIL",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMF",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIZ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GLA",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GM8",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GM7",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7O46",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJ4",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMY",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKB",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKP",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJI",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8UEF",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7RM2",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7RLS",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GM1",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJX",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GI7",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFM",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGA",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKQ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIM",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GLW",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GNG",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GM4",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKE",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7M90",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7M8Z",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKF",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GL9",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJ5",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GGQ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIW",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GM9",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKO",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GNF",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJQ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GN5",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8Q71",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GFB",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GIN",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GND",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJV",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7KX5",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GN6",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GM6",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7L14",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKN",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GNH",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GL3",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJM",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKU",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMW",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GLL",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMC",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7LMF",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GL5",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GNI",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKR",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7L11",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7L12",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GLZ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GN1",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJO",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GLE",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7M8M",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GLY",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMG",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GLG",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GLI",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GN4",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GM5",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7M8Y",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7LMD",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GNC",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GNS",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GLK",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GHN",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8I4S",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8UEG",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7M8N",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GLN",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GN7",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GLM",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GJ3",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GLD",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GNK",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "9GIJ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKV",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GN8",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GNT",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GM2",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7EN8",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7EN9",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8UDQ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GL4",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GL2",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GLT",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GLJ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GN9",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GKS",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GNR",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GNB",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8UR9",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7N44",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GMS",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7M8O",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GAW",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7URB",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GNQ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8UDX",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GNL",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7M91",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7US4",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7M8P",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8UDW",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7GLV",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7UR9",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "9GIL",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7L13",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8DZ0",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8UDO",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8UDP",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8W1U",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7TEK",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "7TEL",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8Y42",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8Y44",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8YLS",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8ZT9",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "8ZUB",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "9DDF",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "9DDG",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "9G0H",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "9G0I",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "9HAJ",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "9HAK",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "9HJH",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "9KSI",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "9KSK",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "9LVR",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "9MVM",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "9NU6",
+      "charge_source": null,
+      "n_features": 63360
+    },
+    {
+      "pdb_id": "9VS1",
+      "charge_source": null,
+      "n_features": 63360
+    }
+  ]
+}
