@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-06-01T00:37:53+00:00",
+  "variant_id": "urv_full_pqr",
+  "dataset_root": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_full_pqr",
+  "feature_mode": "full",
+  "charge_mode": "pqr",
+  "validation": {
+    "n_samples": 378,
+    "n_features": 118360,
+    "expected_samples": 378,
+    "expected_features": 118360,
+    "feature_dtype": "float32",
+    "label_dtype": "float64",
+    "finite": true,
+    "zero_rows": 0,
+    "label_min": 4.00423322095003,
+    "label_max": 8.568636236,
+    "label_mean": 5.95222193211494,
+    "charge_validation": {
+      "charge_block_start": 63360,
+      "charge_block_end": 118360,
+      "charge_nonzero": 4385139,
+      "charge_sum_abs": 2.666212618141696e+18
+    }
+  },
+  "split": {
+    "seed": 42,
+    "origin": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_distance_only/split_indices.json",
+    "counts": {
+      "train": 264,
+      "validation": 57,
+      "test": 57,
+      "trainval": 321
+    }
+  },
+  "readiness": {
+    "ready_for_hpo": true,
+    "ready_for_final_training": true,
+    "ready_for_final_evaluation": true
+  },
+  "artifacts": {
+    "all_feature_zip": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_full_pqr/all_feature.zip",
+      "exists": true,
+      "size_bytes": 14825066
+    },
+    "all_label_npy": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_full_pqr/all_label.npy",
+      "exists": true,
+      "size_bytes": 3152
+    },
+    "sample_ids_csv": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_full_pqr/sample_ids.csv",
+      "exists": true,
+      "size_bytes": 87287
+    },
+    "split_indices_json": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_full_pqr/split_indices.json",
+      "exists": true,
+      "size_bytes": 9091
+    },
+    "train_feature_zip": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_full_pqr/train_feature.zip",
+      "exists": true,
+      "size_bytes": 10337253
+    },
+    "train_label_npy": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_full_pqr/train_label.npy",
+      "exists": true,
+      "size_bytes": 2240
+    },
+    "validation_feature_zip": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_full_pqr/validation_feature.zip",
+      "exists": true,
+      "size_bytes": 2311616
+    },
+    "validation_label_npy": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_full_pqr/validation_label.npy",
+      "exists": true,
+      "size_bytes": 584
+    },
+    "test_feature_zip": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_full_pqr/test_feature.zip",
+      "exists": true,
+      "size_bytes": 2175577
+    },
+    "test_label_npy": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_full_pqr/test_label.npy",
+      "exists": true,
+      "size_bytes": 584
+    },
+    "trainval_feature_zip": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_full_pqr/trainval_feature.zip",
+      "exists": true,
+      "size_bytes": 12649496
+    },
+    "trainval_label_npy": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_full_pqr/trainval_label.npy",
+      "exists": true,
+      "size_bytes": 2696
+    }
+  },
+  "copied_reports": {
+    "MProURV_all_feature_real_charge.report.json": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_full_pqr/MProURV_all_feature_real_charge.report.json",
+    "real_charge_feature_validation.json": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_full_pqr/real_charge_feature_validation.json",
+    "real_charge_preparation_report.csv": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_full_pqr/real_charge_preparation_report.csv",
+    "real_charge_preparation_report.json": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_full_pqr/real_charge_preparation_report.json"
+  }
+}

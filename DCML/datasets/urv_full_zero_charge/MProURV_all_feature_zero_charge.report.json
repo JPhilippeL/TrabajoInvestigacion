@@ -1,0 +1,19 @@
+{
+  "created_at_utc": "2026-05-31T18:10:42+00:00",
+  "variant_id": "urv_full_zero_charge",
+  "source_distance_npy": "data_urv/dcml_input/MProURV_all_feature_distance_only.npy",
+  "out_npy": "data_urv/dcml_input/MProURV_all_feature_zero_charge.npy",
+  "out_zip": "data_urv/dcml_input/MProURV_all_feature_zero_charge.zip",
+  "shape": [
+    378,
+    118360
+  ],
+  "dtype": "float32",
+  "distance_features": 63360,
+  "charge_features": 55000,
+  "finite": true,
+  "zero_rows": 0,
+  "distance_nonzero": 6338761,
+  "charge_nonzero": 0,
+  "charge_sum_abs": 0.0
+}

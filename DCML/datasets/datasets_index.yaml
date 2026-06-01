@@ -1,0 +1,60 @@
+schema_version: 1
+
+module: DCML
+dataset_family: MPro-URV
+description: >
+  Ready-to-train DCML dataset variants generated from the MPro-URV protein-ligand
+  structures. Raw structures, PDB/SDF/MOL2/PQR files and generation logs are not
+  stored here. This folder only contains final training artifacts.
+
+variants:
+  - id: urv_distance_only
+    path: DCML/datasets/urv_distance_only
+    feature_mode: distance_only
+    charge_mode: none
+    n_samples: 378
+    n_features: 63360
+    purpose: baseline_distance_descriptors
+    recommended_for_final_report: false
+    dataset_info: DCML/datasets/urv_distance_only/dataset_info.yaml
+
+  - id: urv_full_zero_charge
+    path: DCML/datasets/urv_full_zero_charge
+    feature_mode: full
+    charge_mode: zeros
+    n_samples: 378
+    n_features: 118360
+    purpose: baseline_full_shape_with_zero_charge_block
+    recommended_for_final_report: false
+    dataset_info: DCML/datasets/urv_full_zero_charge/dataset_info.yaml
+
+  - id: urv_full_pqr
+    path: DCML/datasets/urv_full_pqr
+    feature_mode: full
+    charge_mode: pqr
+    n_samples: 378
+    n_features: 118360
+    purpose: final_scientific_dataset_with_real_charges
+    recommended_for_final_report: true
+    dataset_info: DCML/datasets/urv_full_pqr/dataset_info.yaml
+
+selection_policy:
+  primary_metric: RMSE
+  primary_goal: min
+  secondary_metric: Pearson
+  secondary_goal: max
+
+split_policy:
+  method: random_holdout
+  seed: 42
+  train_count: 264
+  validation_count: 57
+  test_count: 57
+  train_ratio_effective: 0.6984
+  validation_ratio_effective: 0.1508
+  test_ratio_effective: 0.1508
+
+notes:
+  - Do not commit binary dataset artifacts to Git unless explicitly required.
+  - Version dataset_info.yaml files, not the large .zip/.npy artifacts.
+  - Raw data_urv remains outside DCML/datasets.
