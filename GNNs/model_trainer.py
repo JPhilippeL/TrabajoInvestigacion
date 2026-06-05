@@ -26,17 +26,7 @@ logging.basicConfig(
     stream=sys.stdout
 )
 
-from ui.utils.constants import (RESULTADOS_DIR,
-                                MODELOS_DIR,
-                                hybridization_types, 
-                                periodic_elements, 
-                                N_BOND_TYPES, 
-                                ATOM_EMB_PR, 
-                                HYBRID_EMB_PR, 
-                                BOND_EMB_PR, 
-                                OTHER_EDGE_FEATURES, 
-                                OTHER_NODE_FEATURES,
-                                GNN_ARCHITECTURES )
+from ui.utils.constants import *
 HEADS = 4  # Número de cabezas para GAT y GraphTransformer
 
 # MODELOS = GNN_ARCHITECTURES
@@ -751,9 +741,16 @@ def train_and_save_model_from_pt(
     calc_atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)
     calc_hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
     calc_bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
+    calc_non_cov_emb_dim = calc_dim(N_NON_COV, NON_COV_EMB_PR) 
 
+    # 2. Dimensión Final de los NODOS (x)
+    # Suma: Emb(Átomo) + Emb(Hibridación) + Continuas(Degree, Total_Hs, Aromatic, Donor, Acceptor)
     input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
-    edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
+
+    # 3. Dimensión Final de los ENLACES (edge_attr)
+    # Suma: Emb(Covalente) + Emb(No Covalente) + Continuas(Distancia, Flexibilidad)
+    # Como la capa de Embedding ya comprimió las 25 binarias, las únicas continuas puras que sobran son 2
+    edge_dim = calc_bond_emb_dim + calc_non_cov_emb_dim + OTHER_EDGE_FEATURES
 
     # --- NUEVO: CALCULAR NOMBRE ÚNICO AQUÍ ---
     # Buscamos qué nombre está libre en la carpeta de modelos.

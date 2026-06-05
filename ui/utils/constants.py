@@ -69,52 +69,44 @@ CATEGORICAL_INDICES = [EMBEDDING_INDICES["ATOM_SYMBOL"], EMBEDDING_INDICES["HYBR
 
 # --- ENLACES
 BOND_TYPE_TO_INT = {
-    # --- ENLACES COVALENTES ESTÁNDAR (Enums RDKit) ---
     Chem.rdchem.BondType.SINGLE: 0,
     Chem.rdchem.BondType.DOUBLE: 1,
     Chem.rdchem.BondType.TRIPLE: 2,
     Chem.rdchem.BondType.AROMATIC: 3,
-    
-    # --- INTERACCIONES NO COVALENTES (Strings Arpeggio) ---
-    "AMIDERING": 4,
-    "hydrophobic": 5,
-    "CARBONPI": 6,
-    "DONORPI": 7,
-    "METSULPHURPI": 8,
-    "EF": 9,           # Edge-to-Face 
-    "vdw_clash": 10,
-    "FE": 11,          # Face-to-Edge / Face-to-Face
-    "vdw": 12,
-    "hbond": 13,
-    
-    # --- AGRUPACIÓN DE ENLACES DÉBILES ---
-    # Todos estos apuntan al mismo índice (14)
-    "weak_hbond": 14,
-    "weak_polar": 14,
-    "polar": 14,
-    
-    # --- OTROS / DESCONOCIDOS (Índice Final) ---
-    Chem.rdchem.BondType.OTHER: 15,
-    Chem.rdchem.BondType.UNSPECIFIED: 15,
-    "OTHER": 15
+    Chem.rdchem.BondType.OTHER: 4,
+    Chem.rdchem.BondType.UNSPECIFIED: 4,
+    "OTHER": 4,
+    "PEPTIDE": 5
 }
 
+# 2. INTERACCIONES NO COVALENTES (Vector Multi-Hot de 25 dimensiones) - NUEVO
+BOND_TYPES_NON_COVALENT = [
+    "AMIDERING", "hydrophobic", "CARBONPI", "DONORPI", "weak_polar",
+    "weak_hbond", "aromatic", "METSULPHURPI", "EF", "vdw_clash",
+    "polar", "FE", "vdw", "hbond", "FF", "FT", "OT", "OE", "OF",
+    "carbonyl", "ET", "xbond", "HALOGENPI", "ionic", "CATIONPI"
+]
+
+N_NON_COV = len(BOND_TYPES_NON_COVALENT) # 25
+
 EDGE_EMBEDDING_INDICES = {
-    "BOND_TYPE": 0,
-    "DISTANCE": 1,
-    "BOND_FLEXIBILITY": 2  # <--- NUEVO
+    "BOND_TYPE": 0,                                 # Categórica (Pasa por nn.Embedding)
+    "NON_COVALENT": slice(1, 1 + N_NON_COV),        # Multi-hot (Pasa por nn.Linear)
+    "DISTANCE": 1 + N_NON_COV,                      # Continua (Columna 26)
+    "BOND_FLEXIBILITY": 1 + N_NON_COV + 1           # Continua (Columna 27)
 }
 
 # Cuenta los valores únicos (del 0 al 15 = 16 clases)
 L_B = max(BOND_TYPE_TO_INT.values()) + 1  # Esto dará 16
 
 EDGE_ONE_HOT_INDICES = {
-    "BOND_TYPE": slice(0, L_B),   # Ocupa los primeros L_B índices
-    "DISTANCE": L_B + 0,          # La distancia física
-    "FLEXIBILITY": L_B + 1        # El booleano/float de si es rotable
+    "BOND_TYPE": slice(0, L_B),                             # Ej: 0 a 5
+    "NON_COVALENT": slice(L_B, L_B + N_NON_COV),            # Ej: 6 a 30
+    "DISTANCE": L_B + N_NON_COV,                            # Ej: 31
+    "FLEXIBILITY": L_B + N_NON_COV + 1                      # Ej: 32
 }
 
-CATEGORICAL_EDGE_INDICES = [EDGE_EMBEDDING_INDICES["BOND_TYPE"]]
+CATEGORICAL_EDGE_INDICES = ["BOND_TYPE", "NON_COVALENT"]
 
 # Nombres exactos mapeados a los índices del 0 al 15
 BOND_CLASS_NAMES = [
@@ -154,6 +146,7 @@ N_BOND_TYPES = len(BOND_TYPE_TO_INT)
 ATOM_EMB_PR = 0.3
 HYBRID_EMB_PR = 0.3
 BOND_EMB_PR = 0.3
+NON_COV_EMB_PR = 0.3 # <--- AÑADIR: Para la nueva capa Linear de la GNN
 
 # Total: 7. Categóricas: 2 (Symbol, Hybridization). Resto: 5.
 OTHER_NODE_FEATURES = len(EMBEDDING_INDICES) - len(CATEGORICAL_INDICES)
