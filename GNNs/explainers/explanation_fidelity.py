@@ -89,8 +89,76 @@ def generar_comparativa_fidelity(
     
     return plot_path
 
-# FUNCION PARA CARGAR PESOS Y CALCULAR LOS DATOS DE LOS DOS
 def calcular_metricas_comparativas(
+    model, device, mol, 
+    weights_paths_dict, # <-- Vuelve a usar el diccionario de rutas
+    mode, reg_fidelity_mas, data=None, usar_porcentaje=False
+):
+    """
+    Retorna un diccionario: 
+    { 'Explainer1': {'k_vals': [...], 'fiab': [...], 'auc': float}, ... }
+    """
+    metrics_dict = {}
+
+    for explainer_name, path in weights_paths_dict.items():
+        try:
+            # Recuperamos la carga del tensor desde la ruta del archivo
+            tensor_weights = cargar_pesos_tensor(path, device)
+        except Exception as e:
+            logger.warning(f"Error cargando pesos de {explainer_name} en {path}: {e}")
+            continue
+        
+        # Omitimos GNNExplainer en gamma (no soporta feature de aristas)
+        if explainer_name == 'GNNExplainer' and mode == 'gamma':
+            continue
+            
+        # GraphExplainer es el único que usa lógica one-hot en este contexto
+        is_onehot = (explainer_name == 'GraphExplainer')
+
+        try:
+            # 1. Preparar datos usando el tensor recién cargado
+            graph_model, graph_masking, sorted_indices, limit = preparar_datos_fidelity(
+                importance=tensor_weights, 
+                device=device, 
+                mol=mol, 
+                data=data, 
+                mode=mode, 
+                usar_porcentaje=usar_porcentaje, 
+                is_onehot_explainer=is_onehot, 
+                reg_fidelity_mas=reg_fidelity_mas
+            )
+
+            # Condición de salida temprana segura (ej. modo gamma sin atributos de arista)
+            if graph_model is None:
+                continue 
+
+            # 2. Ejecutar el modelo predictivo y generar la curva
+            k_vals, fiab = ejecutar_bucle_perturbacion(
+                model=model, 
+                device=device, 
+                graph_model=graph_model, 
+                graph_masking=graph_masking, 
+                sorted_indices=sorted_indices, 
+                limit=limit, 
+                mode=mode, 
+                is_onehot_explainer=is_onehot, 
+                reg_fidelity_mas=reg_fidelity_mas
+            )
+            
+            auc_val = _calcular_auc_simple(k_vals, fiab)
+            
+            metrics_dict[explainer_name] = {
+                'k_vals': k_vals,
+                'fiab': fiab,
+                'auc': auc_val
+            }
+        except Exception as e:
+            logger.error(f"Fallo al calcular curvas para {explainer_name}: {e}")
+
+    return metrics_dict
+
+# FUNCION PARA CARGAR PESOS Y CALCULAR LOS DATOS DE LOS DOS
+def calcular_metricas_comparativas2(
     model, device, mol, 
     weights_dict, # <-- Cambiado: ahora recibe el diccionario con los datos, no las rutas
     mode, reg_fidelity_mas, data=None, usar_porcentaje=False

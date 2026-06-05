@@ -706,7 +706,7 @@ def pipeline_visualizacion_torchexplainers(
     # ALFA
     if alfa_raw is not None:
         alfa_sorted, row_labels_alfa = procesar_features_ordenadas(
-            alfa_raw, feature_names, data.x
+            alfa_raw, feature_names
         )
     else:
         alfa_sorted, row_labels_alfa = None, []
@@ -714,7 +714,7 @@ def pipeline_visualizacion_torchexplainers(
     # GAMMA
     if gamma_raw is not None:
         gamma_sorted, row_labels_gamma = procesar_features_ordenadas(
-            gamma_raw, ["Bond Type", "Dist"], data.edge_attr
+            gamma_raw, ["Bond Type", "Dist"]
         )
     else:
         gamma_sorted, row_labels_gamma = None, []
