@@ -172,6 +172,12 @@ class MainWindow(QMainWindow):
             "dcml_train": lambda: self.trigger_menu_action("DCML", "Train Model"),
             "dcml_search": lambda: self.trigger_menu_action("DCML", "Hyperparameter Search"),
             "dcml_evaluate": lambda: self.trigger_menu_action("DCML", "Evaluate Model"),
+
+            "capla_validate": lambda: self.trigger_menu_action("CAPLA", "Validate Prepared Dataset"),
+            "capla_train": lambda: self.trigger_menu_action("CAPLA", "Train Official Splits From Scratch"),
+            "capla_search": lambda: self.trigger_menu_action("CAPLA", "Hyperparameter Search"),
+            "capla_evaluate": lambda: self.trigger_menu_action("CAPLA", "Evaluate Model on Prepared Dataset"),
+            "capla_compare": lambda: self.trigger_menu_action("CAPLA", "Compare Pretrained vs Fine-Tuned"),
         }
 
     def trigger_menu_action(self, menu_title: str, action_text: str) -> None:

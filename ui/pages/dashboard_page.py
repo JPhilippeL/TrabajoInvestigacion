@@ -276,6 +276,21 @@ class DashboardPage(QWidget):
             ],
         )
 
+        self._add_card(
+            model_grid,
+            2,
+            0,
+            "CAPLA",
+            "Validate dataset, train, search hyperparameters, evaluate and compare CAPLA model.",
+            [
+                ("Validate", self.callbacks.get("capla_validate")),
+                ("Train", self.callbacks.get("capla_train")),
+                ("Search", self.callbacks.get("capla_search")),
+                ("Evaluate", self.callbacks.get("capla_evaluate")),
+                ("Compare", self.callbacks.get("capla_compare")),
+            ],
+        )
+
         model_grid.setColumnStretch(0, 1)
         model_grid.setColumnStretch(1, 1)
 
