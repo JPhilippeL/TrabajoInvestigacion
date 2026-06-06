@@ -38,3 +38,5 @@ Resultados 2025/
 DCML/results/*
 !DCML/results/.gitkeep
 
+#CAPLA
+CAPLA/outputs/**
