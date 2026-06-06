@@ -16,6 +16,7 @@ from EDNN.ui.menus.menu_EDNN import MenuEDNN
 from DeepDTA.ui.menus.menu_DeepDTA import MenuDeepDTA
 from WideDTA.ui.menus.menu_WideDTA import MenuWideDTA
 from DCML.ui.menus.menu_DCML import MenuDCML
+from CAPLA.ui.menus.menu_CAPLA import MenuCAPLA
 
 
 logger = logging.getLogger(__name__)
@@ -73,3 +74,7 @@ class MenuBar(QMenuBar):
         # DCML menu
         self.menu_DCML = MenuDCML(self.parent)
         self.addMenu(self.menu_DCML)
+
+        # CAPLA menu
+        self.menu_CAPLA = MenuCAPLA(self.parent)
+        self.addMenu(self.menu_CAPLA)
