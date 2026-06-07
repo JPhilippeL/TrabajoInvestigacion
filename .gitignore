@@ -40,3 +40,7 @@ DCML/results/*
 
 #CAPLA
 CAPLA/outputs/**
+
+# DEAttentionDTA
+DEAttentionDTA/outputs/**
+

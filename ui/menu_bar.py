@@ -17,6 +17,7 @@ from DeepDTA.ui.menus.menu_DeepDTA import MenuDeepDTA
 from WideDTA.ui.menus.menu_WideDTA import MenuWideDTA
 from DCML.ui.menus.menu_DCML import MenuDCML
 from CAPLA.ui.menus.menu_CAPLA import MenuCAPLA
+from DEAttentionDTA.ui.menus.menu_DEAttentionDTA import MenuDEAttentionDTA
 
 
 logger = logging.getLogger(__name__)
@@ -78,3 +79,7 @@ class MenuBar(QMenuBar):
         # CAPLA menu
         self.menu_CAPLA = MenuCAPLA(self.parent)
         self.addMenu(self.menu_CAPLA)
+
+        # DEAttentionDTA menu
+        self.menu_DEAttentionDTA = MenuDEAttentionDTA(self.parent)
+        self.addMenu(self.menu_DEAttentionDTA)
