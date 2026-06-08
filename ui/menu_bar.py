@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QMenuBar
 from CheapNet_GUI.view.menu.menu_CheapNet import MenuCheapNet
 from GIGN_GUI.view.menus.menu_GIGN import MenuGIGN
 from GraphDTA.view.menu.menuDTA import MenuDTA
+from Planet.ui.menu import MenuPlanet
 from URVDEEPTAF.ui.menus import MenuURVDEEPTAF
 from ui.menus import MenuMolecula, MenuExplainerGNN, MenuTestGNN, MenuTrainGNN, MenuTransferGNN
 
@@ -51,3 +52,7 @@ class MenuBar(QMenuBar):
         # Menu GraphDTA
         self.menu_graphdta = MenuDTA(self.parent)
         self.addMenu(self.menu_graphdta)
+
+        # Menu Planet
+        self.menu_planet = MenuPlanet(self.parent)
+        self.addMenu(self.menu_planet)
