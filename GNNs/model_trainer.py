@@ -36,43 +36,55 @@ MODELOS = ("GraphTransformer",
 CAPAS = [2,3,4]
 
 class EmbeddingEncoder(torch.nn.Module):
-    def __init__(self, atom_emb_dim, hybrid_emb_dim, bond_emb_dim):
+    def __init__(self, emb_dimensions):
         super().__init__()
-        # El embedding del atomo con el numero de atomos diferentes y la dimnension del vector que queremos
+        
+        if not isinstance(emb_dimensions, (list, tuple)) or len(emb_dimensions) != 4:
+            raise ValueError(
+                "Error fatal: 'emb_dimensions' debe ser una lista con exactamente 4 enteros. "
+                "Formato esperado: [atom_emb_dim, hybrid_emb_dim, bond_emb_dim, non_cov_emb_dim]."
+            )
+            
+        atom_emb_dim, hybrid_emb_dim, bond_emb_dim, non_cov_emb_dim = emb_dimensions
+        
         self.atom_embedding = torch.nn.Embedding(len(periodic_elements), atom_emb_dim)
-        # Lo mismo con lo demás
         self.hybrid_embedding = torch.nn.Embedding(len(hybridization_types), hybrid_emb_dim)
         self.bond_embedding = torch.nn.Embedding(N_BOND_TYPES, bond_emb_dim)
+        self.non_cov_embedding = torch.nn.Linear(N_NON_COV, non_cov_emb_dim, bias=False)
 
     def encode_nodes(self, x):
         symbol_idx = x[:, 0].long()
         hybrid_idx = x[:, 1].long()
-        cont_features = x[:, 2:]  # [degree, numH, aromatic]
+        cont_features = x[:, 2:].float() 
 
         symbol_emb = self.atom_embedding(symbol_idx)
         hybrid_emb = self.hybrid_embedding(hybrid_idx)
+        
         return torch.cat([symbol_emb, hybrid_emb, cont_features], dim=1)
 
     def encode_edges(self, edge_attr):
         bond_idx = edge_attr[:, 0].long()
-        # Tomamos TODAS las features continuas de enlaces (distancia y rotación)
-        cont_features = edge_attr[:, 1:] 
-        
         bond_emb = self.bond_embedding(bond_idx)
-        return torch.cat([bond_emb, cont_features], dim=1)
+        
+        non_cov_features = edge_attr[:, 1 : 1 + N_NON_COV].float()
+        non_cov_emb = self.non_cov_embedding(non_cov_features)
+        
+        cont_features = edge_attr[:, 1 + N_NON_COV :].float() 
+        
+        return torch.cat([bond_emb, non_cov_emb, cont_features], dim=1)
 
 
 # ----------------------
 # Modelos GNN
 # ----------------------    
 class GINNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout = 0.2):
+    def __init__(self, input_dim, embeddings, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout = 0.2):
         super().__init__()
 
         self.dropout = dropout  # Guardamos la probabilidad de dropout
         fc_hidden_dim = hidden_dim//2
 
-        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
+        self.encoder = EmbeddingEncoder(embeddings,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
         self.convs = torch.nn.ModuleList()
 
@@ -112,14 +124,14 @@ class GINNet(torch.nn.Module):
     
 class GINENet(torch.nn.Module):
     # Añadimos el argumento 'dropout' al init
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout=0.2):
+    def __init__(self, input_dim, embeddings, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout=0.2):
         super().__init__()
         
         fc_hidden_dim = hidden_dim//2
         
         self.dropout = dropout  # Guardamos la probabilidad de dropout
 
-        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
+        self.encoder = EmbeddingEncoder(embeddings,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
         self.convs = torch.nn.ModuleList()
 
@@ -162,14 +174,14 @@ class GINENet(torch.nn.Module):
         return x
     
 class GATNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout = 0.2):
+    def __init__(self, input_dim, embeddings, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout = 0.2):
         super().__init__()
 
         fc_hidden_dim = hidden_dim//2
 
         self.dropout = dropout  # Guardamos la probabilidad de dropout
 
-        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
+        self.encoder = EmbeddingEncoder(embeddings,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
         self.convs = torch.nn.ModuleList()
 
@@ -205,14 +217,14 @@ class GATNet(torch.nn.Module):
         return x
     
 class EGATNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout = 0.2):
+    def __init__(self, input_dim, embeddings, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout = 0.2):
         super().__init__()
 
         self.dropout = dropout
 
         fc_hidden_dim = hidden_dim//2
 
-        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
+        self.encoder = EmbeddingEncoder(embeddings,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
         self.convs = torch.nn.ModuleList()
 
@@ -254,14 +266,14 @@ class EGATNet(torch.nn.Module):
         return x
     
 class GraphTransformerNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout = 0.2):
+    def __init__(self, input_dim, embeddings, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout = 0.2):
         super().__init__()
 
         self.dropout = dropout
 
         fc_hidden_dim = hidden_dim//2
 
-        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
+        self.encoder = EmbeddingEncoder(embeddings,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
         self.convs = torch.nn.ModuleList()
 
@@ -304,7 +316,7 @@ class GraphTransformerNet(torch.nn.Module):
         return x
     
 class NNConvNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout=0.2):
+    def __init__(self, input_dim, embeddings, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout=0.2):
         super().__init__()
 
         self.dropout = dropout
@@ -312,7 +324,7 @@ class NNConvNet(torch.nn.Module):
         fc_hidden_dim = hidden_dim//2
 
         # Instancia del encoder compartido
-        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim)
+        self.encoder = EmbeddingEncoder(embeddings)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
         self.convs = torch.nn.ModuleList()
 
@@ -373,19 +385,19 @@ class NNConvNet(torch.nn.Module):
 # Función para crear modelo según elección
 # ----------------------
 
-def create_model(model_name, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim, num_layers, edge_dim):
+def create_model(model_name, input_dim, embeddings, hidden_dim, num_layers, edge_dim):
     if model_name == "GIN":
-        return GINNet(input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim, num_layers)
+        return GINNet(input_dim, embeddings, hidden_dim, num_layers)
     elif model_name == "GINE":
-        return GINENet(input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim, num_layers)
+        return GINENet(input_dim, embeddings, edge_dim, hidden_dim, num_layers)
     elif model_name == "GAT":
-        return GATNet(input_dim,atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim, num_layers, HEADS)
+        return GATNet(input_dim,embeddings, hidden_dim, num_layers, HEADS)
     elif model_name == "GraphTransformer":
-        return GraphTransformerNet(input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim, num_layers, HEADS)
+        return GraphTransformerNet(input_dim, embeddings, edge_dim, hidden_dim, num_layers, HEADS)
     elif model_name == "EGAT":
-        return EGATNet(input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim, num_layers, HEADS)
+        return EGATNet(input_dim, embeddings, edge_dim, hidden_dim, num_layers, HEADS)
     elif model_name == "NNConv":
-        return NNConvNet(input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim, num_layers)
+        return NNConvNet(input_dim, embeddings, edge_dim, hidden_dim, num_layers)
     else:
         raise ValueError(f"Modelo desconocido: {model_name}")
 
@@ -741,7 +753,9 @@ def train_and_save_model_from_pt(
     calc_atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)
     calc_hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
     calc_bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
-    calc_non_cov_emb_dim = calc_dim(N_NON_COV, NON_COV_EMB_PR) 
+    calc_non_cov_emb_dim = calc_dim(N_NON_COV * NON_COV_EMB_PR)
+
+    embeddings = [calc_atom_emb_dim, calc_hibrid_emb_dim, calc_bond_emb_dim, calc_non_cov_emb_dim] 
 
     # 2. Dimensión Final de los NODOS (x)
     # Suma: Emb(Átomo) + Emb(Hibridación) + Continuas(Degree, Total_Hs, Aromatic, Donor, Acceptor)
@@ -763,9 +777,7 @@ def train_and_save_model_from_pt(
     model = create_model(
         model_type,
         input_dim,
-        calc_atom_emb_dim,
-        calc_hibrid_emb_dim, 
-        calc_bond_emb_dim, 
+        embeddings,
         hidden_dim=hidden_dim, 
         num_layers=num_layers, 
         edge_dim=edge_dim)
