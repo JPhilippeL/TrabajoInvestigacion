@@ -24,6 +24,10 @@ MODEL
 plot
 metadata
 raw
-output
+output*
 architecture.puml
 _test_
+GIGN_GUI
+CheapNet_GUI
+GraphDTA
+Planet
