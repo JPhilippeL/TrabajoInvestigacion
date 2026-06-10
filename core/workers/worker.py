@@ -2,7 +2,7 @@ from PySide6.QtCore import QThread, Signal, Slot
 
 
 class Worker(QThread):
-    finished = Signal()
+    ready = Signal()
     log = Signal(str)
     progress = Signal(int)
     error = Signal(str)
