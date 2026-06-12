@@ -20,7 +20,7 @@ sys.path.insert(0, dir_padre)
 
 from GNNs.data_processing import read_targets, load_data_from_sdf, mol_to_graph_data
 from GNNs.model_trainer import create_model, calc_dim
-from ui.utils.constants import RESULTADOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, OTHER_EDGE_FEATURES, OTHER_NODE_FEATURES
+from ui.utils.constants import *
 
 
 # Logger por módulo (no tocar basicConfig aquí)
@@ -51,19 +51,24 @@ def cargar_modelo(checkpoint_path):
     calc_atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)
     calc_hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
     calc_bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
+    calc_non_cov_emb_dim = calc_dim(N_NON_COV * NON_COV_EMB_PR)
 
-    # Son porcentajes por los que se multiplican las dimensiones reales, 
-    # de esta manera el usuario elige si quiere desde 1 dimension sola hasta el 100%
+    embeddings = [calc_atom_emb_dim, calc_hibrid_emb_dim, calc_bond_emb_dim, calc_non_cov_emb_dim] 
+
+    # 2. Dimensión Final de los NODOS (x)
+    # Suma: Emb(Átomo) + Emb(Hibridación) + Continuas(Degree, Total_Hs, Aromatic, Donor, Acceptor)
     input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
-    edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
+
+    # 3. Dimensión Final de los ENLACES (edge_attr)
+    # Suma: Emb(Covalente) + Emb(No Covalente) + Continuas(Distancia, Flexibilidad)
+    # Como la capa de Embedding ya comprimió las 25 binarias, las únicas continuas puras que sobran son 2
+    edge_dim = calc_bond_emb_dim + calc_non_cov_emb_dim + OTHER_EDGE_FEATURES
 
     # Crear modelo con los parámetros guardados
     model = create_model(
         model_type,
         input_dim,
-        calc_atom_emb_dim,
-        calc_hibrid_emb_dim, 
-        calc_bond_emb_dim, 
+        embeddings, 
         hidden_dim=hidden_dim, 
         num_layers=num_layers, 
         edge_dim=edge_dim)
@@ -667,8 +672,8 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
     
     # Rutas principales
-    MODELOS_MADRE = "Modelos/Pruebas4Amstrong"      # Donde están las carpetas split_0, split_1... con los .pt del modelo
-    RESULTADOS_MADRE = "Resultados/Pruebas4Amstrong"   # Donde se guardarán los CSV finales
+    MODELOS_MADRE = "Modelos/25Features_Explicacion/7A_GT_Split3.pt"      # Donde están las carpetas split_0, split_1... con los .pt del modelo
+    RESULTADOS_MADRE = "Resultados/25Features_Explicacion"   # Donde se guardarán los CSV finales
     
     print("🚀 Iniciando el testing masivo de todos los splits...")
     
