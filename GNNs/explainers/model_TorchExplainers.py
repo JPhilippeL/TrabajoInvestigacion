@@ -4,6 +4,8 @@ import os
 import numpy as np
 import logging
 from rdkit import Chem
+from torch_geometric.explain import Explainer
+from torch_geometric.explain.algorithm import SubgraphX
 
 from torch_geometric.explain import Explainer, DummyExplainer, GNNExplainer, CaptumExplainer
 
@@ -50,7 +52,7 @@ def obtener_Dummy_Explainer(checkpoint_path, sdf_path, target_data_path=None, ba
     
     explanation = explainer(
         x=data.x, edge_index=data.edge_index, 
-        edge_attr=data.edge_attr, batch=batch, target=None
+        edge_attr=data.edge_attr, batch=batch
     )
 
     # --- 3. EXTRACCIÓN Y GUARDADO ---
@@ -124,7 +126,7 @@ def obtener_GNN_Explainer(checkpoint_path, sdf_path, target_data_path=None, batc
     logger.info(f"Ejecutando GNNExplainer para {mol_name}...")
     explanation = explainer(
         x=data.x, edge_index=data.edge_index, 
-        edge_attr=data.edge_attr, batch=batch, target=None
+        edge_attr=data.edge_attr, batch=batch
     )
 
     # --- 3. EXTRACCIÓN Y GUARDADO DE PESOS ---
@@ -214,7 +216,7 @@ def obtener_Captum_Explainer(checkpoint_path, sdf_path, target_data_path=None, b
     
     explanation = explainer(
         x=data.x, edge_index=data.edge_index, 
-        edge_attr=data.edge_attr, batch=batch, target=target_idx
+        edge_attr=data.edge_attr, batch=batch
     )
 
     # --- 3. EXTRACCIÓN Y GUARDADO DE PESOS ---
@@ -255,6 +257,89 @@ def obtener_Captum_Explainer(checkpoint_path, sdf_path, target_data_path=None, b
         real_val=real_val, pred_val=pred_val,
         model_name=model_folder_name,
         algo_name=algo_name_full # Le pasamos el nombre específico para el dashboard
+    )
+    
+    logger.info(f"Proceso finalizado. Gráfico en: {plotfilename}")
+    return plotfilename
+
+def obtener_SubgraphX_Explainer(checkpoint_path, sdf_path, target_data_path=None, batch_mode=False):
+    
+    # --- 1. CARGA DE RECURSOS (Forzando CPU por seguridad de VRAM/Drivers) ---
+    device = torch.device('cpu') 
+    model, _, model_target_name = cargar_modelo(checkpoint_path)
+    model = model.to(device)
+    model.eval()
+    
+    mol = Chem.SDMolSupplier(sdf_path, removeHs=False)[0]
+    mol_id = os.path.basename(sdf_path).split('.')[0]
+    mol_name = mol.GetProp("_Name") if mol.HasProp("_Name") else mol_id
+    
+    # Info Target
+    target_name_str, real_val = obtener_info_real(target_data_path, mol_id)
+    if target_name_str == "Unknown Target" and model_target_name != "Unknown":
+        target_name_str = model_target_name
+
+    # Grafo (asegurando que vaya a la CPU)
+    data = mol_to_graph_data(mol, mode='embedding').to(device)
+    batch = torch.zeros(data.x.shape[0], dtype=torch.long, device=device)
+
+    # --- 2. EJECUCIÓN SUBGRAPHX ---
+    # SubgraphX es estructural. Solo soporta máscaras tipo 'object' (nodos/aristas).
+    explainer = Explainer(
+        model=model,
+        algorithm=SubgraphX(
+            max_nodes=5,           # Tamaño máximo del subgrafo explicativo
+            num_rollouts=20,       # Iteraciones de Monte Carlo (ajustar según tiempo/precisión)
+            reward_method='nc_mc_l_shapley'
+        ),
+        explanation_type='model',
+        node_mask_type='object',   # Equivalente a tu variable 'beta'
+        edge_mask_type='object',   # Equivalente a tu variable 'delta'
+        model_config=dict(mode='regression', task_level='graph', return_type='raw'),
+    )
+
+    logger.info(f"Ejecutando SubgraphX para {mol_name}...")
+    
+    # Dependiendo de tu GNN, SubgraphX puede prescindir de edge_attr, pero lo pasamos por seguridad
+    explanation = explainer(
+        x=data.x, edge_index=data.edge_index, 
+        edge_attr=data.edge_attr if hasattr(data, 'edge_attr') else None, 
+        batch=batch
+    )
+
+    # --- 3. EXTRACCIÓN Y GUARDADO DE PESOS ---
+    # Nota: Como SubgraphX no evalúa features, alfa_raw y gamma_raw probablemente sean None
+    alfa_raw, beta_raw, gamma_raw, delta_raw = extraer_pesos_torchexplainers(explanation)
+    
+    model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
+
+    if batch_mode:
+        return {
+            'mol_name': mol_name,
+            'alfa': alfa_raw.detach().cpu() if alfa_raw is not None else None,
+            'beta': beta_raw.detach().cpu() if beta_raw is not None else None,
+            'gamma': gamma_raw.detach().cpu() if gamma_raw is not None else None,
+            'delta': delta_raw.detach().cpu() if delta_raw is not None else None
+        }
+    
+    guardar_pesos(
+        alfa=alfa_raw, beta=beta_raw, gamma=gamma_raw, delta=delta_raw,
+        model_name=model_folder_name, mol_name=mol_name,
+        algo_name="SubgraphX" # Actualizado el nombre
+    )
+
+    # --- 4. ANÁLISIS Y VISUALIZACIÓN ---
+    pred_val = predecir_molecula(model, data, device)
+
+    plotfilename = pipeline_visualizacion_torchexplainers(
+        alfa_raw=alfa_raw, beta_raw=beta_raw, 
+        delta_raw=delta_raw, gamma_raw=gamma_raw,
+        edge_index=explanation.edge_index,
+        sdf_path=sdf_path,
+        model=model, data=data, device=device,
+        mol_name=mol_name, target_name=target_name_str,
+        real_val=real_val, pred_val=pred_val,
+        model_name=model_folder_name
     )
     
     logger.info(f"Proceso finalizado. Gráfico en: {plotfilename}")
