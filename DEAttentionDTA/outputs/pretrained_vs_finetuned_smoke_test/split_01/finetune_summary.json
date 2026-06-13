@@ -1,0 +1,20 @@
+{
+  "before_test_MAE": 1.0261472173639246,
+  "before_test_Pearson": 0.5070279640725539,
+  "before_test_RMSE": 1.2973265329206685,
+  "best_epoch": 1,
+  "mode": "finetune",
+  "model_pt": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/models/finetuned_smoke_test/split_01/DEAttentionDTA_URV_v3b_pretrained_finetuned_split01.pt",
+  "pretrained_path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/models/pretrained/DEAttentionDTA.pt",
+  "results_dir": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/outputs/pretrained_vs_finetuned_smoke_test/split_01",
+  "split": 1,
+  "test_MAE": 1.2088130197009526,
+  "test_Pearson": 0.18425015066392966,
+  "test_RMSE": 1.4512154435132907,
+  "test_rows": 74,
+  "train_rows": 228,
+  "val_MAE": 1.0470481005581942,
+  "val_Pearson": 0.03421639591180673,
+  "val_RMSE": 1.2774964730520113,
+  "validation_rows": 55
+}

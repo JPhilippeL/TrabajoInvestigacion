@@ -291,6 +291,21 @@ class DashboardPage(QWidget):
             ],
         )
 
+        self._add_card(
+            model_grid,
+            2,
+            1,
+            "DEAttentionDTA",
+            "Validate dataset, train, search hyperparameters, evaluate and compare DEAttentionDTA model.",
+            [
+                ("Validation", self.callbacks.get("deattentiondta_validate")),
+                ("Train", self.callbacks.get("deattentiondta_train")),
+                ("Search", self.callbacks.get("deattentiondta_search")),
+                ("Evaluate", self.callbacks.get("deattentiondta_evaluate")),
+                ("Compare", self.callbacks.get("deattentiondta_compare")),
+            ],
+        )
+
         model_grid.setColumnStretch(0, 1)
         model_grid.setColumnStretch(1, 1)
 

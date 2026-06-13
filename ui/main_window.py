@@ -36,6 +36,7 @@ from ui.widgets.app_header import AppHeader
 from ui.utils.resources import logo_path
 from ui.pages.settings_page import SettingsPage
 
+from PySide6.QtGui import QCursor
 
 class MainWindow(QMainWindow):
     """
@@ -178,43 +179,84 @@ class MainWindow(QMainWindow):
             "capla_search": lambda: self.trigger_menu_action("CAPLA", "Hyperparameter Search"),
             "capla_evaluate": lambda: self.trigger_menu_action("CAPLA", "Evaluate Model on Prepared Dataset"),
             "capla_compare": lambda: self.trigger_menu_action("CAPLA", "Compare Pretrained vs Fine-Tuned"),
+
+            "deattentiondta_validate": self.open_deattentiondta_validation_menu,
+            "deattentiondta_train": lambda: self.trigger_menu_action("DEAttentionDTA","Train Official Split(s) From Scratch",),
+            "deattentiondta_search": lambda: self.trigger_menu_action("DEAttentionDTA","Hyperparameter Search",),
+            "deattentiondta_evaluate": lambda: self.trigger_menu_action("DEAttentionDTA","Evaluate Checkpoint on Official Split(s)",),
+            "deattentiondta_compare": lambda: self.trigger_menu_action("DEAttentionDTA","Compare Pretrained vs Fine-Tuned",),
         }
+
+    def open_deattentiondta_validation_menu(self) -> None:
+        """
+        Open the DEAttentionDTA advanced-validation submenu.
+
+        This allows the dashboard validation button to expose both validation
+        workflows instead of triggering only the prepared-dataset check.
+        """
+        validation_menu = self.menu_bar.menu_DEAttentionDTA.validation_menu
+        validation_menu.exec(QCursor.pos())
 
     def trigger_menu_action(self, menu_title: str, action_text: str) -> None:
         """
         Trigger an existing menu action by top-level menu title and action text.
 
+        The search is recursive so that dashboard buttons can also trigger
+        actions stored inside nested menus such as "Advanced Validation".
+
         Args:
             menu_title: Top-level menu title.
-            action_text: Action text inside the menu.
+            action_text: Action text to locate inside the menu tree.
         """
+
         def clean(text: str) -> str:
             return text.replace("&", "").strip()
+
+        def find_action_recursive(menu, expected_text: str):
+            for action in menu.actions():
+                if action.isSeparator():
+                    continue
+
+                nested_menu = action.menu()
+                if nested_menu is not None:
+                    found_action = find_action_recursive(nested_menu, expected_text)
+                    if found_action is not None:
+                        return found_action
+
+                if clean(action.text()) == expected_text:
+                    return action
+
+            return None
 
         for top_action in self.menu_bar.actions():
             if clean(top_action.text()) != menu_title:
                 continue
 
             menu = top_action.menu()
-
             if menu is None:
                 break
 
-            for action in menu.actions():
-                if action.isSeparator():
-                    continue
+            action = find_action_recursive(menu, action_text)
 
-                if clean(action.text()) == action_text:
-                    logging.info("Dashboard action triggered: %s > %s", menu_title, action_text)
-                    action.trigger()
-                    return
+            if action is not None:
+                logging.info(
+                    "Dashboard action triggered: %s > %s",
+                    menu_title,
+                    action_text,
+                )
+                action.trigger()
+                return
 
         QMessageBox.warning(
             self,
             "Action not found",
             f"The action could not be found:\n{menu_title} > {action_text}",
         )
-        logging.warning("Menu action not found: %s > %s", menu_title, action_text)
+        logging.warning(
+            "Menu action not found: %s > %s",
+            menu_title,
+            action_text,
+        )
 
     def show_dashboard(self) -> None:
         """

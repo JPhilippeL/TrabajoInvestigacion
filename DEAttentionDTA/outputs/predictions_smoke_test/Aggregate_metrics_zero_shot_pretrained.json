@@ -1,0 +1,10 @@
+{
+  "mode": "zero-shot",
+  "splits_completed": 1,
+  "test_MAE_mean": 1.026147256026397,
+  "test_MAE_std": NaN,
+  "test_Pearson_mean": 0.5070273103218095,
+  "test_Pearson_std": NaN,
+  "test_RMSE_mean": 1.2973266201423659,
+  "test_RMSE_std": NaN
+}

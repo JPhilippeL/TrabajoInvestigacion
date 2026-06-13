@@ -1,0 +1,37 @@
+{
+  "best_hyperparameters": {
+    "batch_size": 4,
+    "lr": 0.0001,
+    "weight_decay": 0.0
+  },
+  "best_metrics": {
+    "mean_best_epoch": 1.0,
+    "mean_val_MAE": 0.9296190001747825,
+    "mean_val_Pearson": 0.5648379011397603,
+    "mean_val_RMSE": 1.121040738641576
+  },
+  "best_trial": "trial_0001",
+  "elapsed_seconds": 89.8688714504242,
+  "methodology": "official train and validation subsets only; official test subsets excluded",
+  "model_name": "DEAttentionDTA",
+  "n_failures": 0,
+  "n_success": 1,
+  "n_trials": 1,
+  "paths": {
+    "best_models_dir": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/outputs/hpo_smoke_test/deattentiondta_hpo_20260607_011241/best_models",
+    "run_dir": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/outputs/hpo_smoke_test/deattentiondta_hpo_20260607_011241",
+    "trials_csv": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/outputs/hpo_smoke_test/deattentiondta_hpo_20260607_011241/deattentiondta_hpo_trials.csv"
+  },
+  "selection_rule": {
+    "primary_goal": "min",
+    "primary_metric": "mean validation RMSE",
+    "secondary_goal": "max",
+    "secondary_metric": "mean validation Pearson"
+  },
+  "status": "success",
+  "test_rows_used": 0,
+  "tuning_splits": [
+    1
+  ],
+  "workflow": "validation_only_hpo"
+}
