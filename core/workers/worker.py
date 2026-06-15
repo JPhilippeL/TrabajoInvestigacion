@@ -2,7 +2,7 @@ from PySide6.QtCore import QThread, Signal, Slot
 
 
 class Worker(QThread):
-    ready = Signal()
+    result_ready = Signal(object)
     log = Signal(str)
     progress = Signal(int)
     error = Signal(str)
@@ -16,6 +16,6 @@ class Worker(QThread):
     def run(self):
         try:
             result = self.strategy.execute(self.config, self.log.emit, self.progress.emit)
-            self.finished.emit(result)
+            self.result_ready.emit(result)
         except Exception as e:
             self.error.emit(str(e))
