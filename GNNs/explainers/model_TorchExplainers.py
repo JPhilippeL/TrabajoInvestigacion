@@ -5,7 +5,7 @@ import numpy as np
 import logging
 from rdkit import Chem
 from torch_geometric.explain import Explainer
-from torch_geometric.explain.algorithm import SubgraphX
+from GNNs.explainers.subgraphX import SubgraphX
 
 from torch_geometric.explain import Explainer, DummyExplainer, GNNExplainer, CaptumExplainer
 
@@ -264,7 +264,7 @@ def obtener_Captum_Explainer(checkpoint_path, sdf_path, target_data_path=None, b
 
 def obtener_SubgraphX_Explainer(checkpoint_path, sdf_path, target_data_path=None, batch_mode=False):
     
-    # --- 1. CARGA DE RECURSOS (Forzando CPU por seguridad de VRAM/Drivers) ---
+    # --- 1. CARGA DE RECURSOS ---
     device = torch.device('cpu') 
     model, _, model_target_name = cargar_modelo(checkpoint_path)
     model = model.to(device)
@@ -279,53 +279,65 @@ def obtener_SubgraphX_Explainer(checkpoint_path, sdf_path, target_data_path=None
     if target_name_str == "Unknown Target" and model_target_name != "Unknown":
         target_name_str = model_target_name
 
-    # Grafo (asegurando que vaya a la CPU)
+    # Grafo
     data = mol_to_graph_data(mol, mode='embedding').to(device)
-    batch = torch.zeros(data.x.shape[0], dtype=torch.long, device=device)
 
-    # --- 2. EJECUCIÓN SUBGRAPHX ---
-    # SubgraphX es estructural. Solo soporta máscaras tipo 'object' (nodos/aristas).
-    explainer = Explainer(
-        model=model,
-        algorithm=SubgraphX(
-            max_nodes=5,           # Tamaño máximo del subgrafo explicativo
-            num_rollouts=20,       # Iteraciones de Monte Carlo (ajustar según tiempo/precisión)
-            reward_method='nc_mc_l_shapley'
-        ),
-        explanation_type='model',
-        node_mask_type='object',   # Equivalente a tu variable 'beta'
-        edge_mask_type='object',   # Equivalente a tu variable 'delta'
-        model_config=dict(mode='regression', task_level='graph', return_type='raw'),
-    )
-
+    # --- 2. EJECUCIÓN SUBGRAPHX (Llamada Directa) ---
     logger.info(f"Ejecutando SubgraphX para {mol_name}...")
     
-    # Dependiendo de tu GNN, SubgraphX puede prescindir de edge_attr, pero lo pasamos por seguridad
-    explanation = explainer(
-        x=data.x, edge_index=data.edge_index, 
-        edge_attr=data.edge_attr if hasattr(data, 'edge_attr') else None, 
-        batch=batch
+    explainer = SubgraphX(
+        model=model,
+        num_classes=1,            # Mantenemos este parámetro por la firma del __init__, aunque ya no se use en regresión
+        device=device,
+        explain_graph=True,       # Indica que explicamos el grafo entero (Graph Regression)
+        rollout=20,               # Iteraciones MCTS
+        min_atoms=4,              # Tamaño mínimo del subgrafo a explorar
+        c_puct=10.0,              # Factor de exploración
+        reward_method='mc_l_shapley'
     )
 
-    # --- 3. EXTRACCIÓN Y GUARDADO DE PESOS ---
-    # Nota: Como SubgraphX no evalúa features, alfa_raw y gamma_raw probablemente sean None
-    alfa_raw, beta_raw, gamma_raw, delta_raw = extraer_pesos_torchexplainers(explanation)
+    # Llamamos al objeto directamente
+    _, explanation_results, _ = explainer(x=data.x, edge_index=data.edge_index, max_nodes=5)
+
+    # --- 3. EXTRACCIÓN DE PESOS MANUAL ---
+    # explanation_results[0] contiene la lista de subgrafos de nuestra única salida de regresión.
+    # Están ordenados por recompensa (P), así que el índice 0 es el subgrafo ganador.
+    best_subgraph_info = explanation_results[0][0]
+    coalition = best_subgraph_info['coalition'] # Lista con los índices de los nodos importantes
+    
+    num_nodes = data.x.shape[0]
+    num_edges = data.edge_index.shape[1]
+    
+    # Creamos beta (Máscara de Nodos): 1 si el nodo está en el subgrafo, 0 si no
+    beta_raw = torch.zeros(num_nodes, dtype=torch.float32, device=device)
+    beta_raw[coalition] = 1.0
+    
+    # Creamos delta (Máscara de Aristas): 1 si la arista conecta dos nodos del subgrafo, 0 si no
+    delta_raw = torch.zeros(num_edges, dtype=torch.float32, device=device)
+    row, col = data.edge_index
+    for i in range(num_edges):
+        if row[i].item() in coalition and col[i].item() in coalition:
+            delta_raw[i] = 1.0
+
+    # Características no evaluadas por SubgraphX
+    alfa_raw = None
+    gamma_raw = None
     
     model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
 
     if batch_mode:
         return {
             'mol_name': mol_name,
-            'alfa': alfa_raw.detach().cpu() if alfa_raw is not None else None,
-            'beta': beta_raw.detach().cpu() if beta_raw is not None else None,
-            'gamma': gamma_raw.detach().cpu() if gamma_raw is not None else None,
-            'delta': delta_raw.detach().cpu() if delta_raw is not None else None
+            'alfa': alfa_raw,
+            'beta': beta_raw.detach().cpu(),
+            'gamma': gamma_raw,
+            'delta': delta_raw.detach().cpu()
         }
     
     guardar_pesos(
         alfa=alfa_raw, beta=beta_raw, gamma=gamma_raw, delta=delta_raw,
         model_name=model_folder_name, mol_name=mol_name,
-        algo_name="SubgraphX" # Actualizado el nombre
+        algo_name="SubgraphX" 
     )
 
     # --- 4. ANÁLISIS Y VISUALIZACIÓN ---
@@ -334,7 +346,7 @@ def obtener_SubgraphX_Explainer(checkpoint_path, sdf_path, target_data_path=None
     plotfilename = pipeline_visualizacion_torchexplainers(
         alfa_raw=alfa_raw, beta_raw=beta_raw, 
         delta_raw=delta_raw, gamma_raw=gamma_raw,
-        edge_index=explanation.edge_index,
+        edge_index=data.edge_index, # Pasamos directamente el edge_index del grafo original
         sdf_path=sdf_path,
         model=model, data=data, device=device,
         mol_name=mol_name, target_name=target_name_str,
