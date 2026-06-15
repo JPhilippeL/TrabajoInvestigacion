@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 def dialog_accepted(dialog):
     if dialog.exec() == QDialog.DialogCode.Accepted:
-        return dialog.get_values()
+        return dialog.get_inputs()
 
     return None
 

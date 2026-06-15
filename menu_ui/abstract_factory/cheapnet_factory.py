@@ -8,7 +8,7 @@ from menu_ui.menu import Menu
 def cheapnet_menu(parent_window):
     return Menu(
         parent_window=parent_window,
-        model_name="CheapNet",
+        model_name="cheapnet",
         db_dialog=DBGenerationDialog,
         train_dialog=TrainDialog,
         predict_dialog=PredictDialog,
