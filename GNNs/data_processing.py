@@ -167,6 +167,7 @@ def onehot_to_indices(data):
     """
     Convierte features one-hot a indices usando los diccionarios definidos.
     Soporta 'Zero Masking' asignando clases Unknown/Other.
+    Adaptado a la nueva arquitectura (Covalente OneHot + Vector No Covalente + Continuas).
     """
     if data.x is None: return data
 
@@ -202,25 +203,28 @@ def onehot_to_indices(data):
     data_new = data.clone()
     data_new.x = torch.cat([atom_idx, hybrid_idx, cont_features], dim=1)
 
-    # === 4. ENLACES ===
-    if data_new.edge_attr is not None and data_new.edge_attr.shape[1] >= 3:
+    # === 4. ENLACES (NUEVA ARQUITECTURA) ===
+    if data_new.edge_attr is not None:
         edge_attr = data_new.edge_attr
         
+        # Recuperamos el slice del One-Hot covalente (ahora ocupa las primeras L_B columnas)
         bond_slice = EDGE_ONE_HOT_INDICES["BOND_TYPE"]
-        dist_idx = EDGE_ONE_HOT_INDICES["DISTANCE"]
-        flex_idx = EDGE_ONE_HOT_INDICES["FLEXIBILITY"]
         
+        # 4.1. Covalente: de One-Hot a Índice
         bond_onehot = edge_attr[:, bond_slice]
         bond_idx = bond_onehot.argmax(dim=1, keepdim=True).float()
         
+        # Zero-masking para enlaces eliminados/desconocidos por el explainer
         is_empty_bond = (bond_onehot.sum(dim=1, keepdim=True) == 0)
         bond_idx[is_empty_bond] = UNKNOWN_BOND_IDX
         
-        # Extraemos distancia y flexibilidad explícitamente
-        dist_feat = edge_attr[:, dist_idx:dist_idx+1]
-        flex_feat = edge_attr[:, flex_idx:flex_idx+1]
+        # 4.2. Recuperar el resto de features (Multi-hot no covalente + Continuas)
+        # Tomamos todas las columnas desde donde termina el One-Hot covalente hasta el final
+        rest_of_features = edge_attr[:, bond_slice.stop:]
         
-        data_new.edge_attr = torch.cat([bond_idx, dist_feat, flex_feat], dim=1)
+        # 4.3. Ensamblar tensor final para la GNN
+        # Ahora tendrá exactamente 28 columnas (1 + 25 + 2)
+        data_new.edge_attr = torch.cat([bond_idx, rest_of_features], dim=1)
 
     return data_new
 
@@ -228,13 +232,14 @@ def indices_to_onehot(data):
     """
     Convierte un grafo con features categóricas en forma de índices (embedding mode) 
     de vuelta a features one-hot expandidas.
+    Adaptado a la nueva arquitectura (Covalente OneHot + Vector No Covalente + Continuas).
     """
     if data.x is None: return data
 
     data_new = data.clone()
     x = data.x
     
-    # 1. Recuperar los tamaños de las clases usando los slices de tu diccionario original
+    # 1. Recuperar los tamaños de las clases de Nodos
     atom_slice = ONE_HOT_INDICES["ATOM_SYMBOL"]
     hybrid_slice = ONE_HOT_INDICES["HYBRIDIZATION"]
     
@@ -242,49 +247,44 @@ def indices_to_onehot(data):
     num_hybrid_classes = hybrid_slice.stop - hybrid_slice.start
 
     # === 1. SEPARAR FEATURES DE NODOS ===
-    # Sabemos por tu función 'onehot_to_indices' que el orden de nodos guardado fue:
-    # [atom_idx, hybrid_idx, cont_features...]
     atom_idx = x[:, 0].long()
     hybrid_idx = x[:, 1].long()
-    cont_features = x[:, 2:]  # Todas las columnas restantes (degree, num_h, is_aromatic, etc.)
+    cont_features = x[:, 2:]  # (degree, num_h, is_aromatic, is_donor, is_acceptor)
 
-    # === 2. EXPANDIR A ONE-HOT ===
-    # F.one_hot requiere tensores de tipo long (enteros)
+    # === 2. EXPANDIR NODOS A ONE-HOT ===
     atom_onehot = F.one_hot(atom_idx, num_classes=num_atom_classes).float()
     hybrid_onehot = F.one_hot(hybrid_idx, num_classes=num_hybrid_classes).float()
 
     # === 3. CONCATENAR NODOS ===
-    # Reconstruimos respetando el orden del get_atom_features (mode='one_hot'):
-    # Symbol OneHot + Features Continuas + Hybridization OneHot
+    # Respetando el orden: Symbol OneHot + Continuas + Hybridization OneHot
     data_new.x = torch.cat([atom_onehot, cont_features, hybrid_onehot], dim=1)
 
-    # === 4. ENLACES ===
-    if data_new.edge_attr is not None and data_new.edge_attr.shape[1] >= 3:
+    # === 4. EXPANDIR ENLACES (NUEVA ARQUITECTURA) ===
+    if data_new.edge_attr is not None:
         edge_attr = data_new.edge_attr
         
-        # Recuperamos el tamaño de clases de los enlaces (que será 16)
+        # Recuperamos el tamaño de clases covalentes (ahora será L_B = 6)
         bond_slice = EDGE_ONE_HOT_INDICES["BOND_TYPE"]
         num_bond_classes = bond_slice.stop - bond_slice.start
         
-        # Extraemos las 3 columnas guardadas en modo embedding
+        # 4.1 Extraemos la columna categórica (Covalente)
         bond_idx = edge_attr[:, 0].long()
-        dist_feat = edge_attr[:, 1:2]
-        flex_feat = edge_attr[:, 2:3]
         
-        # --- EL PARCHE DINÁMICO ---
-        # Detectamos el número máximo que haya en este grafo (por si hay un 16 perdido por ahí)
+        # 4.2 Extraemos TODO el resto (25 binarias + Distancia + Flexibilidad)
+        # Esto es mágico: no importa cuántas continuas añadas en el futuro, 
+        # siempre las arrastrará correctamente.
+        rest_of_features = edge_attr[:, 1:]
+        
+        # --- EL PARCHE DINÁMICO (Seguridad anti-crasheos) ---
         max_idx_in_tensor = int(bond_idx.max().item())
-        
-        # Le damos a F.one_hot el tamaño que necesite para no explotar
         safe_num_classes = max(num_bond_classes, max_idx_in_tensor + 1)
         bond_onehot_full = F.one_hot(bond_idx, num_classes=safe_num_classes).float()
         
-        # Recortamos estrictamente a las 16 clases que espera tu modelo
-        # (Los índices anómalos quedarán automáticamente como una fila de [0, 0... 0])
+        # Recortamos estrictamente a las 6 clases que espera tu modelo One-Hot
         bond_onehot = bond_onehot_full[:, :num_bond_classes]
         
-        # Concatenamos respetando el get_edge_features
-        data_new.edge_attr = torch.cat([bond_onehot, dist_feat, flex_feat], dim=1)
+        # 4.3 Concatenamos el OneHot Covalente con el bloque de No Covalentes y Continuas
+        data_new.edge_attr = torch.cat([bond_onehot, rest_of_features], dim=1)
 
     return data_new
 

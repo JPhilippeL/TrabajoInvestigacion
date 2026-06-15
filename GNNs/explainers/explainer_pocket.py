@@ -11,7 +11,7 @@ sys.path.insert(0, dir_padre)
 from GNNs.explainers.model_Graph_explainer import obtener_graph_explainer
 from GNNs.data_processing import prepare_pt_training_data
 from GNNs.model_tester import cargar_modelo, predecir_molecula
-from ui.utils.constants import RESULTADOS_DIR, BOND_CLASS_NAMES
+from ui.utils.constants import RESULTADOS_DIR, BOND_CLASS_NAMES, BOND_TYPES_NON_COVALENT
 from GNNs.explainers.explanation_helper import guardar_pesos_batch
 from GNNs.explainers.explanation_fidelity import obtener_aucs_pt
 
@@ -169,6 +169,8 @@ def explicar_y_guardar_molecula_individual(
     'beta' (nodos) y 'delta' (enlaces), filtra enlaces no covalentes y guarda los CSVs.
     """
     print(f"Buscando la molécula '{target_mol_name}' en el dataset...")
+    model_name = checkpoint_path.split('/')[-1].split('.')[0]
+    csv_dir = os.path.join(csv_dir, model_name)
     
     # 1. Buscar la molécula
     target_data = None
@@ -231,7 +233,7 @@ def explicar_y_guardar_molecula_individual(
     df_nodos = pd.DataFrame(nodos_data)
     df_nodos = df_nodos.sort_values(by='importancia', ascending=False)
     
-    save_path_nodos = os.path.join(csv_dir, f"importancias_nodos_{target_mol_name}.csv")
+    save_path_nodos = os.path.join(csv_dir, f"importancias_nodos_{target_mol_name}_error_{error:.2f}.csv")
     df_nodos.to_csv(save_path_nodos, index=False)
     print(f"✅ CSV Nodos guardado (Total: {len(df_nodos)}): {save_path_nodos}")
 
@@ -262,19 +264,35 @@ def explicar_y_guardar_molecula_individual(
             # Ordenar alfabéticamente para crear una clave única
             par_nodos = tuple(sorted([u_limpio, v_limpio]))
             
-            # Si es la primera vez que vemos este enlace, lo creamos
             if par_nodos not in diccionario_enlaces:
+                # 1. Extraer Topología Covalente (Columna 0)
+                bond_idx = int(edge_attr[i, 0].item())
                 if bond_idx < len(BOND_CLASS_NAMES):
                     nombre_enlace = BOND_CLASS_NAMES[bond_idx]
                 else:
                     nombre_enlace = "UNKNOWN"
+                
+                # 2. Análisis del Vector No Covalente
+                # Si el enlace base es 'OTHER' o 'UNKNOWN', inspeccionamos el multi-hot
+                if nombre_enlace in ["OTHER", "UNKNOWN"] and edge_attr.shape[1] > 1:
+                    # Extraemos las 25 columnas de interacciones
+                    vector_nc = edge_attr[i, 1 : 1 + len(BOND_TYPES_NON_COVALENT)]
+                    
+                    interacciones_activas = []
+                    for k, activo in enumerate(vector_nc):
+                        if activo > 0.5:  # Si la interacción está presente
+                            interacciones_activas.append(BOND_TYPES_NON_COVALENT[k])
+                    
+                    # Si detectó interacciones, sobrescribimos "OTHER" con la lista de interacciones reales
+                    if interacciones_activas:
+                        nombre_enlace = " + ".join(interacciones_activas)
                     
                 diccionario_enlaces[par_nodos] = {
                     'interaccion': f"{par_nodos[0]} <-> {par_nodos[1]}",
                     'nodo_1': par_nodos[0],
                     'nodo_2': par_nodos[1],
                     'tipo_enlace': nombre_enlace,
-                    'importancias_temporales': [] # Aquí guardaremos los valores
+                    'importancias_temporales': [] 
                 }
             
             # Guardamos la importancia de esta dirección (ida o vuelta)
@@ -298,7 +316,7 @@ def explicar_y_guardar_molecula_individual(
             df_edges = pd.DataFrame(edges_data)
             df_edges = df_edges.sort_values(by='importancia', ascending=False)
             
-            save_path_edges = os.path.join(csv_dir, f"importancias_enlaces_{target_mol_name}.csv")
+            save_path_edges = os.path.join(csv_dir, f"importancias_enlaces_{target_mol_name}_error_{error:.2f}.csv")
             df_edges.to_csv(save_path_edges, index=False)
             print(f"✅ CSV Enlaces guardado (Total: {len(df_edges)}): {save_path_edges}")
         else:
@@ -383,10 +401,11 @@ def get_batch_explanation(model_path, data_list, explainer_name = "GraphExplaine
 # ==========================================
 # (Asegúrate de tener data_list cargado)
 
-RUTA_MODELO = "Modelos/Explainer_BindingAffinity/GT_4_Split3.pt"
-DATA_PATH = "/home/philippe/Documents/Databases/3_A_node_id/pocket_BD.pt"
-MOL_OBJETIVO = "7EN8"
-OBJETIVOS = ["7GBZ", "7GHB", "5RGX", "7GCK","7GH7", "7UR9", "9GIL", "8DZ0", "9KSK", "9VS1"]
+RUTA_MODELO = "Modelos/Explainer_BindingAffinity/GT_5_Split3.pt"
+RUTA_MODELOS = ["Modelos/Modelos_25F/3A_GT_Split3.pt", "Modelos/Modelos_25F/4A_GT_Split3.pt",
+                "Modelos/Modelos_25F/5A_GT_Split3.pt", "Modelos/Modelos_25F/7A_GT_Split3.pt"]
+DATA_PATH = "/home/philippe/Documents/Databases/7_Amstrongs/pocket_BD/pocket_BD.pt"
+OBJETIVOS = ["7GH3", "7EN9", "9GIJ"]
 
 train_loader, val_loader, device, targetname = prepare_pt_training_data(
     pt_file_path=DATA_PATH, 
@@ -400,15 +419,16 @@ train_loader, val_loader, device, targetname = prepare_pt_training_data(
 # )
 
 # Ejecutar la función para una sola molécula
-# for molecula in OBJETIVOS:
-#     df_resultado = explicar_y_guardar_molecula_individual(
-#         data_list=train_loader.dataset,
-#         checkpoint_path=RUTA_MODELO,
-#         target_mol_name=molecula
-#     )
+for molecula in OBJETIVOS:
+    df_resultado = explicar_y_guardar_molecula_individual(
+        data_list=train_loader.dataset,
+        checkpoint_path=RUTA_MODELOS[3],
+        target_mol_name=molecula,
+        csv_dir="Resultados/Resultados_25F"
+    )
 
 # get_batch_explanation(RUTA_MODELO, train_loader.dataset)
 WEIGHTS = "Resultados/GT_4_Split3/GraphExplainer/GT_4_Split3_GraphExplainer_BATCH_COMPLETO.pt"
 MODE = "beta"
 
-obtener_aucs_pt(RUTA_MODELO, train_loader.dataset, WEIGHTS, MODE, True)
+# obtener_aucs_pt(RUTA_MODELO, train_loader.dataset, WEIGHTS, MODE, True)

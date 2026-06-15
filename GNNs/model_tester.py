@@ -672,8 +672,8 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
     
     # Rutas principales
-    MODELOS_MADRE = "Modelos/25Features_Explicacion/7A_GT_Split3.pt"      # Donde están las carpetas split_0, split_1... con los .pt del modelo
-    RESULTADOS_MADRE = "Resultados/25Features_Explicacion"   # Donde se guardarán los CSV finales
+    MODELOS_MADRE = "Modelos/Modelos_25F/7A_GT_Split3.pt"      # Donde están las carpetas split_0, split_1... con los .pt del modelo
+    RESULTADOS_MADRE = "Resultados/Resultados_25F"   # Donde se guardarán los CSV finales
     
     print("🚀 Iniciando el testing masivo de todos los splits...")
     
@@ -689,11 +689,17 @@ if __name__ == "__main__":
     # )
 
     # -------------------TESTEO CON .PT ------------------------------
-    DATOS_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/new_features_pocket_4A" # CARPETA DONDE ESTAN LOS .PT
-    test_all_splits_pt(
-        models_mother_dir=MODELOS_MADRE,
-        data_mother_dir=DATOS_MADRE,
-        base_results_dir=RESULTADOS_MADRE
+    DATOS_MADRE = "/home/philippe/Documents/Databases/7_A_25Features_PT/pocket_BD/pocket_BD.pt" # CARPETA DONDE ESTAN LOS .PT
+    # test_all_splits_pt(
+    #     models_mother_dir=MODELOS_MADRE,
+    #     data_mother_dir=DATOS_MADRE,
+    #     base_results_dir=RESULTADOS_MADRE
+    # )
+
+    test_model_on_directory_pt(
+        checkpoint_path=MODELOS_MADRE,
+        pt_file=DATOS_MADRE,
+        output_dir=RESULTADOS_MADRE
     )
     
     print("✅ ¡Testing finalizado!")

@@ -41,7 +41,7 @@ def obtener_graph_explainer(
     model, device, target_name = cargar_modelo(checkpoint_path)
 
     muestra_for_model = onehot_to_indices(muestra.to(device))
-    prediccion_original = predecir_molecula(model, muestra_for_model, device)
+    # prediccion_original = predecir_molecula(model, muestra_for_model, device)
 
     # Predecir las muestras perturbadas
     predicciones_perturbadas = []

@@ -114,24 +114,13 @@ BOND_CLASS_NAMES = [
     "DOUBLE",          # 1
     "TRIPLE",          # 2
     "AROMATIC",        # 3
-    "AMIDERING",       # 4
-    "HYDROPHOBIC",     # 5
-    "CARBONPI",        # 6
-    "DONORPI",         # 7
-    "METSULPHURPI",    # 8
-    "EDGE_TO_FACE",    # 9 (EF)
-    "VDW_CLASH",       # 10
-    "FACE_TO_EDGE",    # 11 (FE)
-    "VDW",             # 12
-    "HBOND",           # 13
-    "WEAK_BONDS",      # 14 (Agrupa weak_hbond, weak_polar, polar)
-    "OTHER_BOND"       # 15 (Agrupa OTHER, UNSPECIFIED)
+    "OTHER"       # 5 (Agrupa OTHER, UNSPECIFIED)
 ]
 
 # Y ahora tu lista final de features para aristas será perfecta:
 EDGE_FEATURE_NAMES = BOND_CLASS_NAMES + ["Distance", "Flexibility"]
 
-EDGE_FEATURE_NAMES_EMBEDDING = ["BondType", "Distance", "Flexibility"]
+EDGE_FEATURE_NAMES_EMBEDDING = ["BondType"] + BOND_TYPES_NON_COVALENT + ["Distance", "Flexibility"]
 
 # Variable auxiliar para el índice de "Unknown Bond"
 UNKNOWN_BOND_IDX = BOND_TYPE_TO_INT[Chem.rdchem.BondType.OTHER]

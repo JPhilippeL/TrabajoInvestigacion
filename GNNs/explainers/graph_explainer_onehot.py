@@ -22,24 +22,33 @@ from ui.utils.constants import (
     ONE_HOT_INDICES, EDGE_ONE_HOT_INDICES)
 
 ALGO_NAME = "GraphExplainer"
-FEATURE_MASK_LENGTH = 7
+FEATURE_MASK_LENGTH = 8
 # Un 15% - 20% es razonable para mantener la estructura general.
 MININICIAL = sys.float_info.max
 logger = logging.getLogger(__name__)
 
 # Función para dada una muestra (x), genere una muestra perturbada (Z)
 # Dado un vector binario de las características a perturbar
-def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1, 1], noise_level=0.05, perturb_prob=0.5):
+def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1, 1, 1], noise_level=0.05, perturb_prob=0.5):
+    # feature_mask ahora tiene longitud 8:
+    # 0: Node Atom Type
+    # 1: Node Continuous
+    # 2: Node Binary
+    # 3: Node Hybridization
+    # 4: Edge Covalent Bond Type
+    # 5: Edge Distance
+    # 6: Edge Flexibility
+    # 7: Edge Non-Covalent Interactions (NUEVO)
+    
     data_new = data.clone()
     x = data_new.x
     num_nodes = x.shape[0]
     device = x.device
     
     # === 0. ANÁLISIS DE SPARSITY ===
-    # === 0. ANÁLISIS DE SPARSITY ===
     active_x_cols = (x != 0).any(dim=0)
     
-    # Rellenar máscara
+    # Rellenar máscara si es más corta
     if len(feature_mask) < FEATURE_MASK_LENGTH:
         feature_mask = list(feature_mask) + [False] * (FEATURE_MASK_LENGTH - len(feature_mask))
 
@@ -50,37 +59,24 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1, 1], noise_leve
         
         # A. TIPO DE ÁTOMO (One-Hot)
         if feature_mask[0] and torch.rand(1).item() < perturb_prob:
-            # Usamos el slice directamente desde el diccionario
             atom_slice = ONE_HOT_INDICES["ATOM_SYMBOL"]
             onehot = x[i, atom_slice]
-            
             if onehot.nonzero(as_tuple=False).numel() > 0:
                 x[i, atom_slice] = 0 
 
         # B. FEATURES CONTINUAS (Ruido)
         if feature_mask[1] and torch.rand(1).item() < perturb_prob:
-            # Obtenemos los índices absolutos del diccionario
-            indices_continuous = [
-                ONE_HOT_INDICES["DEGREE"], 
-                ONE_HOT_INDICES["TOTAL_HS"]
-            ]
-            
-            # Filtramos solo los que están activos en la molécula
+            indices_continuous = [ONE_HOT_INDICES["DEGREE"], ONE_HOT_INDICES["TOTAL_HS"]]
             indices_validos = [idx for idx in indices_continuous if active_x_cols[idx]]
             
             if indices_validos:
-                noise = noise_level * torch.randn(len(indices_validos))
+                noise = noise_level * torch.randn(len(indices_validos)).to(device)
                 x[i, indices_validos] += noise
                 x[i, indices_validos] = torch.clamp(x[i, indices_validos], min=0.0, max=1.0)
 
         # C. FEATURES BINARIAS (Flip 1 -> 0)
         if feature_mask[2]:
-            indices_binary = [
-                ONE_HOT_INDICES["IS_AROMATIC"], 
-                ONE_HOT_INDICES["IS_DONOR"], 
-                ONE_HOT_INDICES["IS_ACCEPTOR"]
-            ]
-            
+            indices_binary = [ONE_HOT_INDICES["IS_AROMATIC"], ONE_HOT_INDICES["IS_DONOR"], ONE_HOT_INDICES["IS_ACCEPTOR"]]
             for idx in indices_binary:
                 if torch.rand(1).item() < perturb_prob and x[i, idx] > 0.5:
                     x[i, idx] = 0.0
@@ -89,7 +85,6 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1, 1], noise_leve
         if feature_mask[3] and torch.rand(1).item() < perturb_prob:
             hyb_slice = ONE_HOT_INDICES["HYBRIDIZATION"]
             onehot = x[i, hyb_slice]
-            
             if (onehot == 1).any():
                 x[i, hyb_slice] = 0
 
@@ -117,38 +112,50 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1, 1], noise_leve
 
             modified = False
             
-            # A. Perturbar Tipo Enlace (One-Hot Masking) -> feature_mask[4]
+            # A. Perturbar Tipo Enlace Covalente -> feature_mask[4]
             if feature_mask[4] and torch.rand(1).item() < perturb_prob:
                 bond_slice = EDGE_ONE_HOT_INDICES["BOND_TYPE"]
                 onehot_bond = edge_attr[i, bond_slice]
-                
-                # Si hay enlace definido, lo borramos (el enlace pierde su tipo)
                 if onehot_bond.nonzero(as_tuple=False).numel() > 0:
                     edge_attr[i, bond_slice] = 0.0
                     modified = True
             
-            # B. Perturbar Distancia (Continua - Ruido) -> feature_mask[5]
+            # B. Perturbar Distancia -> feature_mask[5]
             dist_idx = EDGE_ONE_HOT_INDICES["DISTANCE"]
             if feature_mask[5] and active_e_cols[dist_idx]:
                 if torch.rand(1).item() < perturb_prob: 
                     noise = noise_level * torch.randn(1).item()
                     edge_attr[i, dist_idx] += noise
-                    # La distancia no puede ser negativa
                     edge_attr[i, dist_idx] = max(0.0, edge_attr[i, dist_idx].item())
                     modified = True
 
-            # C. Perturbar Flexibilidad (Binaria - Flip 1 a 0) -> feature_mask[6]
+            # C. Perturbar Flexibilidad -> feature_mask[6]
             flex_idx = EDGE_ONE_HOT_INDICES["FLEXIBILITY"]
             if feature_mask[6] and active_e_cols[flex_idx]:
-                # Hacemos rígido (0.0) un enlace que era rotable (1.0)
                 if torch.rand(1).item() < perturb_prob and edge_attr[i, flex_idx] > 0.5:
                     edge_attr[i, flex_idx] = 0.0
                     modified = True
+                    
+            # D. Perturbar Interacciones No Covalentes (NUEVO) -> feature_mask[7]
+            if feature_mask[7]:
+                nc_slice = EDGE_ONE_HOT_INDICES["NON_COVALENT"]
+                nc_vector = edge_attr[i, nc_slice]
+                
+                # Si hay alguna interacción activa (el vector no son puros 0s)
+                if nc_vector.sum() > 0:
+                    for k in range(nc_vector.shape[0]):
+                        # Probabilidad independiente de 'borrar' cada interacción (flip de 1.0 a 0.0)
+                        if nc_vector[k] > 0.5 and torch.rand(1).item() < perturb_prob:
+                            # nc_slice.start nos da el índice base donde empieza el vector en el tensor
+                            abs_idx = nc_slice.start + k
+                            edge_attr[i, abs_idx] = 0.0
+                            modified = True
 
             # Mantener simetría (u,v) == (v,u)
             if modified and (v, u) in edge_map:
                 sym_idx = edge_map[(v, u)]
-                edge_attr[sym_idx] = edge_attr[idx]
+                # ¡CORRECCIÓN AQUÍ! Antes tenías edge_attr[idx] que no existía.
+                edge_attr[sym_idx] = edge_attr[i].clone()
 
         data_new.edge_attr = edge_attr
 
