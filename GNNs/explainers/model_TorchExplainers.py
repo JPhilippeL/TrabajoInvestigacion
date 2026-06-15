@@ -282,44 +282,51 @@ def obtener_SubgraphX_Explainer(checkpoint_path, sdf_path, target_data_path=None
     # Grafo
     data = mol_to_graph_data(mol, mode='embedding').to(device)
 
-    # --- 2. EJECUCIÓN SUBGRAPHX (Llamada Directa) ---
+    # --- 2. EJECUCIÓN SUBGRAPHX ---
     logger.info(f"Ejecutando SubgraphX para {mol_name}...")
     
     explainer = SubgraphX(
         model=model,
-        num_classes=1,            # Mantenemos este parámetro por la firma del __init__, aunque ya no se use en regresión
+        num_classes=1,            # Requisito de la firma de la clase original
         device=device,
-        explain_graph=True,       # Indica que explicamos el grafo entero (Graph Regression)
+        explain_graph=True,       # Regresión de grafo completo
         rollout=20,               # Iteraciones MCTS
         min_atoms=4,              # Tamaño mínimo del subgrafo a explorar
         c_puct=10.0,              # Factor de exploración
         reward_method='mc_l_shapley'
     )
 
-    # Llamamos al objeto directamente
-    _, explanation_results, _ = explainer(x=data.x, edge_index=data.edge_index, max_nodes=5)
+    num_nodes = data.x.shape[0]
+    batch = torch.zeros(num_nodes, dtype=torch.long, device=device) 
+    
+    # Llamamos al objeto pasándole los kwargs adicionales
+    _, explanation_results, _ = explainer(
+        x=data.x, 
+        edge_index=data.edge_index, 
+        edge_attr=data.edge_attr if hasattr(data, 'edge_attr') else None,
+        batch=batch,
+        max_nodes=5
+    )
 
     # --- 3. EXTRACCIÓN DE PESOS MANUAL ---
-    # explanation_results[0] contiene la lista de subgrafos de nuestra única salida de regresión.
-    # Están ordenados por recompensa (P), así que el índice 0 es el subgrafo ganador.
+    # explanation_results[0] contiene la lista de diccionarios de subgrafos ordenados por recompensa.
     best_subgraph_info = explanation_results[0][0]
-    coalition = best_subgraph_info['coalition'] # Lista con los índices de los nodos importantes
+    coalition = best_subgraph_info['coalition'] # Índices de los nodos más importantes
     
-    num_nodes = data.x.shape[0]
     num_edges = data.edge_index.shape[1]
     
-    # Creamos beta (Máscara de Nodos): 1 si el nodo está en el subgrafo, 0 si no
+    # Creamos beta (Máscara de Nodos)
     beta_raw = torch.zeros(num_nodes, dtype=torch.float32, device=device)
     beta_raw[coalition] = 1.0
     
-    # Creamos delta (Máscara de Aristas): 1 si la arista conecta dos nodos del subgrafo, 0 si no
+    # Creamos delta (Máscara de Aristas)
     delta_raw = torch.zeros(num_edges, dtype=torch.float32, device=device)
     row, col = data.edge_index
     for i in range(num_edges):
         if row[i].item() in coalition and col[i].item() in coalition:
             delta_raw[i] = 1.0
 
-    # Características no evaluadas por SubgraphX
+    # Características no evaluadas por la metodología estructural de SubgraphX
     alfa_raw = None
     gamma_raw = None
     
@@ -346,7 +353,7 @@ def obtener_SubgraphX_Explainer(checkpoint_path, sdf_path, target_data_path=None
     plotfilename = pipeline_visualizacion_torchexplainers(
         alfa_raw=alfa_raw, beta_raw=beta_raw, 
         delta_raw=delta_raw, gamma_raw=gamma_raw,
-        edge_index=data.edge_index, # Pasamos directamente el edge_index del grafo original
+        edge_index=data.edge_index, 
         sdf_path=sdf_path,
         model=model, data=data, device=device,
         mol_name=mol_name, target_name=target_name_str,
