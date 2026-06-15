@@ -1,5 +1,7 @@
 import ast
+import csv
 import random
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -17,18 +19,46 @@ def seed_everything(seed):
     torch.cuda.manual_seed_all(seed)
 
 
-def escala_global(file_path):
-    labels = np.loadtxt(file_path, usecols=1)
 
-    real_min = labels.min()
-    real_max = labels.max()
 
-    margin = 0.2
-    global_min = real_min - margin
-    global_max = real_max + margin
+def save_all_trials_results_csv(results, save_directory):
+    output_dir = Path(save_directory) / "CheapNet_hyperparameter_tuning_all_trials"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    print("Global axis limits:", global_min, global_max)
+    csv_path = output_dir / "all_trials_results.csv"
 
-    np.save("global_axis.npy", [global_min, global_max])
+    rows = []
 
-    return global_min, global_max
+    for trial_index, result in enumerate(results):
+        row = {
+            "trial_index": trial_index,
+            "trial_path": str(result.path),
+        }
+
+        for key, value in result.config.items():
+            row[f"param_{key}"] = value
+
+        metrics = result.metrics
+
+        row["mean_val_rmse"] = metrics.get("mean_val_rmse")
+        row["std_val_rmse"] = metrics.get("std_val_rmse")
+
+        row["mean_test_rmse"] = metrics.get("mean_test_rmse")
+        row["std_test_rmse"] = metrics.get("std_test_rmse")
+
+        row["mean_test_pearson"] = metrics.get("mean_test_pearson")
+        row["std_test_pearson"] = metrics.get("std_test_pearson")
+
+        rows.append(row)
+
+    if not rows:
+        return csv_path
+
+    fieldnames = sorted(rows[0].keys())
+
+    with open(csv_path, "w", encoding="utf-8", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    return csv_path
