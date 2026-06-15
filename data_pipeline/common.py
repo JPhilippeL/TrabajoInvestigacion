@@ -19,8 +19,6 @@ def seed_everything(seed):
     torch.cuda.manual_seed_all(seed)
 
 
-
-
 def save_all_trials_results_csv(results, save_directory):
     output_dir = Path(save_directory) / "CheapNet_hyperparameter_tuning_all_trials"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -48,6 +46,8 @@ def save_all_trials_results_csv(results, save_directory):
 
         row["mean_test_pearson"] = metrics.get("mean_test_pearson")
         row["std_test_pearson"] = metrics.get("std_test_pearson")
+        row["mean_train_rmse_norm"] = metrics.get("mean_train_rmse_norm")
+        row["std_train_rmse_norm"] = metrics.get("std_train_rmse_norm")
 
         rows.append(row)
 
