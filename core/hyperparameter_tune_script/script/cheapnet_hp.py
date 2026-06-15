@@ -58,6 +58,7 @@ def train_cheapnet(config, train_file, test_file, val_file, log_callback, graph_
     split_best_val_rmses = []
     split_test_rmses = []
     split_test_pearsons = []
+    split_best_train_rmses_norm = []
 
     for split_id in range(len(train_splits)):
         if log_callback:
@@ -140,6 +141,7 @@ def train_cheapnet(config, train_file, test_file, val_file, log_callback, graph_
         os.makedirs(split_save_dir, exist_ok=True)
 
         best_model_path = os.path.join(split_save_dir, "best_model.pt")
+        best_train_rmse_norm = None
 
         for epoch in range(config["EPOCHS"]):
             model.train()
@@ -180,6 +182,7 @@ def train_cheapnet(config, train_file, test_file, val_file, log_callback, graph_
 
             if val_rmse < best_val_rmse:
                 best_val_rmse = val_rmse
+                best_train_rmse_norm = float(train_rmse)
                 patience_counter = 0
 
                 torch.save(
@@ -188,6 +191,7 @@ def train_cheapnet(config, train_file, test_file, val_file, log_callback, graph_
                         "config": config,
                         "split_id": split_id,
                         "best_epoch": epoch,
+                        "best_train_rmse_norm": best_train_rmse_norm,
                         "best_val_rmse": best_val_rmse,
                         "y_mean": y_mean,
                         "y_std": y_std,
@@ -221,6 +225,7 @@ def train_cheapnet(config, train_file, test_file, val_file, log_callback, graph_
 
         split_best_val_rmses.append(best_val_rmse)
         split_test_rmses.append(test_rmse)
+        split_best_train_rmses_norm.append(float(checkpoint["best_train_rmse_norm"]))
         split_test_pearsons.append(test_pr)
 
         if log_callback:
@@ -230,6 +235,9 @@ def train_cheapnet(config, train_file, test_file, val_file, log_callback, graph_
 
     end_train = time()
     train_time = end_train - debut_train
+
+    mean_train_rmse_norm = float(np.mean(split_best_train_rmses_norm))
+    std_train_rmse_norm = float(np.std(split_best_train_rmses_norm))
 
     mean_val_rmse = float(np.mean(split_best_val_rmses))
     mean_test_rmse = float(np.mean(split_test_rmses))
@@ -248,6 +256,8 @@ def train_cheapnet(config, train_file, test_file, val_file, log_callback, graph_
         f.write("\n")
         f.write(f"mean_val_rmse: {mean_val_rmse}\n")
         f.write(f"std_val_rmse: {std_val_rmse}\n")
+        f.write(f"mean_train_rmse_norm: {mean_train_rmse_norm}\n")
+        f.write(f"std_train_rmse_norm: {std_train_rmse_norm}\n")
         f.write(f"mean_test_rmse: {mean_test_rmse}\n")
         f.write(f"std_test_rmse: {std_test_rmse}\n")
         f.write(f"mean_test_pearson: {mean_test_pearson}\n")
@@ -263,14 +273,17 @@ def train_cheapnet(config, train_file, test_file, val_file, log_callback, graph_
         log_callback("Hyperparameters saved in cheapnet_hyperparameter.txt")
 
     tune.report(
-        mean_val_rmse=mean_val_rmse,
-        std_val_rmse=std_val_rmse,
-        mean_test_rmse=mean_test_rmse,
-        std_test_rmse=std_test_rmse,
-        mean_test_pearson=mean_test_pearson,
-        std_test_pearson=std_test_pearson,
+        {
+            "mean_train_rmse_norm": mean_train_rmse_norm,
+            "std_train_rmse_norm": std_train_rmse_norm,
+            "mean_val_rmse": mean_val_rmse,
+            "std_val_rmse": std_val_rmse,
+            "mean_test_rmse": mean_test_rmse,
+            "std_test_rmse": std_test_rmse,
+            "mean_test_pearson": mean_test_pearson,
+            "std_test_pearson": std_test_pearson,
+        }
     )
-
 
 def run_hyperparameter_search(
     save_directory,
