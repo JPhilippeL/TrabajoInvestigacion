@@ -19,4 +19,4 @@ class CheapnetTrainerConfig:
     drop_out: float
     patience: int
     node_dim: int = 14
-    device = str = "cuda" if torch.cuda.is_available() else "cpu"
+    device: str = "cuda" if torch.cuda.is_available() else "cpu"
