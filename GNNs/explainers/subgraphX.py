@@ -763,15 +763,13 @@ class SubgraphX(object):
                 max_nodes: int = 5,
                 node_idx: Optional[int] = None,
                 saved_MCTSInfo_list: Optional[List[List]] = None,
-                **kwargs): # <-- 1. Añadimos **kwargs para recibir edge_attr y batch
+                **kwargs): 
         
-        # 2. Extraemos los tensores adicionales
         edge_attr = kwargs.get('edge_attr')
         batch = kwargs.get('batch')
         if batch is None:
             batch = torch.zeros(x.shape[0], dtype=torch.long, device=x.device)
 
-        # 3. Calculamos la predicción continua inyectando edge_attr y batch
         if edge_attr is not None:
             pred_original = self.model(x, edge_index, edge_attr=edge_attr, batch=batch).squeeze()
         else:
@@ -782,13 +780,13 @@ class SubgraphX(object):
                 results = self.read_from_MCTSInfo_list(saved_MCTSInfo_list)
 
             if not saved_MCTSInfo_list:
-                # 4. Usamos la nueva función de valor y le pasamos pred_original
-                value_func = GnnNetsGraphRegressionValueFunc(self.model, pred_original)
+                # Le pasamos el edge_attr original
+                value_func = GnnNetsGraphRegressionValueFunc(self.model, pred_original, original_edge_attr=edge_attr)
                 payoff_func = self.get_reward_func(value_func)
                 self.mcts_state_map = self.get_mcts_class(x, edge_index, score_func=payoff_func)
                 results = self.mcts_state_map.mcts(verbose=self.verbose)
 
-            value_func = GnnNetsGraphRegressionValueFunc(self.model, pred_original)
+            value_func = GnnNetsGraphRegressionValueFunc(self.model, pred_original, original_edge_attr=edge_attr)
             tree_node_x = find_closest_node_result(results, max_nodes=max_nodes)
 
         else:
@@ -798,7 +796,7 @@ class SubgraphX(object):
             self.mcts_state_map = self.get_mcts_class(x, edge_index, node_idx=node_idx)
             self.new_node_idx = self.mcts_state_map.new_node_idx
             
-            value_func = GnnNetsGraphRegressionValueFunc(self.model, pred_original)
+            value_func = GnnNetsGraphRegressionValueFunc(self.model, pred_original, original_edge_attr=edge_attr)
 
             if not saved_MCTSInfo_list:
                 payoff_func = self.get_reward_func(value_func,
@@ -808,7 +806,6 @@ class SubgraphX(object):
 
             tree_node_x = find_closest_node_result(results, max_nodes=max_nodes)
 
-        # keep the important structure
         masked_node_list = [node for node in range(tree_node_x.data.x.shape[0])
                             if node in tree_node_x.coalition]
 
@@ -832,7 +829,6 @@ class SubgraphX(object):
 
         results = self.write_from_MCTSNode_list(results)
         
-        # Ajustado para guardar la predicción original continua
         related_pred = {'masked': masked_score,
                         'maskout': maskout_score,
                         'origin': pred_original.item(),
@@ -873,32 +869,47 @@ class SubgraphX(object):
 # En el método explain, se usa GnnNetsGC2valueFunc(self.model, target_class=label). 
 # Esta función interna está programada para ejecutar el modelo, hacer un softmax y devolver la probabilidad exacta de la clase target_class
 # Hay q crear una función de valor de regresión que evalúe el modelo y devuelva directamente el número continuo.
-def GnnNetsGraphRegressionValueFunc(gnnNets, original_pred):
+import torch
+
+def GnnNetsGraphRegressionValueFunc(gnnNets, original_pred, original_edge_attr=None):
     """
     Función de valor para regresión de grafos.
-    Reemplaza a GnnNetsGC2valueFunc evaluando el error continuo en lugar de clases.
+    Replica el edge_attr original para que encaje con el batch de Monte Carlo de DIG.
     """
     def value_func(batch_data):
         with torch.no_grad():
-            # 1. Extraemos los componentes de forma segura
             x = batch_data.x
             edge_index = batch_data.edge_index
             
-            # 2. Generamos el vector batch si no viene dado
+            # 1. Gestionamos el vector batch
             if hasattr(batch_data, 'batch') and batch_data.batch is not None:
                 batch_vec = batch_data.batch
             else:
                 batch_vec = torch.zeros(x.shape[0], dtype=torch.long, device=x.device)
 
-            # 3. Inferencia inyectando edge_attr si existe (vital para tu GINENet)
-            if hasattr(batch_data, 'edge_attr') and batch_data.edge_attr is not None:
-                preds = gnnNets(x=x, edge_index=edge_index, edge_attr=batch_data.edge_attr, batch=batch_vec).squeeze()
+            # 2. Rescatamos el edge_attr
+            e_attr = batch_data.edge_attr if hasattr(batch_data, 'edge_attr') and batch_data.edge_attr is not None else None
+            
+            # 3. EL TRUCO DEL MULTIPLICADOR: Si DIG lo descartó y usamos el de rescate
+            if e_attr is None and original_edge_attr is not None:
+                num_original_edges = original_edge_attr.shape[0]
+                num_batched_edges = edge_index.shape[1]
+                
+                # Si PyG ha multiplicado el grafo para evaluar en paralelo (ej. x100)
+                if num_batched_edges > 0 and num_original_edges > 0:
+                    num_copies = num_batched_edges // num_original_edges
+                    # Duplicamos el tensor de aristas 'num_copies' veces
+                    e_attr = original_edge_attr.repeat(num_copies, 1)
+                else:
+                    e_attr = original_edge_attr
+
+            # 4. Inferencia segura con los tamaños perfectamente alineados
+            if e_attr is not None:
+                preds = gnnNets(x=x, edge_index=edge_index, edge_attr=e_attr, batch=batch_vec).squeeze()
             else:
                 preds = gnnNets(x=x, edge_index=edge_index, batch=batch_vec).squeeze()
 
-            # 4. Cálculo de la recompensa (Reward)
-            # En vez de devolver la probabilidad de una clase, devolvemos el 
-            # error absoluto en negativo. A menor error, mayor es el valor (cercano a 0).
+            # 5. Recompensa basada en el error absoluto
             score = -torch.abs(preds - original_pred)
             
         return score

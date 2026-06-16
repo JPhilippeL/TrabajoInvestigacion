@@ -358,7 +358,7 @@ def obtener_SubgraphX_Explainer(checkpoint_path, sdf_path, target_data_path=None
         model=model, data=data, device=device,
         mol_name=mol_name, target_name=target_name_str,
         real_val=real_val, pred_val=pred_val,
-        model_name=model_folder_name
+        model_name=model_folder_name, algo_name="SubgraphX"
     )
     
     logger.info(f"Proceso finalizado. Gráfico en: {plotfilename}")
