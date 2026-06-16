@@ -82,8 +82,8 @@ BOND_TYPE_TO_INT = {
 # 2. INTERACCIONES NO COVALENTES (Vector Multi-Hot de 25 dimensiones) - NUEVO
 BOND_TYPES_NON_COVALENT = [
     "AMIDERING", "hydrophobic", "CARBONPI", "DONORPI", "weak_polar",
-    "weak_hbond", "aromatic", "METSULPHURPI", "EF", "vdw_clash",
-    "polar", "FE", "vdw", "hbond", "FF", "FT", "OT", "OE", "OF",
+    "weak_hbond", "aromatic", "METSULPHURPI", "EF",
+    "polar", "FE", "hbond", "FF", "FT", "OT", "OE", "OF",
     "carbonyl", "ET", "xbond", "HALOGENPI", "ionic", "CATIONPI"
 ]
 
@@ -114,7 +114,8 @@ BOND_CLASS_NAMES = [
     "DOUBLE",          # 1
     "TRIPLE",          # 2
     "AROMATIC",        # 3
-    "OTHER"       # 5 (Agrupa OTHER, UNSPECIFIED)
+    "OTHER"       # 4 (Agrupa OTHER, UNSPECIFIED)
+    "PEPTIDE"
 ]
 
 # Y ahora tu lista final de features para aristas será perfecta:
