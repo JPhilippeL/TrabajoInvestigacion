@@ -32,22 +32,41 @@ class TestDCMLDialog(QDialog):
         self.resize(760, 460)
         self.settings = QSettings("ResearchApp", "DCML_Evaluation")
 
-        self.model_pt_input = QLineEdit(self.settings.value("evaluation/model_pt", "DCML/results/DCML.pt"))
+        model_pt = self._clean_path_text(
+            self.settings.value("evaluation/model_pt", "DCML/results/DCML.pt")
+        )
+        feature_zip = self._clean_path_text(
+            self.settings.value("evaluation/feature_zip", "")
+        )
+        label_npy = self._clean_path_text(
+            self.settings.value("evaluation/label_npy", "")
+        )
+        output_dir = self._clean_path_text(
+            self.settings.value("evaluation/output_dir", "DCML/results/predict")
+        )
+
+        # Purge previously corrupted QSettings values.
+        self.settings.setValue("evaluation/model_pt", model_pt)
+        self.settings.setValue("evaluation/feature_zip", feature_zip)
+        self.settings.setValue("evaluation/label_npy", label_npy)
+        self.settings.setValue("evaluation/output_dir", output_dir)
+
+        self.model_pt_input = QLineEdit(model_pt)
         self.model_pt_input.setPlaceholderText("DCML.pt")
         self.model_pt_btn = QPushButton("Browse...")
         self.model_pt_btn.clicked.connect(self.browse_model_pt)
 
-        self.feature_zip_input = QLineEdit(self.settings.value("evaluation/feature_zip", ""))
+        self.feature_zip_input = QLineEdit(feature_zip)
         self.feature_zip_input.setPlaceholderText("test_feature.zip or validation_feature.zip")
         self.feature_zip_btn = QPushButton("Browse...")
         self.feature_zip_btn.clicked.connect(self.browse_feature_zip)
 
-        self.label_npy_input = QLineEdit(self.settings.value("evaluation/label_npy", ""))
+        self.label_npy_input = QLineEdit(label_npy)
         self.label_npy_input.setPlaceholderText("test_label.npy or validation_label.npy")
         self.label_npy_btn = QPushButton("Browse...")
         self.label_npy_btn.clicked.connect(self.browse_label_npy)
 
-        self.output_dir_input = QLineEdit(self.settings.value("evaluation/output_dir", "DCML/results/predict"))
+        self.output_dir_input = QLineEdit(output_dir)
         self.output_dir_input.setPlaceholderText("Evaluation output directory")
         self.output_dir_btn = QPushButton("Browse...")
         self.output_dir_btn.clicked.connect(self.browse_output_dir)
@@ -56,14 +75,17 @@ class TestDCMLDialog(QDialog):
         self.dataset_name_input.setPlaceholderText("test, validation, MPro-URV...")
 
         self.split_id_input = QLineEdit(self.settings.value("evaluation/split_id", ""))
-        self.split_id_input.setPlaceholderText("Optional, e.g. 00")
+        self.split_id_input.setPlaceholderText("Optional, e.g. test, validation, 00")
 
         self.device_combo = QComboBox()
         self.device_combo.addItems(["cpu", "auto", "cuda", "cuda:0", "cuda:1"])
         self.device_combo.setCurrentText(self.settings.value("evaluation/device", "cpu"))
 
         self.cast_float32_check = QCheckBox("Cast features to float32")
-        self.cast_float32_check.setChecked(str(self.settings.value("evaluation/cast_float32", "true")).lower() in {"true", "1", "yes"})
+        self.cast_float32_check.setChecked(
+            str(self.settings.value("evaluation/cast_float32", "true")).lower()
+            in {"true", "1", "yes"}
+        )
 
         form_layout = QFormLayout()
         form_layout.addRow(QLabel("<b>1. Model and dataset</b>"))
@@ -79,15 +101,40 @@ class TestDCMLDialog(QDialog):
         form_layout.addRow(QLabel("<br><b>3. Runtime</b>"))
         form_layout.addRow("Device:", self.device_combo)
         form_layout.addRow("Memory:", self.cast_float32_check)
-        form_layout.addRow("Note:", QLabel("DCML uses scikit-learn. Inference runs on CPU even if CUDA is selected."))
+        form_layout.addRow(
+            "Note:",
+            QLabel("DCML uses scikit-learn. Inference runs on CPU even if CUDA is selected.")
+        )
 
         layout = QVBoxLayout()
         layout.addLayout(form_layout)
+
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
         layout.addWidget(self.buttons)
+
         self.setLayout(layout)
+
+    @staticmethod
+    def _clean_path_text(value) -> str:
+        """Clean paths accidentally polluted by GUI labels or previous QSettings values."""
+        if value is None:
+            return ""
+
+        text = str(value).strip()
+
+        # Main defensive fix for the bug:
+        # "Output directory:\n/path/to/dir" -> "/path/to/dir"
+        if "Output directory:" in text:
+            text = text.split("Output directory:", 1)[1].strip()
+
+        # Defensive cleanup for possible similar mistakes.
+        for label in ("Model bundle:", "Feature ZIP:", "Label NPY:"):
+            if label in text:
+                text = text.split(label, 1)[1].strip()
+
+        return text
 
     def _with_button(self, line_edit, button):
         container = QWidget()
@@ -98,44 +145,77 @@ class TestDCMLDialog(QDialog):
         return container
 
     def browse_model_pt(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Select DCML model bundle", "", "PyTorch Bundle (*.pt);;All Files (*)")
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select DCML model bundle",
+            "",
+            "PyTorch Bundle (*.pt);;All Files (*)",
+        )
         if path:
-            self.model_pt_input.setText(path)
+            self.model_pt_input.setText(self._clean_path_text(path))
 
     def browse_feature_zip(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Select feature ZIP", "", "ZIP Files (*.zip);;All Files (*)")
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select feature ZIP",
+            "",
+            "ZIP Files (*.zip);;All Files (*)",
+        )
         if path:
-            self.feature_zip_input.setText(path)
+            self.feature_zip_input.setText(self._clean_path_text(path))
 
     def browse_label_npy(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Select label NPY", "", "NumPy Files (*.npy);;All Files (*)")
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select label NPY",
+            "",
+            "NumPy Files (*.npy);;All Files (*)",
+        )
         if path:
-            self.label_npy_input.setText(path)
+            self.label_npy_input.setText(self._clean_path_text(path))
 
     def browse_output_dir(self):
         path = QFileDialog.getExistingDirectory(self, "Select output directory")
         if path:
-            self.output_dir_input.setText(path)
+            self.output_dir_input.setText(self._clean_path_text(path))
 
     def accept(self):
-        self.settings.setValue("evaluation/model_pt", self.model_pt_input.text())
-        self.settings.setValue("evaluation/feature_zip", self.feature_zip_input.text())
-        self.settings.setValue("evaluation/label_npy", self.label_npy_input.text())
-        self.settings.setValue("evaluation/output_dir", self.output_dir_input.text())
-        self.settings.setValue("evaluation/dataset_name", self.dataset_name_input.text())
-        self.settings.setValue("evaluation/split_id", self.split_id_input.text())
+        model_pt = self._clean_path_text(self.model_pt_input.text())
+        feature_zip = self._clean_path_text(self.feature_zip_input.text())
+        label_npy = self._clean_path_text(self.label_npy_input.text())
+        output_dir = self._clean_path_text(self.output_dir_input.text())
+
+        # Also rewrite the fields visually, so the user sees the cleaned values.
+        self.model_pt_input.setText(model_pt)
+        self.feature_zip_input.setText(feature_zip)
+        self.label_npy_input.setText(label_npy)
+        self.output_dir_input.setText(output_dir)
+
+        self.settings.setValue("evaluation/model_pt", model_pt)
+        self.settings.setValue("evaluation/feature_zip", feature_zip)
+        self.settings.setValue("evaluation/label_npy", label_npy)
+        self.settings.setValue("evaluation/output_dir", output_dir)
+        self.settings.setValue("evaluation/dataset_name", self.dataset_name_input.text().strip())
+        self.settings.setValue("evaluation/split_id", self.split_id_input.text().strip())
         self.settings.setValue("evaluation/device", self.device_combo.currentText())
         self.settings.setValue("evaluation/cast_float32", self.cast_float32_check.isChecked())
+
         super().accept()
 
     def get_inputs(self):
+        model_pt = self._clean_path_text(self.model_pt_input.text())
+        feature_zip = self._clean_path_text(self.feature_zip_input.text())
+        label_npy = self._clean_path_text(self.label_npy_input.text())
+        output_dir = self._clean_path_text(self.output_dir_input.text())
+
         split_id = self.split_id_input.text().strip() or None
         dataset_name = self.dataset_name_input.text().strip() or None
+
         return {
-            "model_pt": self.model_pt_input.text(),
-            "feature_zip": self.feature_zip_input.text(),
-            "label_npy": self.label_npy_input.text(),
-            "output_dir": self.output_dir_input.text(),
+            "model_pt": model_pt,
+            "feature_zip": feature_zip,
+            "label_npy": label_npy,
+            "output_dir": output_dir,
             "device": self.device_combo.currentText(),
             "split_id": split_id,
             "dataset_name": dataset_name,

@@ -169,7 +169,12 @@ def test_dcml(
     model_path = resolve_path(model_pt)
     feature_zip_path = resolve_path(feature_zip)
     label_npy_path = resolve_path(label_npy)
-    output_dir_path = ensure_dir(output_dir)
+    raw_output_dir = str(output_dir).strip()
+
+    if "Output directory:" in raw_output_dir:
+        raw_output_dir = raw_output_dir.split("Output directory:", 1)[1].strip()
+
+    output_dir_path = ensure_dir(raw_output_dir)
 
     device_info = choose_device(device)
     warning = cpu_only_warning(device_info, "inference")
