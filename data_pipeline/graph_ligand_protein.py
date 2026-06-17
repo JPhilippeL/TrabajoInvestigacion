@@ -15,7 +15,7 @@ from data_pipeline.protein_utils import (
 from job_config.cheapnet.CheapnetDataConfig import CheapnetDataConfig
 
 
-class CheapnetDataGeneration:
+class LPGraph3D:
     def __init__(self, config: CheapnetDataConfig):
         self.config = config
         self.pic50_dict = load_pic50(self.config.pic50_path)
