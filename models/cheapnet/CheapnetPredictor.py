@@ -1,9 +1,12 @@
 from pathlib import Path
 from time import time
 
+import matplotlib
 import numpy as np
 import pandas as pd
 import torch
+
+matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 from scipy.stats import spearmanr
 from sklearn.metrics import mean_squared_error
@@ -67,8 +70,8 @@ class CheapNetPredictor:
         plt.xlim(global_min, global_max)
         plt.ylim(global_min, global_max)
 
-        plt.xlabel("Valor real (pIC50)")
-        plt.ylabel("Valor predicho (pIC50)")
+        plt.xlabel("real value (pIC50)")
+        plt.ylabel("value predicted (pIC50)")
         plt.title(f"CheapNet – {split_name}\nRMSE = {rmse:.3f} | Pearson = {pearson:.3f}")
         plt.plot([global_min, global_max], [global_min, global_max], "r--")
 
