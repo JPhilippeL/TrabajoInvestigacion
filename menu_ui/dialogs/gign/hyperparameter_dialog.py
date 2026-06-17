@@ -521,7 +521,7 @@ class HyperparameterSearchDialog(QDialog):
 
         self.settings.setValue("hpgign/epochs", self.epochs.value())
 
-    def get_values(self):
+    def get_inputs(self):
         return {
             "train_file": self.train_split_input.text().strip(),
             "val_file": self.val_split_input.text().strip(),
