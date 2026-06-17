@@ -6,7 +6,7 @@ import time
 from PySide6.QtWidgets import QDialog
 from ray import tune
 
-from core.hyperparameter_tune_script.script.cheapnet_hp import run_hyperparameter_search
+from core.hyperparameter_tune_script.cheapnet_hp import run_hyperparameter_search
 
 logger = logging.getLogger(__name__)
 
