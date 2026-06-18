@@ -88,6 +88,14 @@ def finite_or(value: Any, fallback: float) -> float:
     return number if math.isfinite(number) else fallback
 
 
+def format_elapsed_time(seconds: float) -> str:
+    """Convert elapsed seconds to HH:MM:SS format."""
+    total_seconds = int(round(float(seconds)))
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+
 def is_better(candidate: Mapping[str, Any], current: Mapping[str, Any] | None) -> bool:
     if candidate.get("status") != "success":
         return False
@@ -134,6 +142,7 @@ def write_trials_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> Path:
         "mean_val_SD",
         "mean_best_epoch",
         "elapsed_seconds",
+        "elapsed_time",
         "models_dir",
         "trial_dir",
         "error_message",
@@ -240,6 +249,7 @@ def run_one_split(
 
     for epoch in range(1, int(args.epochs) + 1):
         epoch_started = time.time()
+
         train_metrics = train_one_epoch(
             model=model,
             loader=train_loader,
@@ -250,6 +260,7 @@ def run_one_split(
             amp_enabled=amp_enabled,
             epoch=epoch,
         )
+
         val_metrics = evaluate_one_epoch(
             model=model,
             loader=valid_loader,
@@ -261,6 +272,7 @@ def run_one_split(
 
         current_rmse = float(val_metrics["RMSE"])
         improved = current_rmse < best_val_rmse - float(args.min_delta)
+
         if improved:
             best_val_rmse = current_rmse
             best_metrics = {name: float(value) for name, value in val_metrics.items()}
@@ -312,8 +324,10 @@ def run_one_split(
 
     model.load_state_dict(best_state_dict)
     model = model.to(device)
+
     history_csv = write_history(history, split_result_dir / "train_history.csv")
     model_path = split_model_dir / f"CAPLA_HPO_{trial_id}_split{split_id:02d}.pt"
+
     save_capla_bundle(
         model,
         model_path,
@@ -331,6 +345,8 @@ def run_one_split(
         },
     )
 
+    elapsed_seconds = float(time.time() - started_at)
+
     summary = {
         "trial_id": trial_id,
         "split": int(split_id),
@@ -342,8 +358,10 @@ def run_one_split(
         "val_Pearson": float(best_metrics["Pearson"]),
         "val_MAE": float(best_metrics["MAE"]),
         "val_SD": float(best_metrics["SD"]),
-        "elapsed_seconds": float(time.time() - started_at),
+        "elapsed_seconds": elapsed_seconds,
+        "elapsed_time": format_elapsed_time(elapsed_seconds),
     }
+
     save_json(summary, split_result_dir / "split_summary.json")
     return summary
 
@@ -374,6 +392,7 @@ def run_hyperparameter_search(args: argparse.Namespace) -> dict[str, Any]:
         paths.pocket_dir,
         strict=False,
     )
+
     if base_index_df.empty:
         raise CAPLAHPOError("Prepared CAPLA dataset contains zero valid rows.")
 
@@ -409,6 +428,7 @@ def run_hyperparameter_search(args: argparse.Namespace) -> dict[str, Any]:
         trial_id = f"trial_{trial_number:04d}"
         trial_result_dir = ensure_dir(run_dir / trial_id)
         trial_model_dir = ensure_dir(trial_models_root / trial_id)
+
         row: dict[str, Any] = {
             "trial_id": trial_id,
             "status": "failure",
@@ -423,6 +443,7 @@ def run_hyperparameter_search(args: argparse.Namespace) -> dict[str, Any]:
 
         try:
             LOGGER.info("Starting CAPLA HPO %d/%d | %s", trial_number, len(search_grid), hparams)
+
             split_rows = []
             for split_id in tuning_splits:
                 split_rows.append(
@@ -441,10 +462,14 @@ def run_hyperparameter_search(args: argparse.Namespace) -> dict[str, Any]:
                 )
 
             pd.DataFrame(split_rows).to_csv(trial_result_dir / "split_summaries.csv", index=False)
+
             row.update(aggregate_split_summaries(split_rows))
             row["status"] = "success"
             row["elapsed_seconds"] = float(sum(item["elapsed_seconds"] for item in split_rows))
+            row["elapsed_time"] = format_elapsed_time(row["elapsed_seconds"])
+
             save_json(row, trial_result_dir / "trial_summary.json")
+
             if is_better(row, best_row):
                 best_row = dict(row)
 
@@ -453,6 +478,7 @@ def run_hyperparameter_search(args: argparse.Namespace) -> dict[str, Any]:
             row["error_message"] = str(exc)
             (trial_result_dir / "error_traceback.txt").write_text(traceback.format_exc(), encoding="utf-8")
             LOGGER.exception("CAPLA HPO trial failed: %s", trial_id)
+
         finally:
             rows.append(row)
             write_trials_csv(trials_csv, rows)
@@ -464,6 +490,8 @@ def run_hyperparameter_search(args: argparse.Namespace) -> dict[str, Any]:
     if best_models_dir.exists():
         shutil.rmtree(best_models_dir)
     shutil.copytree(Path(str(best_row["models_dir"])), best_models_dir)
+
+    total_elapsed_seconds = float(time.time() - started_at)
 
     best_payload = {
         "model_name": "CAPLA",
@@ -492,13 +520,15 @@ def run_hyperparameter_search(args: argparse.Namespace) -> dict[str, Any]:
         "n_trials": int(len(rows)),
         "n_success": int(sum(1 for row in rows if row.get("status") == "success")),
         "n_failures": int(sum(1 for row in rows if row.get("status") != "success")),
-        "elapsed_seconds": float(time.time() - started_at),
+        "elapsed_seconds": total_elapsed_seconds,
+        "elapsed_time": format_elapsed_time(total_elapsed_seconds),
         "paths": {
             "run_dir": str(run_dir),
             "trials_csv": str(trials_csv),
             "best_models_dir": str(best_models_dir),
         },
     }
+
     write_yaml(run_dir / "best_config_capla.yaml", best_payload)
     save_json(best_payload, run_dir / "best_config_capla.json")
     save_json(best_payload, latest_run_json)
@@ -510,12 +540,15 @@ def run_hyperparameter_search(args: argparse.Namespace) -> dict[str, Any]:
     print("  best hyperparameters:", best_payload["best_hyperparameters"])
     print("  best mean val RMSE  :", f"{best_payload['best_metrics']['mean_val_RMSE']:.6f}")
     print("  best mean Pearson   :", f"{best_payload['best_metrics']['mean_val_Pearson']:.6f}")
+    print("  elapsed time        :", best_payload["elapsed_time"])
     print("  run directory       :", run_dir)
+
     return best_payload
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run CAPLA HPO on official train/validation subsets only.")
+
     parser.add_argument("--dataset-dir", default="CAPLA/data/urv_dataset_v3b_prepared")
     parser.add_argument("--models-root", default="CAPLA/models/hpo")
     parser.add_argument("--results-root", default="CAPLA/outputs/hpo")
@@ -534,6 +567,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--lr-values", type=lambda raw: parse_csv_values(raw, float), default=[5e-5, 1e-4])
     parser.add_argument("--batch-size-values", type=lambda raw: parse_csv_values(raw, int), default=[8, 16])
     parser.add_argument("--weight-decay-values", type=lambda raw: parse_csv_values(raw, float), default=[0.0, 0.01])
+
     return parser
 
 
