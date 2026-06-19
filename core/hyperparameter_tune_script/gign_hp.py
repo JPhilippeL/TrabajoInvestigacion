@@ -55,7 +55,7 @@ def train_gign(config, train_file, test_file, val_file, log_callback, graph_dire
 
     for split_id in range(len(train_splits)):
         if log_callback:
-            log_callback.info(f"SPLIT {split_id}")
+            log_callback(f"SPLIT {split_id}")
 
         seed_everything(split_id)
 
@@ -136,7 +136,7 @@ def train_gign(config, train_file, test_file, val_file, log_callback, graph_dire
             val_rmse, _ = val(model, val_loader, device)
 
             if log_callback:
-                log_callback.info(
+                log_callback(
                     f"Split {split_id:02d} | "
                     f"Epoch {epoch:03d} | "
                     f"Train RMSE: {train_rmse:.4f} | "
@@ -161,13 +161,13 @@ def train_gign(config, train_file, test_file, val_file, log_callback, graph_dire
                 )
 
                 if log_callback:
-                    log_callback.info(f">>> Best model saved for split {split_id:02d}")
+                    log_callback(f">>> Best model saved for split {split_id:02d}")
             else:
                 patience_counter += 1
 
             if patience_counter >= patience:
                 if log_callback:
-                    log_callback.info(">>> Early stopping activated")
+                    log_callback(">>> Early stopping activated")
                 break
 
         checkpoint = torch.load(best_model_path, map_location=device, weights_only=False)
@@ -181,7 +181,7 @@ def train_gign(config, train_file, test_file, val_file, log_callback, graph_dire
         split_best_train_rmses.append(float(checkpoint["best_train_rmse"]))
 
         if log_callback:
-            log_callback.info(
+            log_callback(
                 f"Split {split_id:02d} | "
                 f"Best Val RMSE: {best_val_rmse:.4f} | "
                 f"Test RMSE: {test_rmse:.4f} | "
@@ -217,11 +217,11 @@ def train_gign(config, train_file, test_file, val_file, log_callback, graph_dire
     end_training = time()
 
     if log_callback:
-        log_callback.info("Training completed for all splits.")
-        log_callback.info(f"Total training time: {end_training - training_start_time:.2f} seconds")
-        log_callback.info(f"Mean Val RMSE: {mean_val_rmse:.4f}")
-        log_callback.info(f"Mean Test RMSE: {mean_test_rmse:.4f}")
-        log_callback.info(f"Mean Test Pearson: {mean_test_pearson:.4f}")
+        log_callback("Training completed for all splits.")
+        log_callback(f"Total training time: {end_training - training_start_time:.2f} seconds")
+        log_callback(f"Mean Val RMSE: {mean_val_rmse:.4f}")
+        log_callback(f"Mean Test RMSE: {mean_test_rmse:.4f}")
+        log_callback(f"Mean Test Pearson: {mean_test_pearson:.4f}")
 
     tune.report(
         {
@@ -296,11 +296,11 @@ def run_hyperparameter_search(
     experiment_dir = os.path.dirname(best_trial_dir)
 
     if log_callback:
-        log_callback.info(f"Best trial kept at: {best_trial_dir}")
-        log_callback.info(f"Best config: {best_result.config}")
-        log_callback.info(f"Best mean val RMSE: {best_result.metrics['mean_val_rmse']}")
-        log_callback.info(f"Best mean test RMSE: {best_result.metrics['mean_test_rmse']}")
-        log_callback.info(f"Best mean test Pearson: {best_result.metrics['mean_test_pearson']}")
+        log_callback(f"Best trial kept at: {best_trial_dir}")
+        log_callback(f"Best config: {best_result.config}")
+        log_callback(f"Best mean val RMSE: {best_result.metrics['mean_val_rmse']}")
+        log_callback(f"Best mean test RMSE: {best_result.metrics['mean_test_rmse']}")
+        log_callback(f"Best mean test Pearson: {best_result.metrics['mean_test_pearson']}")
         log_callback(f"Best mean train RMSE: {best_result.metrics['mean_train_rmse']}")
         log_callback(f"Best std train RMSE: {best_result.metrics['std_train_rmse']}")
 
