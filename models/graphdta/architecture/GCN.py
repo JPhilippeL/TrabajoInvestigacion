@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from graphdta.IGraphDTA import GraphDTA
+from models.graphdta.IGraphDTA import GraphDTA
 from torch_geometric.nn import GCNConv
 from torch_geometric.nn import global_max_pool as gmp
 

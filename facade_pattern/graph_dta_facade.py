@@ -14,4 +14,4 @@ class DTAFacade:
 
     def generate_data(self, config, log_callback=None, progress_callback=None):
         generator = DTAGraph(config)
-        return generator.generate_all_dta_dta(log_callback=log_callback)
+        return generator.generate_all_dta_dta()

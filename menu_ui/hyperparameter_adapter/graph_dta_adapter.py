@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 def dialog_accepted(dialog):
     if dialog.exec() == QDialog.DialogCode.Accepted:
-        return dialog.get_values()
+        return dialog.get_inputs()
 
     return None
 
@@ -22,14 +22,15 @@ def pop_unused_key(dialog_inputs):
     config = dialog_inputs.copy()
 
     unused_keys = [
-        "train_file",
-        "test_file",
-        "val_file",
-        "save_directory",
+        "train_split_file",
+        "val_split_file",
+        "test_split_file",
+        "output_dir",
         "graph_directory",
-        "cpu_per_trials",
-        "gpu_per_trials",
-        "number_of_trials",
+        "cpu_per_trial",
+        "gpu_per_trial",
+        "num_samples",
+        "graphdta_model_name",
         "model_name",
         "PATIENCE",
     ]
@@ -38,8 +39,6 @@ def pop_unused_key(dialog_inputs):
         config.pop(key, None)
 
     return config
-
-
 def create_interval_by_multiplication(min_value, max_value):
     values = []
 
@@ -91,18 +90,17 @@ def launch_ray_tune_hyperparameter_search(dialog_inputs, log_callback):
 
     launch_hyperparametre_search(
         config=config,
-        cpu_per_trial=dialog_inputs["cpu_per_trials"],
-        gpu_per_trial=dialog_inputs["gpu_per_trials"],
-        num_samples=dialog_inputs["number_of_trials"],
-        output_dir=dialog_inputs["save_directory"],
-        model_name=dialog_inputs["model_name"],
-        train_split_file=dialog_inputs["train_file"],
-        val_split_file=dialog_inputs["val_file"],
-        test_split_file=dialog_inputs["test_file"],
+        cpu_per_trial=dialog_inputs["cpu_per_trial"],
+        gpu_per_trial=dialog_inputs["gpu_per_trial"],
+        num_samples=dialog_inputs["num_samples"],
+        output_dir=dialog_inputs["output_dir"],
+        model_name=dialog_inputs["graphdta_model_name"],
+        train_split_file=dialog_inputs["train_split_file"],
+        val_split_file=dialog_inputs["val_split_file"],
+        test_split_file=dialog_inputs["test_split_file"],
         graph_dir=dialog_inputs["graph_directory"],
         log_callback=log_callback,
     )
-
 
 if __name__ == "__main__":
     start_hp = time.time()

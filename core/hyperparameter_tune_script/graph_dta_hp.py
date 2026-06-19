@@ -4,7 +4,7 @@ from time import time
 import numpy as np
 import ray
 import torch
-from graphdta.registry import get_graph_dta_model
+from models.graphdta.registry import get_graph_dta_model
 from ray import tune
 from sklearn.metrics import mean_squared_error
 from torch_geometric.loader import DataLoader
@@ -83,6 +83,12 @@ def train_dta(
         val_ids = val_split[split_id]
 
         train_set = URVGraphDataset(graph_dir, train_ids)
+        sample = train_set[0]
+
+        if log_callback:
+            log_callback.info(f"Graph directory used: {graph_dir}")
+            log_callback.info(f"First graph x shape: {sample.x.shape}")
+            log_callback.info(f"First graph keys: {sample.keys()}")
         test_set = URVGraphDataset(graph_dir, test_ids)
         val_set = URVGraphDataset(graph_dir, val_ids)
 

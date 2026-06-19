@@ -71,12 +71,11 @@ class HyperparameterSearchDialog(QDialog):
         self.model_name_input.addItems(
             [
                 "GINConvNet",
-                "GAT",
-                "GCN",
+                "GATNet",
+                "GCNNet",
                 "GAT_GCN",
             ]
         )
-
         saved_model_name = str(self.settings.value("hpgraphdta/model_name", "GINConvNet"))
         index = self.model_name_input.findText(saved_model_name)
         if index >= 0:
@@ -517,14 +516,14 @@ class HyperparameterSearchDialog(QDialog):
 
         self.settings.setValue("hpgraphdta/epochs", self.epochs.value())
 
-    def get_values(self):
+    def get_inputs(self):
         return {
             "train_split_file": self.train_split_input.text().strip(),
             "val_split_file": self.val_split_input.text().strip(),
             "test_split_file": self.test_split_input.text().strip(),
             "output_dir": self.save_directory_input.text().strip(),
             "graph_directory": self.graph_directory_input.text().strip(),
-            "model_name": self.model_name_input.currentText(),
+            "graphdta_model_name": self.model_name_input.currentText(),
             "cpu_per_trial": self.cpu_per_trials_input.value(),
             "gpu_per_trial": self.gpu_per_trials_input.value(),
             "num_samples": self.number_of_trials.value(),

@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from graphdta.registry import get_graph_dta_model
+from models.graphdta.registry import get_graph_dta_model
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import (
     QComboBox,

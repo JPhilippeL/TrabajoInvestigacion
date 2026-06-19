@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from graphdta.IGraphDTA import GraphDTA
+from models.graphdta.IGraphDTA import GraphDTA
 from torch.nn import Linear, ReLU, Sequential
 from torch_geometric.nn import GINConv, global_add_pool
 
