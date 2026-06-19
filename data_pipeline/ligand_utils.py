@@ -3,7 +3,7 @@ import torch
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-from data_pipeline.atom_utils import atom_features, atom_type_onehot
+from data_pipeline.atom_utils import atom_features_dta, atom_type_onehot
 
 
 def ligand_atom_features(atom):
@@ -38,7 +38,7 @@ def ligand_graph_dta(sdf_file_path):
         AllChem.EmbedMolecule(mol, randomSeed=42)
     features = []
     for atom in mol.GetAtoms():
-        features.append(atom_features(atom))
+        features.append(atom_features_dta(atom))
 
     x = torch.tensor(np.array(features), dtype=torch.float)
 

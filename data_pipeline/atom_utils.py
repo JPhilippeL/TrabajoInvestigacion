@@ -86,3 +86,21 @@ def atom_features(atom):
         features /= feature_sum
 
     return features
+
+
+def atom_features_dta(atom):
+    features = np.array(
+        one_of_k_encoding_unk(atom.GetSymbol(), ATOM_TYPES_DTA)
+        + one_of_k_encoding(atom.GetDegree(), [i for i in range(0, 11, 1)])
+        + one_of_k_encoding_unk(atom.GetTotalNumHs(), [i for i in range(0, 11, 1)])
+        + one_of_k_encoding_unk(atom.GetImplicitValence(), [i for i in range(0, 11, 1)])
+        + [atom.GetIsAromatic()],
+        dtype=np.float32,
+    )
+
+    feature_sum = features.sum()
+
+    if feature_sum != 0:
+        features /= feature_sum
+
+    return features
