@@ -13,6 +13,7 @@ from data_pipeline.common import (
     load_split_txt,
     save_all_trials_results_csv,
     seed_everything,
+    safe_computation_pearson,
 )
 from data_pipeline.URVGraphDataset import URVGraphDataset
 
@@ -34,7 +35,7 @@ def val(model, dataloader, device):
     label = np.concatenate(label_list)
 
     rmse = np.sqrt(mean_squared_error(label, pred))
-    pearson = np.corrcoef(pred, label)[0, 1]
+    pearson = safe_computation_pearson(pred, label)
 
     model.train()
     return rmse, pearson
