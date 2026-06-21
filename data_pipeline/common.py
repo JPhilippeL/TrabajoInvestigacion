@@ -62,3 +62,14 @@ def save_all_trials_results_csv(results, save_directory):
         writer.writerows(rows)
 
     return csv_path
+
+
+def safe_computation_pearson(pred, label):
+    pred = np.asarray(pred).reshape(-1)
+    label = np.asarray(label).reshape(-1)
+
+    if len(pred) < 2:
+        return 0.0
+    if np.std(pred) == 0 or np.std(label) == 0:
+        return 0.0
+    return np.corrcoef(pred, label)[0, 1]
