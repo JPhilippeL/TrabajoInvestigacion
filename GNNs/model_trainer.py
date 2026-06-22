@@ -680,11 +680,18 @@ def train_multiple_models(
     calc_atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)
     calc_hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
     calc_bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
+    calc_non_cov_emb_dim = calc_dim(N_NON_COV * NON_COV_EMB_PR)
 
-    # Son porcentajes por los que se multiplican las dimensiones reales, 
-    # de esta manera el usuario elige si quiere desde 1 dimension sola hasta el 100%
+    embeddings = [calc_atom_emb_dim, calc_hibrid_emb_dim, calc_bond_emb_dim, calc_non_cov_emb_dim] 
+
+    # 2. Dimensión Final de los NODOS (x)
+    # Suma: Emb(Átomo) + Emb(Hibridación) + Continuas(Degree, Total_Hs, Aromatic, Donor, Acceptor)
     input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
-    edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
+
+    # 3. Dimensión Final de los ENLACES (edge_attr)
+    # Suma: Emb(Covalente) + Emb(No Covalente) + Continuas(Distancia, Flexibilidad)
+    # Como la capa de Embedding ya comprimió las 25 binarias, las únicas continuas puras que sobran son 2
+    edge_dim = calc_bond_emb_dim + calc_non_cov_emb_dim + OTHER_EDGE_FEATURES
 
     for model_type in model_types:
         for num_layers in capas:
@@ -694,9 +701,7 @@ def train_multiple_models(
             model = create_model(
                 model_type,
                 input_dim,
-                calc_atom_emb_dim,
-                calc_hibrid_emb_dim, 
-                calc_bond_emb_dim, 
+                embeddings,
                 hidden_dim=hidden_dim, 
                 num_layers=num_layers, 
                 edge_dim=edge_dim)
@@ -1015,28 +1020,11 @@ if __name__ == "__main__":
     print("🚀 Iniciando el pipeline de entrenamiento para todos los splits...")
     
     # Definir las rutas principales (¡Cámbialas por tus rutas reales!)
-    # CARPETA_MADRE = "/home/philippe/Documents/Databases/URV_database_vNatalia/Splits" 
-    # ARCHIVO_TARGET = "/home/philippe/Documents/Databases/URV_Database_2025_Octubre/pIC50.txt"
-    # train_all_splits(
-    #     mother_dir=CARPETA_MADRE,
-    #     target_file=ARCHIVO_TARGET,
-    #     epochs = 500,
-    #     batch_size=16,
-    #     lr=0.001,
-    #     valid_split=0.2,
-    #     hidden_dim=64,
-    #     patience=100,
-    #     atom_emb_dim = ATOM_EMB_PR,
-    #     hibrid_emb_dim = HYBRID_EMB_PR,
-    #     bond_emb_dim = BOND_EMB_PR
-    # )
-
-    # Para los .pt
-    CARPETA_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/5_Amstrongs/split_data"
-    models_dir = "Modelos/5A_25F"
-    train_all_splits_from_pt(
+    CARPETA_MADRE = "/home/philippe/Documents/Databases/URV_database_vNatalia/SplitsSMILES" 
+    ARCHIVO_TARGET = "/home/philippe/Documents/Databases/URV_Database_2025_Octubre/pIC50.txt"
+    train_all_splits(
         mother_dir=CARPETA_MADRE,
-        models_dir=models_dir,
+        target_file=ARCHIVO_TARGET,
         epochs = 500,
         batch_size=16,
         lr=0.001,
@@ -1045,7 +1033,24 @@ if __name__ == "__main__":
         patience=100,
         atom_emb_dim = ATOM_EMB_PR,
         hibrid_emb_dim = HYBRID_EMB_PR,
-        bond_emb_dim = BOND_EMB_PR,
+        bond_emb_dim = BOND_EMB_PR
     )
+
+    # Para los .pt
+    # CARPETA_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/5_Amstrongs/split_data"
+    # models_dir = "Modelos/5A_25F"
+    # train_all_splits_from_pt(
+    #     mother_dir=CARPETA_MADRE,
+    #     models_dir=models_dir,
+    #     epochs = 500,
+    #     batch_size=16,
+    #     lr=0.001,
+    #     valid_split=0.2,
+    #     hidden_dim=64,
+    #     patience=100,
+    #     atom_emb_dim = ATOM_EMB_PR,
+    #     hibrid_emb_dim = HYBRID_EMB_PR,
+    #     bond_emb_dim = BOND_EMB_PR,
+    # )
     
     print("✅ ¡Entrenamiento de todos los splits finalizado!")
