@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 # Función para dada una muestra (x), genere una muestra perturbada (Z)
 # Dado un vector binario de las características a perturbar
-def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1, 1, 1], noise_level=0.05, perturb_prob=0.5):
+def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1, 1, 1], noise_level=0.05, perturb_prob=0.2):
     # feature_mask ahora tiene longitud 8:
     # 0: Node Atom Type
     # 1: Node Continuous
@@ -447,7 +447,7 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
     # ... (resto del código sigue igual)
 
     # --- CAMBIO CLAVE: MENOS REGULARIZACIÓN INICIAL ---
-    l1_lambda = 1e-4  # Antes quizás era muy alto comparado con el gradiente
+    l1_lambda = 0.01  # Antes quizás era muy alto comparado con el gradiente
 
     # MEJORA 1: Usar AdamW en lugar de Adam estándar
     # weight_decay ayuda a mantener los pesos controlados sin ser tan agresivo como L1

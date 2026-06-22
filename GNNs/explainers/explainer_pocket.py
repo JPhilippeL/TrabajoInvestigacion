@@ -14,6 +14,7 @@ from GNNs.model_tester import cargar_modelo, predecir_molecula
 from ui.utils.constants import RESULTADOS_DIR, BOND_CLASS_NAMES, BOND_TYPES_NON_COVALENT
 from GNNs.explainers.explanation_helper import guardar_pesos_batch
 from GNNs.explainers.explanation_fidelity import obtener_aucs_pt
+from GNNs.explainers.model_TorchExplainers import obtener_GNN_Explainer_PT
 
 MAX_ERROR = 1
 
@@ -163,6 +164,7 @@ def explicar_y_guardar_molecula_individual(
     checkpoint_path, 
     target_mol_name,
     csv_dir=RESULTADOS_DIR,
+    algo_name="GraphExplainer"
 ):
     """
     Busca una molécula, comprueba su error, calcula la importancia 
@@ -208,11 +210,18 @@ def explicar_y_guardar_molecula_individual(
     print(f"✅ Error aceptable ({error:.3f} < {MAX_ERROR}). Explicando...")
 
     # 4. Obtener explicación
-    resultados = obtener_graph_explainer(
-        checkpoint_path=checkpoint_path, 
-        data_indices=target_data,
-        batch_mode=True
-    )
+    if algo_name != "GraphExplainer":
+        resultados = obtener_GNN_Explainer_PT(
+            checkpoint_path=checkpoint_path,
+            data_indices=target_data,
+            batch_mode=True
+        )
+    else:
+        resultados = obtener_graph_explainer(
+            checkpoint_path=checkpoint_path, 
+            data_indices=target_data,
+            batch_mode=True
+        )
     
     # ==========================================================
     # PROCESAMIENTO DE NODOS (BETA)
@@ -233,7 +242,7 @@ def explicar_y_guardar_molecula_individual(
     df_nodos = pd.DataFrame(nodos_data)
     df_nodos = df_nodos.sort_values(by='importancia', ascending=False)
     
-    save_path_nodos = os.path.join(csv_dir, f"importancias_nodos_{target_mol_name}_error_{error:.2f}.csv")
+    save_path_nodos = os.path.join(csv_dir, f"{algo_name}_nodos_{target_mol_name}_error_{error:.2f}.csv")
     df_nodos.to_csv(save_path_nodos, index=False)
     print(f"✅ CSV Nodos guardado (Total: {len(df_nodos)}): {save_path_nodos}")
 
@@ -316,7 +325,7 @@ def explicar_y_guardar_molecula_individual(
             df_edges = pd.DataFrame(edges_data)
             df_edges = df_edges.sort_values(by='importancia', ascending=False)
             
-            save_path_edges = os.path.join(csv_dir, f"importancias_enlaces_{target_mol_name}_error_{error:.2f}.csv")
+            save_path_edges = os.path.join(csv_dir, f"{algo_name}_enlaces_{target_mol_name}_error_{error:.2f}.csv")
             df_edges.to_csv(save_path_edges, index=False)
             print(f"✅ CSV Enlaces guardado (Total: {len(df_edges)}): {save_path_edges}")
         else:
@@ -402,16 +411,12 @@ def get_batch_explanation(model_path, data_list, explainer_name = "GraphExplaine
 # (Asegúrate de tener data_list cargado)
 
 RUTA_MODELO = "Modelos/Explainer_BindingAffinity/GT_5_Split3.pt"
-RUTA_MODELOS = ["Modelos/Modelos_25F/3A_GT_Split3.pt", "Modelos/Modelos_25F/4A_GT_Split3.pt",
-                "Modelos/Modelos_25F/5A_GT_Split3.pt", "Modelos/Modelos_25F/7A_GT_Split3.pt"]
+RUTA_MODELOS = ["Modelos/Modelos_23F/3A_GT_Split3.pt", "Modelos/Modelos_23F/4A_GT_Split3.pt",
+                "Modelos/Modelos_23F/5A_GT_Split3.pt", "Modelos/Modelos_23F/7A_GT_Split3.pt"]
+DATA_PATHS = ["/home/philippe/Documents/Databases/3_Amstrongs/pocket_BD/pocket_BD.pt", "/home/philippe/Documents/Databases/4_Amstrongs/pocket_BD/pocket_BD.pt",
+            "/home/philippe/Documents/Databases/5_Amstrongs/pocket_BD/pocket_BD.pt", "/home/philippe/Documents/Databases/7_Amstrongs/pocket_BD/pocket_BD.pt"]
 DATA_PATH = "/home/philippe/Documents/Databases/7_Amstrongs/pocket_BD/pocket_BD.pt"
 OBJETIVOS = ["7GH3", "7EN9", "9GIJ"]
-
-train_loader, val_loader, device, targetname = prepare_pt_training_data(
-    pt_file_path=DATA_PATH, 
-    batch_size=1,     # <-- Un grafo por lote
-    valid_split=0.0   # <-- 0% validación, 100% de los datos van a train_loader
-)
 
 # df_resumen, df_crudo = calcular_y_guardar_importancias_beta(
 #     data_list=train_loader.dataset,  # <-- Usamos .dataset para evitar el empaquetado del DataLoader
@@ -419,13 +424,22 @@ train_loader, val_loader, device, targetname = prepare_pt_training_data(
 # )
 
 # Ejecutar la función para una sola molécula
-for molecula in OBJETIVOS:
-    df_resultado = explicar_y_guardar_molecula_individual(
-        data_list=train_loader.dataset,
-        checkpoint_path=RUTA_MODELOS[3],
-        target_mol_name=molecula,
-        csv_dir="Resultados/Resultados_25F"
+i = 0
+for modelo in RUTA_MODELOS:
+    train_loader, val_loader, device, targetname = prepare_pt_training_data(
+    pt_file_path=DATA_PATHS[i], 
+    batch_size=1,     # <-- Un grafo por lote
+    valid_split=0.0   # <-- 0% validación, 100% de los datos van a train_loader
     )
+    for molecula in OBJETIVOS:
+        df_resultado = explicar_y_guardar_molecula_individual(
+            data_list=train_loader.dataset,
+            checkpoint_path=RUTA_MODELOS[i],
+            target_mol_name=molecula,
+            csv_dir="Resultados/Resultados_23F",
+            algo_name="GNNExplainer"
+        )
+    i = i + 1
 
 # get_batch_explanation(RUTA_MODELO, train_loader.dataset)
 WEIGHTS = "Resultados/GT_4_Split3/GraphExplainer/GT_4_Split3_GraphExplainer_BATCH_COMPLETO.pt"

@@ -5,13 +5,7 @@ from rdkit.Chem import AllChem
 import torch
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from ui.utils.constants import (
-    BOND_TYPE_TO_INT, UNKNOWN_BOND_IDX, UNKNOWN_ATOM_IDX, UNKNOWN_HYBRID_IDX,
-    periodic_elements, hybridization_types,
-    ATOM_TYPE_TO_IDX, HYBRID_TO_IDX,
-    EDGE_ONE_HOT_INDICES, ONE_HOT_INDICES,
-    BOND_CLASS_NAMES
-)
+from ui.utils.constants import *
 from sklearn.model_selection import train_test_split
 import math
 import logging
@@ -70,19 +64,24 @@ def get_atom_features(atom, is_donor, is_acceptor, mode='one_hot'):
         raise ValueError(f"Modo desconocido: {mode}")
 
 def get_edge_features(bond_type_idx, dist, num_bond_types, bond_flexibility, mode='one_hot'):
-    """Construye el vector de características del enlace."""
+    """Construye el vector de características del enlace adaptado a la nueva arquitectura."""
     
-    # Convertimos el float de rotación a un tensor de 1 dimensión
+    # NUEVO: Vector de interacciones no covalentes. 
+    # Para enlaces internos del ligando, siempre está vacío (puros ceros).
+    non_cov_vector = [0.0] * len(BOND_TYPES_NON_COVALENT)
+    non_cov_tensor = torch.tensor(non_cov_vector, dtype=torch.float)
+    
     rot_tensor = torch.tensor([bond_flexibility], dtype=torch.float)
     
     if mode == 'one_hot':
-        # One-hot encoding del tipo de enlace + distancia + rotación
+        # One-hot encoding del tipo de enlace + 23 ceros + distancia + rotación
         bond_onehot = F.one_hot(torch.tensor(bond_type_idx), num_classes=num_bond_types).float()
-        return torch.cat([bond_onehot, dist, rot_tensor], dim=0)
+        return torch.cat([bond_onehot, non_cov_tensor, dist, rot_tensor], dim=0)
         
     elif mode == 'embedding':
-        # Índice del tipo de enlace + distancia + rotación
-        return torch.tensor([bond_type_idx, dist.item(), bond_flexibility], dtype=torch.float)
+        # Índice del tipo de enlace + 23 ceros + distancia + rotación
+        features = [bond_type_idx] + non_cov_vector + [dist.item(), bond_flexibility]
+        return torch.tensor(features, dtype=torch.float)
 
 def mol_to_graph_data(mol, mode='embedding'):
     """
@@ -99,12 +98,10 @@ def mol_to_graph_data(mol, mode='embedding'):
     hba_matches = mol.GetSubstructMatches(HBA_PATTERN)
     hba_indices = {idx[0] for idx in hba_matches}
     
-    # C. Identificar Enlaces Rotables (NUEVO)
-    # Devuelve tuplas de pares de átomos conectados por un enlace rotable (idx1, idx2)
+    # C. Identificar Enlaces Rotables
     flexible_matches = mol.GetSubstructMatches(FLEXIBILITY_BOND_PATTERN)
     flexible_edges = set()
     for match in flexible_matches:
-        # Añadimos ambas direcciones porque nuestro grafo será bidireccional
         flexible_edges.add((match[0], match[1]))
         flexible_edges.add((match[1], match[0]))
 
@@ -141,10 +138,10 @@ def mol_to_graph_data(mol, mode='embedding'):
         # Tipo de enlace
         bond_type_idx = BOND_TYPE_TO_INT.get(bond.GetBondType(), UNKNOWN_BOND_IDX)
 
-        # Chequear si es rotable (NUEVO)
+        # Chequear si es rotable
         bond_flexibility = 1.0 if (i, j) in flexible_edges else 0.0
 
-        # Obtener features del enlace con el nuevo parámetro
+        # Obtener features del enlace (ahora inyectará los 23 ceros automáticamente)
         edge_features = get_edge_features(bond_type_idx, dist, num_bond_types, bond_flexibility, mode=mode)
 
         # Grafo no dirigido: agregamos (i, j) y (j, i)
@@ -159,7 +156,11 @@ def mol_to_graph_data(mol, mode='embedding'):
     if edge_attr:
         edge_attr = torch.stack(edge_attr).float()
     else:
-        edge_attr = torch.empty((0, x.size(1))) # Asegúrate de que esta dimensión vacía coincida con el tamaño real de tus edge features si falla
+        # CORRECCIÓN: Si el ligando no tiene enlaces (ej. un ion suelto),
+        # creamos un tensor vacío pero con la dimensión correcta de aristas, no de nodos.
+        N_NON_COV = len(BOND_TYPES_NON_COVALENT)
+        edge_dim = num_bond_types + N_NON_COV + 2 if mode == 'one_hot' else 1 + N_NON_COV + 2
+        edge_attr = torch.empty((0, edge_dim), dtype=torch.float)
 
     return Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
 

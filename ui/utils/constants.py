@@ -114,7 +114,7 @@ BOND_CLASS_NAMES = [
     "DOUBLE",          # 1
     "TRIPLE",          # 2
     "AROMATIC",        # 3
-    "OTHER"       # 4 (Agrupa OTHER, UNSPECIFIED)
+    "OTHER",       # 4 (Agrupa OTHER, UNSPECIFIED)
     "PEPTIDE"
 ]
 

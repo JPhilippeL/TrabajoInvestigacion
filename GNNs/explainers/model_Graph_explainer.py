@@ -22,7 +22,7 @@ def obtener_graph_explainer(
         data_indices, 
         target_data_path=None, 
         feature_mask=[1, 1, 1, 1, 1, 1], 
-        num_samples=50, 
+        num_samples=1000, 
         noise_level=0.05, 
         device='cpu',
         batch_mode = False):
