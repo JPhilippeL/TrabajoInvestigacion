@@ -30,7 +30,8 @@ from ui.utils.constants import *
 HEADS = 4  # Número de cabezas para GAT y GraphTransformer
 
 # MODELOS = GNN_ARCHITECTURES
-MODELOS = ("GraphTransformer","GINE") #,"NNConv")
+
+MODELOS = ["GraphTransformer", "GINE"] #,"NNConv")
 CAPAS = [2,3,4,5]
 
 class EmbeddingEncoder(torch.nn.Module):
@@ -76,7 +77,7 @@ class EmbeddingEncoder(torch.nn.Module):
 # Modelos GNN
 # ----------------------    
 class GINNet(torch.nn.Module):
-    def __init__(self, input_dim, embeddings, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout = 0.2):
+    def __init__(self, input_dim, embeddings, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout=0.20):
         super().__init__()
 
         self.dropout = dropout  # Guardamos la probabilidad de dropout
@@ -122,7 +123,7 @@ class GINNet(torch.nn.Module):
     
 class GINENet(torch.nn.Module):
     # Añadimos el argumento 'dropout' al init
-    def __init__(self, input_dim, embeddings, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout=0.2):
+    def __init__(self, input_dim, embeddings, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout=0.20):
         super().__init__()
         
         fc_hidden_dim = hidden_dim//2
@@ -172,7 +173,7 @@ class GINENet(torch.nn.Module):
         return x
     
 class GATNet(torch.nn.Module):
-    def __init__(self, input_dim, embeddings, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout = 0.2):
+    def __init__(self, input_dim, embeddings, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout=0.20):
         super().__init__()
 
         fc_hidden_dim = hidden_dim//2
@@ -215,7 +216,7 @@ class GATNet(torch.nn.Module):
         return x
     
 class EGATNet(torch.nn.Module):
-    def __init__(self, input_dim, embeddings, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout = 0.2):
+    def __init__(self, input_dim, embeddings, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout=0.20):
         super().__init__()
 
         self.dropout = dropout
@@ -264,7 +265,7 @@ class EGATNet(torch.nn.Module):
         return x
     
 class GraphTransformerNet(torch.nn.Module):
-    def __init__(self, input_dim, embeddings, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout = 0.2):
+    def __init__(self, input_dim, embeddings, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout=0.20):
         super().__init__()
 
         self.dropout = dropout
@@ -314,7 +315,7 @@ class GraphTransformerNet(torch.nn.Module):
         return x
     
 class NNConvNet(torch.nn.Module):
-    def __init__(self, input_dim, embeddings, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout=0.2):
+    def __init__(self, input_dim, embeddings, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout=0.20):
         super().__init__()
 
         self.dropout = dropout
@@ -930,59 +931,53 @@ def train_all_splits_from_pt(
     epochs,
     **kwargs
 ):
-    """
-    Explora 'mother_dir', busca los archivos .pt (train y valid) por número de split,
-    y lanza el entrenamiento iterativo para cada par.
-    """
-    # 1. Obtener todos los archivos .pt en la carpeta madre
     archivos_pt = [f for f in os.listdir(mother_dir) if f.endswith('.pt')]
-    
-    # 2. Encontrar qué números de split existen
-    # Usamos una expresión regular para buscar números al final del nombre del archivo (antes de .pt)
-    # Ej: "pocket_BD_train_0.pt" -> extrae "0"
-    splits_encontrados = set()
+
+    # Guardará pares (prefijo, split)
+    datasets = set()
+
     for archivo in archivos_pt:
-        match = re.search(r'_(\d+)\.pt$', archivo)
+        match = re.match(r'(pocket_BD|ligand_BD)_(train|valid)_(\d+)\.pt$', archivo)
         if match:
-            splits_encontrados.add(int(match.group(1)))
-            
-    # Ordenamos los splits para que se ejecuten en orden (0, 1, 2...)
-    splits_ordenados = sorted(list(splits_encontrados))
-    
-    if not splits_ordenados:
-        logging.warning(f"No se encontraron archivos .pt con el formato '_X.pt' en {mother_dir}")
+            prefijo = match.group(1)
+            split = int(match.group(3))
+            datasets.add((prefijo, split))
+
+    if not datasets:
+        logging.warning(f"No se encontraron archivos válidos en {mother_dir}")
         return
 
-    logging.info(f"Splits detectados: {splits_ordenados}")
+    for prefijo, num_split in sorted(datasets):
 
-    # 3. Iterar sobre cada número de split encontrado
-    for num_split in splits_ordenados:
-        # 4. Construir los nombres de archivo esperados para este split
-        # Asumiendo que el prefijo es "pocket_BD_"
-        train_file = f"pocket_BD_train_{num_split}.pt"
-        val_file = f"pocket_BD_valid_{num_split}.pt"
-        
+        train_file = f"{prefijo}_train_{num_split}.pt"
+        val_file = f"{prefijo}_valid_{num_split}.pt"
+
         train_path = os.path.join(mother_dir, train_file)
         val_path = os.path.join(mother_dir, val_file)
-        
-        # 5. Validar que ambos archivos (train y valid) existan para este split
+
         if not os.path.exists(train_path) or not os.path.exists(val_path):
-            logging.warning(f"Ignorando split {num_split}: Faltan archivos de train o valid.")
+            logging.warning(
+                f"Ignorando {prefijo} split {num_split}: faltan archivos."
+            )
             continue
-            
-        logging.info(f"\n{'='*50}\nIniciando entrenamiento para el Split: {num_split}\n{'='*50}")
-        
-        # 6. Crear un directorio ÚNICO de guardado para este split
-        nombre_carpeta_split = f"split_{num_split}"
-        split_save_dir = os.path.join(models_dir, nombre_carpeta_split)
+
+        logging.info(
+            f"\n{'='*50}\n"
+            f"Iniciando entrenamiento para {prefijo} - Split {num_split}\n"
+            f"{'='*50}"
+        )
+
+        split_save_dir = os.path.join(
+            models_dir,
+            f"split_{num_split}"
+        )
         os.makedirs(split_save_dir, exist_ok=True)
-        
-        # 7. Ejecutar tu función adaptada para .pt
+
         train_multiple_models_from_pt(
-            train_pt=train_path,    # Le pasamos la ruta completa del archivo .pt de train
-            val_pt=val_path,        # Le pasamos la ruta completa del archivo .pt de validation
+            train_pt=train_path,
+            val_pt=val_path,
             epochs=epochs,
-            output_dir=split_save_dir, # <--- Pasamos el directorio para guardar los modelos de este split
+            output_dir=split_save_dir,
             **kwargs
         )
 

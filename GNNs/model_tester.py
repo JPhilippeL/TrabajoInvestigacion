@@ -623,12 +623,25 @@ def test_all_splits_pt(
             
         num_split = match.group(1)
         
-        # 3. Construir el nombre del archivo de test esperado (ej: pocket_BD_test_0.pt)
-        test_pt_filename = f"{test_file_prefix}{num_split}.pt"
-        pt_file_path = os.path.join(data_mother_dir, test_pt_filename)
-        
-        if not os.path.exists(pt_file_path):
-            logging.warning(f"Ignorando '{split_folder}': No se encontró el archivo de datos {pt_file_path}")
+        # Buscar pocket_BD_test_X.pt o ligand_BD_test_X.pt
+        test_candidates = [
+            f"pocket_BD_test_{num_split}.pt",
+            f"ligand_BD_test_{num_split}.pt"
+        ]
+
+        pt_file_path = None
+
+        for filename in test_candidates:
+            candidate = os.path.join(data_mother_dir, filename)
+            if os.path.exists(candidate):
+                pt_file_path = candidate
+                test_pt_filename = filename
+                break
+
+        if pt_file_path is None:
+            logging.warning(
+                f"Ignorando '{split_folder}': No se encontró ningún archivo de test para el split {num_split}"
+            )
             continue
             
         logging.info(f"\n{'='*50}\nIniciando Testing para: {split_folder} con {test_pt_filename}\n{'='*50}")
@@ -672,7 +685,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
     
     # Rutas principales
-    MODELOS_MADRE = "Modelos/Modelos_25F/7A_GT_Split3.pt"      # Donde están las carpetas split_0, split_1... con los .pt del modelo
+    MODELOS_MADRE = "Modelos/Modelos_25F"      # Donde están las carpetas split_0, split_1... con los .pt del modelo
     RESULTADOS_MADRE = "Resultados/Resultados_25F"   # Donde se guardarán los CSV finales
     
     print("🚀 Iniciando el testing masivo de todos los splits...")
