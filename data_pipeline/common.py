@@ -22,7 +22,7 @@ def seed_everything(seed):
 
 
 def save_all_trials_results_csv(results, save_directory):
-    output_dir = Path(save_directory) / "CheapNet_hyperparameter_tuning_all_trials"
+    output_dir = Path(save_directory) / "hyperparameter_tuning_all_trials"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     csv_path = output_dir / "all_trials_results.csv"
