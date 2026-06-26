@@ -11,6 +11,7 @@ from torch_geometric.loader import DataLoader
 from data_pipeline.common import load_split_txt
 from data_pipeline.URVGraphDataset import URVGraphDataset
 from job_config.graphdta.DTAPredictionConfig import DTAPredictionConfig
+from models.graphdta.registry import get_graph_dta_model
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -154,11 +155,12 @@ class DTAPredictor:
 
             config = checkpoint["config"]
             model_name = checkpoint["model_name"]
-            n_filter = config["n_filters"]
-            dropout = config["dropout"]
-            model = self.config.model(
-                n_filters=n_filter,
-                dropout=dropout,
+
+            model_class = get_graph_dta_model(model_name)
+
+            model = model_class(
+                n_filters=config["n_filters"],
+                dropout=config["dropout"],
             ).to(self.config.device)
 
             model.load_state_dict(checkpoint["model_state_dict"])
@@ -226,7 +228,6 @@ class DTAPredictor:
             mean_row["Pearson"],
             global_min,
             global_max,
-            model_name,
         )
         end_prediction = time()
 

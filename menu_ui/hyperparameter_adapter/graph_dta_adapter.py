@@ -39,6 +39,8 @@ def pop_unused_key(dialog_inputs):
         config.pop(key, None)
 
     return config
+
+
 def create_interval_by_multiplication(min_value, max_value):
     values = []
 
@@ -46,6 +48,20 @@ def create_interval_by_multiplication(min_value, max_value):
     while current <= max_value:
         values.append(current)
         current *= 2
+
+    if not values:
+        values.append(min_value)
+
+    return values
+
+
+def create_interval_dropout(min_value, max_value):
+    values = []
+
+    current = min_value
+    while current <= max_value:
+        values.append(round(current, 2))
+        current += 0.05
 
     if not values:
         values.append(min_value)
@@ -66,6 +82,8 @@ def create_ray_tune_config(dialog_inputs):
         config["batch_size_max"],
     )
 
+    dropout_interval = create_interval_dropout(config["dropout_min"], config["dropout_max"])
+
     return {
         "batch_size": tune.choice(batch_size_interval),
         "lr": tune.loguniform(
@@ -76,10 +94,7 @@ def create_ray_tune_config(dialog_inputs):
             dialog_inputs["weight_decay_min"],
             dialog_inputs["weight_decay_max"],
         ),
-        "dropout": tune.uniform(
-            dialog_inputs["dropout_min"],
-            dialog_inputs["dropout_max"],
-        ),
+        "dropout": tune.choice(dropout_interval),
         "n_filters": tune.choice(n_filters_interval),
         "epochs": config["EPOCHS"],
     }
@@ -101,6 +116,7 @@ def launch_ray_tune_hyperparameter_search(dialog_inputs, log_callback):
         graph_dir=dialog_inputs["graph_directory"],
         log_callback=log_callback,
     )
+
 
 if __name__ == "__main__":
     start_hp = time.time()

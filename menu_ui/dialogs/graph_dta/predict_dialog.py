@@ -60,7 +60,7 @@ class PredictDialog(QDialog):
         self.output_dir_btn.clicked.connect(self.browse_output_dir)
 
         self.model_name_input = QComboBox()
-        self.model_name_input.addItems(["GINConvNet", "GAT", "GCN", "GAT_GCN"])
+        self.model_name_input.addItems(["GINConvNet", "GATNet", "GCNNet", "GAT_GCN"])
         last_model_name = self.settings.value("train_graphdta/model_name", "GINConvNet")
         index = self.model_name_input.findText(str(last_model_name))
         if index >= 0:

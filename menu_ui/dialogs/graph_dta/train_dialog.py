@@ -35,10 +35,10 @@ class TrainDialog(QDialog):
         self.model_name_input = QComboBox()
         self.model_name_input.addItems(
             [
-                "GAT",
+                "GATNet",
                 "GAT_GCN",
                 "GINConvNet",
-                "GCN",
+                "GCNNet",
             ]
         )
 
