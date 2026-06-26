@@ -154,7 +154,7 @@ class PlanetPredictor:
         return save_path
 
     def _load_model(self):
-        model_path = self.config.model_path / "split_00" / "best_model.pt"
+        model_path = self.config.model_path / "best_model.pt"
 
         if not model_path.exists():
             raise FileNotFoundError(f"Modèle introuvable : {model_path}")

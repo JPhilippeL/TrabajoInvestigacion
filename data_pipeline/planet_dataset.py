@@ -2,8 +2,9 @@ import os
 import pickle
 import random
 import sys
-
 from torch.utils.data import DataLoader, Dataset
+
+from pathlib import Path
 
 
 class PocketDatasetRecord:
@@ -14,10 +15,18 @@ class PocketDatasetRecord:
 
 
 def add_planet_to_path(planet_root):
-    planet_root = os.path.abspath(planet_root)
+    if planet_root is None:
+        return None
 
-    if planet_root not in sys.path:
-        sys.path.insert(0, planet_root)
+    planet_root = Path(planet_root).expanduser().resolve()
+
+    if not planet_root.is_dir():
+        raise ValueError(f"planet_root is not a directory: {planet_root}")
+
+    planet_root_str = str(planet_root)
+
+    if planet_root_str not in sys.path:
+        sys.path.insert(0, planet_root_str)
 
     return planet_root
 
@@ -42,11 +51,11 @@ def normalize_record(record):
     if isinstance(record, dict):
         pocket_path = record.get("pocket_path") or record.get("path")
         affinity = (
-            record.get("affinity")
-            or record.get("pK")
-            or record.get("pk")
-            or record.get("pIC50")
-            or 0.0
+                record.get("affinity")
+                or record.get("pK")
+                or record.get("pk")
+                or record.get("pIC50")
+                or 0.0
         )
 
         complex_id = record.get("complex_id")
@@ -65,7 +74,6 @@ def normalize_record(record):
 
 
 def load_planet_pickle_records(dataset_pkl):
-
     if not os.path.isfile(dataset_pkl):
         raise FileNotFoundError(f"Dataset pickle not found: {dataset_pkl}")
 
@@ -103,14 +111,15 @@ def split_records_into_batches(records, batch_size, shuffle=True, seed=42):
     batches = []
 
     for start in range(0, len(records), batch_size):
-        batch = records[start : start + batch_size]
+        batch = records[start: start + batch_size]
         batches.append(batch)
 
     return batches
 
 
-def tensorize_records(records, planet_root, decoy_flag=True):
-    add_planet_to_path(planet_root)
+def tensorize_records(records, planet_root=None, decoy_flag=True):
+    if planet_root is not None:
+        add_planet_to_path(planet_root)
 
     from data_pipeline.chemutils import tensorize_all
 
@@ -145,13 +154,13 @@ def tensorize_records(records, planet_root, decoy_flag=True):
 
 class PlanetPocketDataset(Dataset):
     def __init__(
-        self,
-        dataset_pkl,
-        planet_root,
-        batch_size,
-        shuffle=True,
-        seed=42,
-        decoy_flag=True,
+            self,
+            dataset_pkl,
+            batch_size,
+            planet_root=None,
+            shuffle=True,
+            seed=42,
+            decoy_flag=True,
     ):
         self.dataset_pkl = dataset_pkl
         self.planet_root = planet_root
@@ -203,13 +212,12 @@ def make_planet_dataloader(dataset, num_workers=0):
 
 
 def create_datasets_from_output(
-    output_dir,
-    planet_root,
-    batch_size,
-    seed=42,
-    decoy_flag=True,
+        output_dir,
+        planet_root,
+        batch_size,
+        seed=42,
+        decoy_flag=True,
 ):
-
     pkl_dir = os.path.join(output_dir, "metadata", "pkl")
 
     train_pkl = os.path.join(pkl_dir, "train.pkl")
@@ -247,14 +255,13 @@ def create_datasets_from_output(
 
 
 def create_dataloaders_from_output(
-    output_dir,
-    planet_root,
-    batch_size,
-    seed=42,
-    decoy_flag=True,
-    num_workers=0,
+        output_dir,
+        planet_root,
+        batch_size,
+        seed=42,
+        decoy_flag=True,
+        num_workers=0,
 ):
-
     train_dataset, valid_dataset, core_dataset = create_datasets_from_output(
         output_dir=output_dir,
         planet_root=planet_root,

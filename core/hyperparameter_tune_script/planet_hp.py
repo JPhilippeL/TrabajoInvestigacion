@@ -471,7 +471,6 @@ def run_hyperparameter_search(
     ray.init(
         ignore_reinit_error=True,
         include_dashboard=False,
-        num_cpus=20,
     )
 
     save_directory = Path(save_directory)

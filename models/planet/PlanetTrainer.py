@@ -197,7 +197,7 @@ class PlanetTrainer:
             num_workers=self.config.num_workers,
         )
 
-        split_save_dir = self.config.output_path / "split_00"
+        split_save_dir = self.config.output_path
         split_save_dir.mkdir(parents=True, exist_ok=True)
 
         best_model_path = split_save_dir / "best_model.pt"

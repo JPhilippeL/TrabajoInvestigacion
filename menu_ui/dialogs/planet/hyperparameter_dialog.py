@@ -631,7 +631,7 @@ class HyperparameterSearchDialog(QDialog):
             self.beta_start_step_step.value(),
         )
 
-    def get_values(self):
+    def get_inputs(self):
         return {
             "data_output_path": self.data_output_path_input.text().strip(),
             "save_directory": self.save_directory_input.text().strip(),
