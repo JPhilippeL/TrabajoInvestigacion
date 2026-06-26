@@ -202,15 +202,15 @@ def write_results_to_file(model_name, best_results, hyperparemeters, output_file
 
 if __name__ == "__main__":
     debut_tuning = time()
-    models = ["GAT", "GINE", "GraphTransformer", "EGAT", "GIN"]
+    models = ["GINE", "GraphTransformer"]
     for model in models:
         logging.info(f"Starting hyperparameter tuning for model: {model}")
         ray.shutdown()
         # we can limit the number cpus in order to avoid overloading the cpus by num_cpus passed to ray.init
         ray.init(ignore_reinit_error=True, include_dashboard=False)
 
-        sdf_dir = "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/Ligand/Ligand_SDF"
-        target_file = "/home/administrateur/Bureau/deepGNN/MPro-URV_Version2/pIC50.txt"
+        sdf_dir = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/Ligand/Ligand_SDF"
+        target_file = "/home/andromeda/Documentos/mohamedA/DeepGNN/MPro-URV_Version2/pIC50.txt"
 
         model_name = "prueba_gnn_" + model + "_hyperparameter_tuning"
 

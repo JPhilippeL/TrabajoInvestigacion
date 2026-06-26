@@ -1,0 +1,15 @@
+Model: GINE
+Best Validation Loss (MSE): 0.4878
+Best Hyperparameters:
+  batch_size: 4
+  atom_emb_dim: 0.3
+  hybrid_emb_dim: 0.3
+  bond_emb_dim: 0.5
+  hidden_dim: 32
+  num_layers: 2
+  fc_hidden_dim: 256
+  drop_out: 0.1
+  lr: 0.0006138542434638819
+  patience: 15
+  EPOCHS: 50
+
