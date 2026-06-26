@@ -81,6 +81,14 @@ def extract_affinity(predictions, targets):
     return predicted_affinities[mask], pks[mask]
 
 
+def initialize_weights(model):
+    for param in model.parameters():
+        if param.dim() == 1:
+            torch.nn.init.constant_(param, 0)
+        else:
+            torch.nn.init.xavier_uniform_(param)
+
+
 def evaluate_planet(model, dataloader, device):
     model.eval()
 
@@ -189,6 +197,8 @@ def build_planet_model(config, device):
         device=device,
     )
 
+    initialize_weights(model)
+
     return model.to(device)
 
 
@@ -249,6 +259,7 @@ def train_planet(config, data_output_path, log_callback=None):
         for batch in train_loader:
             try:
                 res_batch, mol_batch, targets = move_batch_to_device(batch, device)
+                optimizer.zero_grad()
 
                 predictions = model(res_batch, mol_batch)
 
@@ -269,7 +280,6 @@ def train_planet(config, data_output_path, log_callback=None):
 
                 last_beta = beta
 
-                optimizer.zero_grad()
                 total_loss.backward()
 
                 torch.nn.utils.clip_grad_norm_(

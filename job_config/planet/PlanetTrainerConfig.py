@@ -46,6 +46,6 @@ class PlanetTrainerConfig:
 
     clip_norm: float
 
-    beta_start_step: int
+    beta_start_step: int = 500
 
     device: str = "cuda" if torch.cuda.is_available() else "cpu"

@@ -155,6 +155,13 @@ class PlanetTrainer:
             "skipped_batches": skipped_batches,
         }
 
+    def _initialize_weights(self, model):
+        for param in model.parameters():
+            if param.dim() == 1:
+                torch.nn.init.constant_(param, 0)
+            else:
+                torch.nn.init.xavier_uniform_(param)
+
     def _build_model(self):
         model = self.config.model(
             feature_dims=self.config.feature_dims,
@@ -166,6 +173,8 @@ class PlanetTrainer:
             pro_lig_update_iters=self.config.pro_lig_update_iters,
             device=self.config.device,
         )
+
+        self._initialize_weights(model)
 
         return model.to(self.config.device)
 
@@ -223,6 +232,7 @@ class PlanetTrainer:
             for batch in train_loader:
                 try:
                     res_batch, mol_batch, targets = self._move_batch_to_device(batch)
+                    optimizer.zero_grad()
 
                     predictions = model(res_batch, mol_batch)
 
@@ -239,7 +249,6 @@ class PlanetTrainer:
                         affinity_loss,
                     )
 
-                    optimizer.zero_grad()
                     total_loss.backward()
 
                     torch.nn.utils.clip_grad_norm_(
