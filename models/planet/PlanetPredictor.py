@@ -110,13 +110,13 @@ class PlanetPredictor:
         return rmse, pearson, spearman, labels, preds
 
     def plot_scatter(
-            self,
-            labels,
-            preds,
-            rmse,
-            pearson,
-            global_min,
-            global_max,
+        self,
+        labels,
+        preds,
+        rmse,
+        pearson,
+        global_min,
+        global_max,
     ):
         mask = (preds >= global_min) & (preds <= global_max)
         n_out = int((~mask).sum())
@@ -130,8 +130,7 @@ class PlanetPredictor:
         plt.xlabel("Real Value (pIC50)")
         plt.ylabel("Predicted Value (pIC50)")
         plt.title(
-            f"PLANET {self.config.model_name} – core\n"
-            f"RMSE = {rmse:.3f} | Pearson = {pearson:.3f}"
+            f"PLANET {self.config.model_name} – core\nRMSE = {rmse:.3f} | Pearson = {pearson:.3f}"
         )
 
         plt.plot([global_min, global_max], [global_min, global_max], "r--")

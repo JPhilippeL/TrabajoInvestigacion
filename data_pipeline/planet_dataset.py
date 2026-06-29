@@ -2,9 +2,9 @@ import os
 import pickle
 import random
 import sys
-from torch.utils.data import DataLoader, Dataset
-
 from pathlib import Path
+
+from torch.utils.data import DataLoader, Dataset
 
 
 class PocketDatasetRecord:
