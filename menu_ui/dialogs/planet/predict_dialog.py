@@ -42,7 +42,7 @@ class PredictDialog(QDialog):
         self.data_output_dir_btn.clicked.connect(self.browse_data_output_dir)
 
         self.model_dir_input = QLineEdit()
-        self.model_dir_input.setPlaceholderText("Directory containing split_00/best_model.pt")
+        self.model_dir_input.setPlaceholderText("Directory containing best_model.pt")
         self.model_dir_input.setText(self.settings.value("predict_planet/last_model_dir", ""))
         self.model_dir_btn = QPushButton("Select...")
         self.model_dir_btn.clicked.connect(self.browse_model_dir)
@@ -147,7 +147,7 @@ class PredictDialog(QDialog):
             logger.warning(f"Missing file: {core_pkl}")
             return
 
-        best_model = Path(model_dir) / "split_00" / "best_model.pt"
+        best_model = Path(model_dir) / "best_model.pt"
         if not best_model.exists():
             logger.warning(f"Missing model checkpoint: {best_model}")
             return

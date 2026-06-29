@@ -110,13 +110,13 @@ class PlanetPredictor:
         return rmse, pearson, spearman, labels, preds
 
     def plot_scatter(
-        self,
-        labels,
-        preds,
-        rmse,
-        pearson,
-        global_min,
-        global_max,
+            self,
+            labels,
+            preds,
+            rmse,
+            pearson,
+            global_min,
+            global_max,
     ):
         mask = (preds >= global_min) & (preds <= global_max)
         n_out = int((~mask).sum())
