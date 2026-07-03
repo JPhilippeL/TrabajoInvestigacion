@@ -290,7 +290,7 @@ def obtener_graph_explainer(
     alfa_reducido, beta, gamma, delta, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_list, A_list)
 
     # Si info_eliminada es None, reconstruir_alfa simplemente devuelve alfa_reducido tal cual
-    alfa = reconstruir_alfa(alfa_reducido, num_feat_orig, info_eliminada)
+    alfa = reconstruir_alfa(alfa_reducido, num_feat_orig, features_mantenidas, info_eliminada)
 
     # Verificar que aprendimos algo distinto de cero
     print(f"Max Alfa: {alfa.max().item():.4f}, Min Alfa: {alfa.min().item():.4f}")
@@ -555,26 +555,32 @@ def stack_and_normalize(tensor_list, device):
     return normalized_stacked
 
 def calcular_y_filtrar_proporcionalidad(E_list, feature_names, threshold=0.85):
-    """
-    Calcula el DoP y p, y elimina la feature más proporcional si supera el threshold.
-    Requiere 'feature_names' para imprimir qué variables exactas se están comparando.
-    """
     X = torch.cat(E_list, dim=0) 
     num_features = X.shape[1]
 
-    dot_products = torch.matmul(X.T, X)
+    # --- NUEVO: Detectar columnas de puros ceros ---
+    # Si una columna no tiene ningún valor distinto de 0, es True en zero_mask
+    zero_mask = ~(X != 0).any(dim=0)
+    zero_cols = zero_mask.nonzero(as_tuple=True)[0].tolist()
 
+    if len(zero_cols) > 0:
+        nombres_ceros = [feature_names[i] for i in zero_cols]
+        print(f"[i] Se detectaron {len(zero_cols)} columnas de puros ceros. Se omitirán.")
+        # Opcional: imprimir cuáles son
+        # print(f"    Variables vacías: {nombres_ceros}")
+
+    # Cálculos de matrices (las columnas de ceros darán DoP = 0 por el +1e-8)
+    dot_products = torch.matmul(X.T, X)
     norms = torch.norm(X, dim=0)
     norms_matrix = torch.outer(norms, norms) + 1e-8
-
     cos_theta = dot_products / norms_matrix
     dop_matrix = torch.abs(cos_theta)
 
     norms_sq = torch.pow(norms, 2) + 1e-8
     p_matrix = dot_products / norms_sq.view(1, -1) 
-
     dop_matrix.fill_diagonal_(0)
 
+    # Buscar el máximo DoP
     max_dop_idx = torch.argmax(dop_matrix).item()
     j = max_dop_idx // num_features  
     k = max_dop_idx % num_features   
@@ -582,70 +588,69 @@ def calcular_y_filtrar_proporcionalidad(E_list, feature_names, threshold=0.85):
     max_dop_value = dop_matrix[j, k].item()
     p_value = p_matrix[j, k].item()
 
-    # --- NUEVO: Obtener los nombres de las features ---
-    nombre_j = feature_names[j]
-    nombre_k = feature_names[k]
-
-    print("\n--- Análisis de Proporcionalidad de Features ---")
-    print(f"Threshold configurado: {threshold}")
-    print(f"Mayor DoP encontrado:  {max_dop_value:.4f}")
-    print(f"Comparando: '{nombre_j}' (j) con '{nombre_k}' (k)")
-    print(f"Valor de p calculado:  {p_value:.4f}")
-    print("----------------------------------------------\n")
-
+    # Inicializamos la lista con todas las features
     features_to_keep = list(range(num_features))
     info_eliminada = None
 
+    # Primero quitamos las columnas de ceros de la lista
+    for z in zero_cols:
+        if z in features_to_keep:
+            features_to_keep.remove(z)
+
+    # Luego evaluamos si hay que quitar la proporcional
     if max_dop_value >= threshold:
-        # Imprimir qué variable específica se elimina
-        print(f"[!] El DoP supera el threshold. Eliminando la feature: '{nombre_j}'...")
-        features_to_keep.remove(j)
+        nombre_j = feature_names[j]
+        nombre_k = feature_names[k]
         
+        print("\n--- Análisis de Proporcionalidad de Features ---")
+        print(f"Mayor DoP encontrado:  {max_dop_value:.4f}")
+        print(f"Comparando: '{nombre_j}' (j) con '{nombre_k}' (k)")
+        print(f"Valor de p calculado:  {p_value:.4f}")
+        print(f"[!] Eliminando la feature: '{nombre_j}'...")
+        print("----------------------------------------------\n")
+        
+        if j in features_to_keep:
+            features_to_keep.remove(j)
+            
         info_eliminada = {
             'j': j,
             'k': k,
             'p': p_value
         }
     else:
-        print("[i] Ningún DoP supera el threshold. Se mantienen todas las features.")
+        print(f"[i] Ningún DoP supera el threshold de {threshold}.")
 
+    # Filtramos la matriz E
     E_list_filtrado = [data[:, features_to_keep] for data in E_list]
 
+    # Devolvemos features_to_keep porque la necesitamos para reconstruir
     return E_list_filtrado, features_to_keep, info_eliminada, num_features
 
-def reconstruir_alfa(alfa_reducido, num_features_original, info_eliminada):
+def reconstruir_alfa(alfa_reducido, num_features_original, features_mantenidas, info_eliminada):
     """
-    Reconstruye el tensor alfa a su dimensión original aplicando la fórmula:
-    alfa^i* = alfa_tilde^i* (para i != k, j)
-    alfa^j* = 1
-    alfa^k* = (1 + p) * alfa_tilde^k* - p
+    Reconstruye el tensor alfa a su dimensión original.
+    1. Rellena con 0s por defecto (así las columnas vacías se quedan en 0).
+    2. Coloca los pesos aprendidos en sus índices correspondientes.
+    3. Aplica la ecuación 16 a las columnas que se eliminaron por DoP.
     """
-    if info_eliminada is None:
-        return alfa_reducido # No se eliminó nada
-        
-    j = info_eliminada['j']
-    k = info_eliminada['k']
-    p = info_eliminada['p']
-    
-    # Crear tensor vacío con el tamaño original [N_features, 1]
+    # Crear tensor lleno de ceros [N_features, 1]
     alfa_completo = torch.zeros((num_features_original, 1), device=alfa_reducido.device)
     
-    idx_reducido = 0
-    for i in range(num_features_original):
-        if i == j:
-            continue # Lo saltamos, lo rellenamos al final
-            
-        if i == k:
-            # Aplicamos la fórmula para la feature k
-            alfa_tilde_k = alfa_reducido[idx_reducido]
-            alfa_completo[i] = (1 + p) * alfa_tilde_k - p
-        else:
-            # Para el resto (i != k, j), el valor se mantiene igual
-            alfa_completo[i] = alfa_reducido[idx_reducido]
-            
-        idx_reducido += 1
+    # 1. Colocar los valores aprendidos en su posición original exacta
+    for idx_reducido, idx_original in enumerate(features_mantenidas):
+        alfa_completo[idx_original] = alfa_reducido[idx_reducido]
         
-    # Aplicamos la fórmula para la feature eliminada j
-    alfa_completo[j] = 1.0 
-    
+    # 2. Si se aplicó el filtro DoP, aplicar la fórmula sobre esas posiciones
+    if info_eliminada is not None:
+        j = info_eliminada['j']
+        k = info_eliminada['k']
+        p = info_eliminada['p']
+        
+        # alfa_completo[k] ya tiene el valor correcto del bucle anterior
+        alfa_tilde_k = alfa_completo[k].clone()
+        
+        # Aplicamos las fórmulas
+        alfa_completo[k] = (1 + p) * alfa_tilde_k - p
+        alfa_completo[j] = 1.0
+        
     return alfa_completo
