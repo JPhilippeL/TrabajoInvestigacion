@@ -224,7 +224,7 @@ def obtener_graph_explainer(
 
     # --- 1. OBTENER INFORMACIÓN REAL ---
     target_name_str, real_val = obtener_info_real(target_data_path, mol_id)
-    print(real_val)
+    print("Real value:", real_val)
     
     # Generar muestras perturbadas
     perturbed_samples = generate_perturbed_samples(muestra, feature_mask, num_samples, noise_level)
@@ -259,15 +259,39 @@ def obtener_graph_explainer(
     # Obtener E (onehot)
     E_list = [data_z.x.to(device) for data_z in perturbed_samples]
 
+    # Variable para activar/desactivar el filtro (cámbialo a False para comparar)
+    aplicar_filtro_proporcionalidad = True 
+
+    # --- NUEVO PASO: Calcular y filtrar proporcionalidades ---
+    node_feature_names = get_features_names_onehot()
+
+    if aplicar_filtro_proporcionalidad:
+        # Ejecuta el cálculo y filtra E_list
+        E_list, features_mantenidas, info_eliminada, num_feat_orig = calcular_y_filtrar_proporcionalidad(
+            E_list, 
+            feature_names=node_feature_names, 
+            threshold=0.85
+        )
+    else:
+        # Bypass: Se mantiene E_list original y se setean las variables de control a None
+        info_eliminada = None
+        num_feat_orig = E_list[0].shape[1] if len(E_list) > 0 else 0
+        print("[i] Filtro de proporcionalidad DESACTIVADO. Se usarán todas las columnas originales.")
+
+
     # Lo mismo con los edges (onehot)
     A_list = []
     for data_z in perturbed_samples:
-    # for data_z in perturbed_samples:
         if data_z.edge_attr is not None:
             A_list.append(data_z.edge_attr.to(device))
 
     # --------------- HACERLO CON OPTIMIZACION DE PYTORCH ----------------------
-    alfa, beta, gamma, delta, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_list, A_list)
+    # Si el filtro está en False, 'alfa_reducido' será en realidad el tensor completo
+    alfa_reducido, beta, gamma, delta, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_list, A_list)
+
+    # Si info_eliminada es None, reconstruir_alfa simplemente devuelve alfa_reducido tal cual
+    alfa = reconstruir_alfa(alfa_reducido, num_feat_orig, info_eliminada)
+
     # Verificar que aprendimos algo distinto de cero
     print(f"Max Alfa: {alfa.max().item():.4f}, Min Alfa: {alfa.min().item():.4f}")
     print(f"Max Beta: {beta.max().item():.4f}, Min Beta: {beta.min().item():.4f}")
@@ -529,3 +553,99 @@ def stack_and_normalize(tensor_list, device):
     # scale = 1.0 / N_elementos
     
     return normalized_stacked
+
+def calcular_y_filtrar_proporcionalidad(E_list, feature_names, threshold=0.85):
+    """
+    Calcula el DoP y p, y elimina la feature más proporcional si supera el threshold.
+    Requiere 'feature_names' para imprimir qué variables exactas se están comparando.
+    """
+    X = torch.cat(E_list, dim=0) 
+    num_features = X.shape[1]
+
+    dot_products = torch.matmul(X.T, X)
+
+    norms = torch.norm(X, dim=0)
+    norms_matrix = torch.outer(norms, norms) + 1e-8
+
+    cos_theta = dot_products / norms_matrix
+    dop_matrix = torch.abs(cos_theta)
+
+    norms_sq = torch.pow(norms, 2) + 1e-8
+    p_matrix = dot_products / norms_sq.view(1, -1) 
+
+    dop_matrix.fill_diagonal_(0)
+
+    max_dop_idx = torch.argmax(dop_matrix).item()
+    j = max_dop_idx // num_features  
+    k = max_dop_idx % num_features   
+    
+    max_dop_value = dop_matrix[j, k].item()
+    p_value = p_matrix[j, k].item()
+
+    # --- NUEVO: Obtener los nombres de las features ---
+    nombre_j = feature_names[j]
+    nombre_k = feature_names[k]
+
+    print("\n--- Análisis de Proporcionalidad de Features ---")
+    print(f"Threshold configurado: {threshold}")
+    print(f"Mayor DoP encontrado:  {max_dop_value:.4f}")
+    print(f"Comparando: '{nombre_j}' (j) con '{nombre_k}' (k)")
+    print(f"Valor de p calculado:  {p_value:.4f}")
+    print("----------------------------------------------\n")
+
+    features_to_keep = list(range(num_features))
+    info_eliminada = None
+
+    if max_dop_value >= threshold:
+        # Imprimir qué variable específica se elimina
+        print(f"[!] El DoP supera el threshold. Eliminando la feature: '{nombre_j}'...")
+        features_to_keep.remove(j)
+        
+        info_eliminada = {
+            'j': j,
+            'k': k,
+            'p': p_value
+        }
+    else:
+        print("[i] Ningún DoP supera el threshold. Se mantienen todas las features.")
+
+    E_list_filtrado = [data[:, features_to_keep] for data in E_list]
+
+    return E_list_filtrado, features_to_keep, info_eliminada, num_features
+
+def reconstruir_alfa(alfa_reducido, num_features_original, info_eliminada):
+    """
+    Reconstruye el tensor alfa a su dimensión original aplicando la fórmula:
+    alfa^i* = alfa_tilde^i* (para i != k, j)
+    alfa^j* = 1
+    alfa^k* = (1 + p) * alfa_tilde^k* - p
+    """
+    if info_eliminada is None:
+        return alfa_reducido # No se eliminó nada
+        
+    j = info_eliminada['j']
+    k = info_eliminada['k']
+    p = info_eliminada['p']
+    
+    # Crear tensor vacío con el tamaño original [N_features, 1]
+    alfa_completo = torch.zeros((num_features_original, 1), device=alfa_reducido.device)
+    
+    idx_reducido = 0
+    for i in range(num_features_original):
+        if i == j:
+            continue # Lo saltamos, lo rellenamos al final
+            
+        if i == k:
+            # Aplicamos la fórmula para la feature k
+            alfa_tilde_k = alfa_reducido[idx_reducido]
+            alfa_completo[i] = (1 + p) * alfa_tilde_k - p
+        else:
+            # Para el resto (i != k, j), el valor se mantiene igual
+            alfa_completo[i] = alfa_reducido[idx_reducido]
+            
+        idx_reducido += 1
+        
+    # Aplicamos la fórmula para la feature eliminada j
+    alfa_completo[j] = 1.0 
+    
+    return alfa_completo
