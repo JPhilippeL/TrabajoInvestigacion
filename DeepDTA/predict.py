@@ -1,59 +1,47 @@
-from sklearn.metrics import mean_squared_error
-from lifelines.utils import concordance_index
-import data
-from data import*
+"""
+@file predict.py
+@brief Command-line entry point for DeepDTA prediction/evaluation.
+"""
 
-### Function added to calculate MSE and CI
-def calculate_metrics(predictions, actuals):
-    # Check if predictions is a list of tensors or a single tensor
-    if isinstance(predictions, list):
-        predictions = torch.cat(predictions)
-    
-    predictions_np = predictions.detach().numpy()
-    actuals_np = actuals.numpy()
+from __future__ import annotations
 
-    mse = mean_squared_error(actuals_np, predictions_np)
-    ci = concordance_index(actuals_np, predictions_np)
-    
-    return mse, ci
+import argparse
+import json
 
-def predict_and_evaluate(model, test_loader):
-    out2 = []
-    count = 0
-
-    actual_values = [] ### Added to calculate MSE and CI
-    
-    for i, j in test_loader:
-        m1 = i[0]
-        m1 = m1.reshape((1, 62, 50))
-        p1 = i[1]
-        p1 = p1.reshape((1, 25, 600))
-        
-        predict = model(m1, p1)
-        out2.append(predict)
-
-        actual_values.append(j) #### Added to calculate MSE and CI
-        
-        count += 1
-        if count == 50:
-            break
-    
-    ### Added to calculate MSE and CI
-    # If out2 is a list of tensors, concatenate it
-    if isinstance(out2[0], torch.Tensor):
-        out2 = torch.cat(out2)
-    
-    actual_values = torch.cat(actual_values) # Convert list of tensors to a single tensor
-    mse, ci = calculate_metrics(out2, actual_values)
-    
-    return out2, mse, ci
+from DeepDTA.Core.deepdta_evaluator import evaluate_checkpoint
 
 
-trained_model = torch.load('deep.pt')
-dataset = NumbersDataset(ligand_path, protein_path, affinity_path)
-train_loader, test_loader = load_splitset(dataset, .1)
-### Added to calculate MSE and CI
-pred, mse, ci = predict_and_evaluate(trained_model, test_loader)
-print("Predictions: ", pred)
-print("MSE: ", mse)
-print("CI: ", ci)
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Evaluate a trained DeepDTA checkpoint.")
+    parser.add_argument("--checkpoint", required=True)
+    parser.add_argument("--dataset", default="mpro_urv", choices=["davis", "kiba", "mpro_urv"])
+    parser.add_argument("--output-dir", default=None)
+    parser.add_argument("--device", default="auto")
+    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--fold-index", type=int, default=0)
+    parser.add_argument("--use-dataset-folds", action="store_true", default=True)
+    parser.add_argument("--no-dataset-folds", action="store_true")
+    parser.add_argument("--split", default="test", choices=["train", "valid", "test", "all"])
+    parser.add_argument("--val-split", type=float, default=0.1)
+    parser.add_argument("--test-split", type=float, default=0.2)
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args()
+
+    results = evaluate_checkpoint(
+        checkpoint_path=args.checkpoint,
+        dataset_name=args.dataset,
+        output_dir=args.output_dir,
+        device=args.device,
+        fold_index=args.fold_index,
+        use_dataset_folds=args.use_dataset_folds and not args.no_dataset_folds,
+        split=args.split,
+        batch_size=args.batch_size,
+        val_split=args.val_split,
+        test_split=args.test_split,
+        seed=args.seed,
+    )
+    print(json.dumps(results, indent=4, default=str))
+
+
+if __name__ == "__main__":
+    main()
