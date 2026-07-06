@@ -117,7 +117,7 @@ class MoleculeGraphScene(QGraphicsScene):
 
                     # Verificar si ya hay un enlace entre los nodos
                     if self.graph.has_edge(source_id, target_id) or self.graph.has_edge(target_id, source_id):
-                        QMessageBox.information(None, "Enlace ya existe", f"Ya hay un enlace entre {source_id} y {target_id}.")
+                        QMessageBox.information(None, "Link already exists", f"There is already a link between {source_id} and {target_id}.")
                     else:
                         GraphManager.add_edge(self.graph, source_id, target_id, bond_type="SINGLE")
                         new_edge = EdgeItem(self.edge_source_node, clicked_item, "SINGLE")

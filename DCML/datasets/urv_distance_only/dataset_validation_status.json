@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-05-29T10:48:14+00:00",
+  "variant_id": "urv_distance_only",
+  "dataset_root": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_distance_only",
+  "feature_mode": "distance_only",
+  "charge_mode": "none",
+  "validation": {
+    "n_samples": 378,
+    "n_features": 63360,
+    "expected_samples": 378,
+    "expected_features": 63360,
+    "feature_dtype": "float32",
+    "label_dtype": "float64",
+    "finite": true,
+    "zero_rows": 0,
+    "label_min": 4.00423322095003,
+    "label_max": 8.568636236,
+    "label_mean": 5.95222193211494,
+    "charge_validation": null
+  },
+  "split": {
+    "seed": 42,
+    "origin": "generated",
+    "counts": {
+      "train": 264,
+      "validation": 57,
+      "test": 57,
+      "trainval": 321
+    }
+  },
+  "readiness": {
+    "ready_for_hpo": true,
+    "ready_for_final_training": true,
+    "ready_for_final_evaluation": true
+  },
+  "artifacts": {
+    "all_feature_zip": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_distance_only/all_feature.zip",
+      "exists": true,
+      "size_bytes": 9258349
+    },
+    "all_label_npy": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_distance_only/all_label.npy",
+      "exists": true,
+      "size_bytes": 3152
+    },
+    "sample_ids_csv": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_distance_only/sample_ids.csv",
+      "exists": true,
+      "size_bytes": 87287
+    },
+    "split_indices_json": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_distance_only/split_indices.json",
+      "exists": true,
+      "size_bytes": 9006
+    },
+    "train_feature_zip": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_distance_only/train_feature.zip",
+      "exists": true,
+      "size_bytes": 6461033
+    },
+    "train_label_npy": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_distance_only/train_label.npy",
+      "exists": true,
+      "size_bytes": 2240
+    },
+    "validation_feature_zip": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_distance_only/validation_feature.zip",
+      "exists": true,
+      "size_bytes": 1442915
+    },
+    "validation_label_npy": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_distance_only/validation_label.npy",
+      "exists": true,
+      "size_bytes": 584
+    },
+    "test_feature_zip": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_distance_only/test_feature.zip",
+      "exists": true,
+      "size_bytes": 1354953
+    },
+    "test_label_npy": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_distance_only/test_label.npy",
+      "exists": true,
+      "size_bytes": 584
+    },
+    "trainval_feature_zip": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_distance_only/trainval_feature.zip",
+      "exists": true,
+      "size_bytes": 7903735
+    },
+    "trainval_label_npy": {
+      "path": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_distance_only/trainval_label.npy",
+      "exists": true,
+      "size_bytes": 2696
+    }
+  },
+  "copied_reports": {
+    "MProURV_all_feature_distance_only.report.json": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DCML/datasets/urv_distance_only/MProURV_all_feature_distance_only.report.json"
+  }
+}

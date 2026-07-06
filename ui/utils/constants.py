@@ -1,7 +1,7 @@
 from rdkit import Chem
 
 # Directorios de Guardado
-RESULTADOS_DIR = "Resultados"
+RESULTADOS_DIR = "Results"
 MODELOS_DIR = "Modelos"
 
 EXPLAINERS = [

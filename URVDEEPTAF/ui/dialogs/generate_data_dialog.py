@@ -8,7 +8,7 @@ from PySide6.QtCore import QSettings
 class DBGenerationDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Generación de Base de Datos")
+        self.setWindowTitle("Database Generation")
         self.resize(600, 400)
 
         # ---------- QSettings ----------
@@ -17,30 +17,30 @@ class DBGenerationDialog(QDialog):
 
         # 1. ---------- Required: DSSP Directory ----------
         self.dssp_dir_input = QLineEdit()
-        self.dssp_dir_input.setPlaceholderText("Carpeta con archivos .dssp")
+        self.dssp_dir_input.setPlaceholderText("Folder containing .dssp files")
         self.dssp_dir_input.setText(self.settings.value("dbGen/last_dssp_dir", ""))
-        self.dssp_btn = QPushButton("Seleccionar...")
+        self.dssp_btn = QPushButton("Select...")
         self.dssp_btn.clicked.connect(self.browse_dssp)
 
         # 2. ---------- Required: Ligand Directory ----------
         self.ligand_dir_input = QLineEdit()
-        self.ligand_dir_input.setPlaceholderText("Carpeta con archivos .smi")
+        self.ligand_dir_input.setPlaceholderText("Folder containing .smi files")
         self.ligand_dir_input.setText(self.settings.value("dbGen/last_ligand_dir", ""))
-        self.ligand_btn = QPushButton("Seleccionar...")
+        self.ligand_btn = QPushButton("Select...")
         self.ligand_btn.clicked.connect(self.browse_ligand)
 
         # 3. ---------- Required: Pocket File ----------
         self.pocket_input = QLineEdit()
-        self.pocket_input.setPlaceholderText("Archivo CSV de pockets")
+        self.pocket_input.setPlaceholderText("Pocket CSV file")
         self.pocket_input.setText(self.settings.value("dbGen/last_pocket_file", ""))
-        self.pocket_btn = QPushButton("Seleccionar...")
+        self.pocket_btn = QPushButton("Select...")
         self.pocket_btn.clicked.connect(self.browse_pocket)
 
         # 4. ---------- Optional: Output Directory ----------
         self.output_dir_input = QLineEdit()
         self.output_dir_input.setPlaceholderText("Opcional (Default: PROCESSED_DATA_DIR)")
         self.output_dir_input.setText(self.settings.value("dbGen/last_output_dir", ""))
-        self.output_btn = QPushButton("Seleccionar...")
+        self.output_btn = QPushButton("Select...")
         self.output_btn.clicked.connect(self.browse_output)
 
         # 5. ---------- Ratios (SpinBoxes) ----------
@@ -67,7 +67,7 @@ class DBGenerationDialog(QDialog):
         self.seed_spin.setRange(0, 999999)
         self.seed_spin.setValue(int(self.settings.value("dbGen/random_seed", 42)))
 
-        self.cleanup_check = QCheckBox("Limpiar archivos procesados temporales")
+        self.cleanup_check = QCheckBox("Clean temporary processed files")
         # Recuperar estado booleano (truco: QSettings guarda bool como str a veces, mejor convertir)
         is_checked = self.settings.value("dbGen/cleanup", "true") == "true"
         self.cleanup_check.setChecked(is_checked)
@@ -75,12 +75,12 @@ class DBGenerationDialog(QDialog):
         # ---------- Layout Principal ----------
         form_layout = QFormLayout() # Nota: Corregí QFormLayout a QFormLayout
         
-        form_layout.addRow(QLabel("<b>Parámetros Requeridos:</b>"))
-        form_layout.addRow("Dir. DSSP:", self._with_button(self.dssp_dir_input, self.dssp_btn))
-        form_layout.addRow("Dir. Ligandos:", self._with_button(self.ligand_dir_input, self.ligand_btn))
-        form_layout.addRow("Archivo Pocket:", self._with_button(self.pocket_input, self.pocket_btn))
+        form_layout.addRow(QLabel("<b>Required parameters:</b>"))
+        form_layout.addRow("DSSP Dir:", self._with_button(self.dssp_dir_input, self.dssp_btn))
+        form_layout.addRow("Ligands Dir:", self._with_button(self.ligand_dir_input, self.ligand_btn))
+        form_layout.addRow("Pocket File:", self._with_button(self.pocket_input, self.pocket_btn))
         
-        form_layout.addRow(QLabel("<b>Opcionales:</b>"))
+        form_layout.addRow(QLabel("<b>Optional parameters:</b>"))
         form_layout.addRow("Output Dir:", self._with_button(self.output_dir_input, self.output_btn))
         
         # Agrupar ratios visualmente si quieres, o ponerlos en fila
@@ -112,24 +112,24 @@ class DBGenerationDialog(QDialog):
 
     # ---------- Browse Methods ----------
     def browse_dssp(self):
-        path = QFileDialog.getExistingDirectory(self, "Seleccionar Directorio DSSP")
+        path = QFileDialog.getExistingDirectory(self, "Select DSSP Directory")
         if path: self.dssp_dir_input.setText(path)
 
     def browse_ligand(self):
-        path = QFileDialog.getExistingDirectory(self, "Seleccionar Directorio Ligandos")
+        path = QFileDialog.getExistingDirectory(self, "Select Ligands Directory")
         if path: self.ligand_dir_input.setText(path)
 
     def browse_pocket(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Seleccionar Archivo Pocket", "", "CSV (*.csv);;All Files (*)")
+        path, _ = QFileDialog.getOpenFileName(self, "Select Pocket File", "", "CSV (*.csv);;All Files (*)")
         if path: self.pocket_input.setText(path)
 
     def browse_output(self):
-        path = QFileDialog.getExistingDirectory(self, "Seleccionar Directorio de Salida")
+        path = QFileDialog.getExistingDirectory(self, "Select Output Directory")
         if path: self.output_dir_input.setText(path)
 
     # ---------- Accept ----------
     def accept(self):
-        # Guardar valores
+        # Save valores
         self.settings.setValue("dbGen/last_dssp_dir", self.dssp_dir_input.text())
         self.settings.setValue("dbGen/last_ligand_dir", self.ligand_dir_input.text())
         self.settings.setValue("dbGen/last_pocket_file", self.pocket_input.text())

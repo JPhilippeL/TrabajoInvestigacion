@@ -8,7 +8,7 @@ from PySide6.QtCore import QSettings
 class BatchComparerDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Batch Comparer: Directorio Completo")
+        self.setWindowTitle("Batch Comparer: Full Directory")
         self.resize(600, 250) 
 
         # ---------- QSettings ----------
@@ -34,46 +34,46 @@ class BatchComparerDialog(QDialog):
         # 1. ---------- Model path (Archivo .pt) ----------
         self.model_path_input = QLineEdit()
         self.model_path_input.setText(self.settings.value("batchComparer/last_model_path", ""))
-        self.model_browse_btn = QPushButton("Seleccionar...")
+        self.model_browse_btn = QPushButton("Select...")
         self.model_browse_btn.clicked.connect(self.browse_model)
 
         # 2. ---------- SDF Directory (Directorio) ----------
         self.sdf_dir_input = QLineEdit()
-        self.sdf_dir_input.setPlaceholderText("Carpeta con archivos .sdf")
+        self.sdf_dir_input.setPlaceholderText("Folder containing .sdf files")
         self.sdf_dir_input.setText(self.settings.value("batchComparer/last_sdf_dir", ""))
-        self.sdf_dir_btn = QPushButton("Seleccionar...")
+        self.sdf_dir_btn = QPushButton("Select...")
         self.sdf_dir_btn.clicked.connect(self.browse_sdf_dir)
 
         # 3. ---------- Weights Root Directory (Directorio Raíz) ----------
         self.weights_dir_input = QLineEdit()
         self.weights_dir_input.setPlaceholderText("Carpeta padre (debe contener subcarpetas alfa/, beta/...)")
         self.weights_dir_input.setText(self.settings.value("batchComparer/last_weights_dir", ""))
-        self.weights_dir_btn = QPushButton("Seleccionar...")
+        self.weights_dir_btn = QPushButton("Select...")
         self.weights_dir_btn.clicked.connect(self.browse_weights_dir)
 
         # En el __init__ añade el campo para Targets
         self.targets_input = QLineEdit()
-        self.targets_input.setPlaceholderText("Archivo de targets (.txt)")
+        self.targets_input.setPlaceholderText("Target file (.txt)")
         self.targets_input.setText(self.settings.value("batchComparer/last_targets_path", ""))
-        self.targets_btn = QPushButton("Seleccionar...")
+        self.targets_btn = QPushButton("Select...")
         self.targets_btn.clicked.connect(self.browse_targets)
 
         # ---------- Layout ----------
         form_layout = QFormLayout()
         
         # Fila Modo
-        form_layout.addRow("Modo de Análisis:", self.mode_combo)
+        form_layout.addRow("Analysis Mode:", self.mode_combo)
 
-        form_layout.addRow("Tipo de Métrica:", self.fidelity_check) # <--- ### NUEVO ###
+        form_layout.addRow("Metric Type:", self.fidelity_check) # <--- ### NUEVO ###
         
         # Fila Modelo
-        form_layout.addRow("Modelo Base (.pt):", self._with_button(self.model_path_input, self.model_browse_btn))
+        form_layout.addRow("Base Model (.pt):", self._with_button(self.model_path_input, self.model_browse_btn))
         
         # Separador visual o espacio
-        form_layout.addRow(QLabel("--- Directorios de Datos ---"))
+        form_layout.addRow(QLabel("--- Data Directories ---"))
         
         # Fila SDFs
-        form_layout.addRow("Directorio SDFs:", self._with_button(self.sdf_dir_input, self.sdf_dir_btn))
+        form_layout.addRow("SDF Directory:", self._with_button(self.sdf_dir_input, self.sdf_dir_btn))
 
         # Añádelo al form_layout
         form_layout.addRow("Targets (.txt):", self._with_button(self.targets_input, self.targets_btn))
@@ -108,7 +108,7 @@ class BatchComparerDialog(QDialog):
 
     def browse_sdf_dir(self):
         # Selecciona UN DIRECTORIO
-        path = QFileDialog.getExistingDirectory(self, "Seleccionar Directorio de SDFs")
+        path = QFileDialog.getExistingDirectory(self, "Select SDF Directory")
         if path: self.sdf_dir_input.setText(path)
 
     def browse_weights_dir(self):
@@ -124,7 +124,7 @@ class BatchComparerDialog(QDialog):
     # ---------- Accept ----------
     def accept(self):
         self.settings.setValue("batchComparer/last_mode", self.mode_combo.currentText())
-        # Guardar estado del checkbox ### NUEVO ###
+        # Save estado del checkbox ### NUEVO ###
         self.settings.setValue("batchComparer/reg_fidelity_mas", self.fidelity_check.isChecked()) 
         
         self.settings.setValue("batchComparer/last_model_path", self.model_path_input.text())

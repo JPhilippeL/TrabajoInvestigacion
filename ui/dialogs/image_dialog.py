@@ -17,7 +17,7 @@ class ImageDialog(QDialog):
 
         pixmap = QPixmap(image_path)
         if pixmap.isNull():
-            self.label.setText("No se pudo cargar la imagen.")
+            self.label.setText("Could not load the image.")
         else:
             self.label.setPixmap(pixmap)
 

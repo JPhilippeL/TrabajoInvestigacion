@@ -1,0 +1,130 @@
+schema_version: 1
+
+dataset:
+  name: MPro-URV
+  variant_id: urv_distance_only
+  description: >
+    DCML distance-only baseline dataset for MPro-URV. This variant contains only
+    the distance descriptor block and does not use charge descriptors.
+  recommended_for_final_report: false
+  purpose: baseline_distance_descriptors
+
+source:
+  staging_root: data_urv
+  raw_structures_root: data_urv/pdbbind_like/URV/refined
+  source_sample_ids_csv: data_urv/dcml_input/MProURV_all_sample_ids.csv
+  source_label_npy: data_urv/dcml_input/MProURV_all_label.npy
+
+generation:
+  feature_mode: distance_only
+  charge_mode: none
+  output_mode_argument: distance-only
+  charge_mode_argument: zeros
+  generator_script: generate_urv_dcml_features.py
+  expected_command: >
+    python generate_urv_dcml_features.py
+    --work-root data_urv
+    --output-mode distance-only
+    --charge-mode zeros
+    --write-zip
+    --dtype float32
+    --workers 2
+    --force
+
+features:
+  n_samples: 378
+  n_features: 63360
+  distance_features: 63360
+  charge_features: 0
+  dtype: float32
+  format: zip_with_single_npy
+  expected_shape: [378, 63360]
+
+labels:
+  n_samples: 378
+  target: pIC50
+  format: npy_1d
+  expected_shape: [378]
+
+dataset_root: DCML/datasets/urv_distance_only
+
+files:
+  all:
+    feature_zip: all_feature.zip
+    label_npy: all_label.npy
+    sample_ids_csv: sample_ids.csv
+
+  splits:
+    split_indices_json: split_indices.json
+
+    train_feature_zip: train_feature.zip
+    train_label_npy: train_label.npy
+
+    validation_feature_zip: validation_feature.zip
+    validation_label_npy: validation_label.npy
+
+    test_feature_zip: test_feature.zip
+    test_label_npy: test_label.npy
+
+    trainval_feature_zip: trainval_feature.zip
+    trainval_label_npy: trainval_label.npy
+
+  reports:
+    feature_generation_report_json: feature_generation_report.json
+    feature_validation_json: feature_validation.json
+
+required_files_for_hpo:
+  - train_feature.zip
+  - train_label.npy
+  - validation_feature.zip
+  - validation_label.npy
+
+required_files_for_final_training:
+  - trainval_feature.zip
+  - trainval_label.npy
+
+required_files_for_final_evaluation:
+  - test_feature.zip
+  - test_label.npy
+
+split:
+  method: random_holdout
+  seed: 42
+  n_samples: 378
+  train_count: 264
+  validation_count: 57
+  test_count: 57
+  train_ratio_effective: 0.6984
+  validation_ratio_effective: 0.1508
+  test_ratio_effective: 0.1508
+  split_indices_file: split_indices.json
+
+protocol:
+  hyperparameter_search:
+    train_features: train_feature.zip
+    train_labels: train_label.npy
+    validation_features: validation_feature.zip
+    validation_labels: validation_label.npy
+    primary_metric: RMSE
+    primary_goal: min
+    secondary_metric: Pearson
+    secondary_goal: max
+
+  final_training:
+    train_features: trainval_feature.zip
+    train_labels: trainval_label.npy
+
+  final_evaluation:
+    test_features: test_feature.zip
+    test_labels: test_label.npy
+
+status:
+  binary_artifacts_generated: false
+  splits_generated: false
+  ready_for_hpo: false
+  ready_for_final_training: false
+  ready_for_final_evaluation: false
+
+notes:
+  - This dataset is a baseline, not the final scientific variant.
+  - It avoids charge generation and is therefore useful for debugging and comparison.

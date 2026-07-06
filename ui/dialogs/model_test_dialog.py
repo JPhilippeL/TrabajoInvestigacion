@@ -8,7 +8,7 @@ from PySide6.QtCore import QSettings
 class ModelTestDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Seleccionar modelo y molécula")
+        self.setWindowTitle("Select Model and Molecule")
 
         # ---------- QSettings ----------
         self.settings = QSettings("Investigacion", "Analisis Molecular")
@@ -16,18 +16,18 @@ class ModelTestDialog(QDialog):
         # ---------- Model path ----------
         self.model_path_input = QLineEdit()
         self.model_path_input.setText(self.settings.value("modelTest/last_model_path", ""))
-        self.model_browse_btn = QPushButton("Seleccionar...")
+        self.model_browse_btn = QPushButton("Select...")
         self.model_browse_btn.clicked.connect(self.browse_model)
 
         # ---------- SDF path ----------
         self.sdf_path_input = QLineEdit()
         self.sdf_path_input.setText(self.settings.value("modelTest/last_sdf_path", ""))
-        self.sdf_browse_btn = QPushButton("Seleccionar...")
+        self.sdf_browse_btn = QPushButton("Select...")
         self.sdf_browse_btn.clicked.connect(self.browse_sdf)
 
         form_layout = QFormLayout()
-        form_layout.addRow("Modelo (.pt):", self._with_button(self.model_path_input, self.model_browse_btn))
-        form_layout.addRow("Molécula (.sdf):", self._with_button(self.sdf_path_input, self.sdf_browse_btn))
+        form_layout.addRow("Model (.pt):", self._with_button(self.model_path_input, self.model_browse_btn))
+        form_layout.addRow("Molecule (.sdf):", self._with_button(self.sdf_path_input, self.sdf_browse_btn))
 
         layout = QVBoxLayout()
         layout.addLayout(form_layout)
@@ -54,13 +54,13 @@ class ModelTestDialog(QDialog):
             self.model_path_input.setText(path)
 
     def browse_sdf(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Seleccionar molécula", "", "Moléculas (*.sdf)")
+        path, _ = QFileDialog.getOpenFileName(self, "Select Molecule", "", "Molecules (*.sdf)")
         if path:
             self.sdf_path_input.setText(path)
 
     # ---------- Accept ----------
     def accept(self):
-        # Guardar rutas en QSettings
+        # Save rutas en QSettings
         self.settings.setValue("modelTest/last_model_path", self.model_path_input.text())
         self.settings.setValue("modelTest/last_sdf_path", self.sdf_path_input.text())
         super().accept()

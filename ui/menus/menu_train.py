@@ -20,12 +20,12 @@ class MenuTrainGNN(QMenu):
         # Menu de Entrenamiento
 
         # Entrenamiento de IA
-        entrenar_action = QAction("Entrenar Modelo", self)
+        entrenar_action = QAction("Train Model", self)
         entrenar_action.triggered.connect(self.entrenar_gnn)
         self.addAction(entrenar_action)
 
         # Entrenamiento de múltiples modelos
-        entrenar_multiple_action = QAction("Entrenar Múltiples Modelos", self)
+        entrenar_multiple_action = QAction("Train Multiple Models", self)
         entrenar_multiple_action.triggered.connect(self.entrenar_multiples_modelos_gnn)
         self.addAction(entrenar_multiple_action)
 
@@ -39,22 +39,22 @@ class MenuTrainGNN(QMenu):
 
         # ----- Validaciones -----
         if not config["sdf_dir"] or not os.path.isdir(config["sdf_dir"]):
-            QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
+            QMessageBox.warning(self.main_window, "Error", "You must select a valid directory containing SDF files.")
             return
 
         if not config["target_file"] or not os.path.isfile(config["target_file"]):
-            QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
+            QMessageBox.warning(self.main_window, "Error", "You must select a valid .txt target file.")
             return
 
         if not config["save_name"]:
-            QMessageBox.warning(self.main_window, "Nombre inválido", "El nombre del archivo no puede estar vacío.")
+            QMessageBox.warning(self.main_window, "Invalid name", "The file name cannot be empty.")
             return
 
         # Validar early stopping y validación
         if config["early_stopping_patience"] > 0 and config["valid_split"] <= 0:
             QMessageBox.warning(
                 self.main_window,
-                "Configuración inválida",
+                "Invalid configuration",
                 "Para usar Early Stopping, el porcentaje de validación debe ser mayor que 0."
             )
             return
@@ -87,17 +87,17 @@ class MenuTrainGNN(QMenu):
 
         # ----- Validaciones -----
         if not config.get("sdf_dir") or not os.path.isdir(config["sdf_dir"]):
-            QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un directorio válido con archivos SDF.")
+            QMessageBox.warning(self.main_window, "Error", "You must select a valid directory containing SDF files.")
             return
         if not config.get("target_file") or not os.path.isfile(config["target_file"]):
-            QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un archivo .txt válido con los targets.")
+            QMessageBox.warning(self.main_window, "Error", "You must select a valid .txt target file.")
             return
 
         # Validar early stopping y porcentaje de validación
         if config.get("patience", 0) > 0 and config.get("valid_split", 0) <= 0:
             QMessageBox.warning(
                 self.main_window,
-                "Configuración inválida",
+                "Invalid configuration",
                 "Para usar Early Stopping, el porcentaje de validación debe ser mayor que 0."
             )
             return

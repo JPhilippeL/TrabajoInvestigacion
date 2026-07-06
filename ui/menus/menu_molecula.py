@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class MenuMolecula(QMenu):
     def __init__(self, parent_window):
         # "parent_window" es tu MainWindow, lo necesitamos para los diálogos
-        super().__init__("Molécula", parent_window)
+        super().__init__("Molecule", parent_window)
         self.main_window = parent_window 
 
         self.init_actions()
@@ -22,27 +22,27 @@ class MenuMolecula(QMenu):
     def init_actions(self):
         #Menu de Molécula
 
-        nuevo_action = QAction("Nueva", self)
+        nuevo_action = QAction("New", self)
         nuevo_action.triggered.connect(self.nuevo_molecula)
         self.addAction(nuevo_action)
 
-        cargar_action = QAction("Cargar", self)
+        cargar_action = QAction("Load", self)
         cargar_action.triggered.connect(self.cargar_molecula)
         self.addAction(cargar_action)
 
-        guardar_action = QAction("Guardar", self)
+        guardar_action = QAction("Save", self)
         guardar_action.triggered.connect(self.guardar_molecula)
         self.addAction(guardar_action)
 
-        verificar_action = QAction("Verificar Molécula", self)
+        verificar_action = QAction("Verify Molecule", self)
         verificar_action.triggered.connect(self.verificar_molecula)
         self.addAction(verificar_action)
 
-        dividir_action = QAction("Dividir SDF", self)
+        dividir_action = QAction("Split SDF", self)
         dividir_action.triggered.connect(self.dividir_sdf)
         self.addAction(dividir_action)
 
-        dividir_csv_action = QAction("CSV a SDF", self)
+        dividir_csv_action = QAction("CSV to SDF", self)
         dividir_csv_action.triggered.connect(self.csv_a_sdf)
         self.addAction(dividir_csv_action)
 
@@ -54,7 +54,7 @@ class MenuMolecula(QMenu):
             self.main_window,
             "Seleccionar archivo SDF",
             "",
-            "Archivos SDF (*.sdf);;Todos los archivos (*)"
+            "SDF files (*.sdf);;All files (*)"
         )
         if file_path:
             self.main_window.load_graph_from_file(file_path)
@@ -66,9 +66,9 @@ class MenuMolecula(QMenu):
 
         file_path, _ = QFileDialog.getSaveFileName(
             self.main_window,
-            "Guardar archivo SDF",
+            "Save archivo SDF",
             "",
-            "Archivos SDF (*.sdf)"
+            "SDF files (*.sdf)"
         )
         if not file_path:
             return
@@ -77,7 +77,7 @@ class MenuMolecula(QMenu):
 
         try:
             save_graph_as_sdf(graph, file_path)
-            mensaje = f"Archivo guardado correctamente en: {file_path}"
+            mensaje = f"File saved successfully at: {file_path}"
             logger.info(mensaje)
             # self.main_window.load_graph_from_file(file_path)  # Recargar el grafo guardado
         except Exception as e:
@@ -111,16 +111,16 @@ class MenuMolecula(QMenu):
 
         # Validaciones básicas
         if not config["sdf_file"] or not os.path.isfile(config["sdf_file"]):
-            QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un archivo SDF válido.")
+            QMessageBox.warning(self.main_window, "Error", "You must select a valid SDF file.")
             return
 
         if not config["output_dir"]:
-            QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un directorio de salida.")
+            QMessageBox.warning(self.main_window, "Error", "You must select an output directory.")
             return
 
         try:
             split_sdf(config["sdf_file"], config["output_dir"])
-            mensaje = f"SDF dividido correctamente. Archivos guardados en: {config['output_dir']}"
+            mensaje = f"SDF split successfully. Files saved in: {config['output_dir']}"
             logger.info(mensaje)
         except Exception as e:
             logger.exception(f"Error al dividir SDF: {str(e)}", exc_info=True)
@@ -134,11 +134,11 @@ class MenuMolecula(QMenu):
 
         # Validaciones
         if not config["csv_file"] or not os.path.isfile(config["csv_file"]):
-            QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un archivo CSV válido.")
+            QMessageBox.warning(self.main_window, "Error", "You must select a valid CSV file.")
             return
 
         if not config["output_dir"]:
-            QMessageBox.warning(self.main_window, "Error", "Debes seleccionar un directorio de salida.")
+            QMessageBox.warning(self.main_window, "Error", "You must select an output directory.")
             return
 
         try:
@@ -146,5 +146,5 @@ class MenuMolecula(QMenu):
             mensaje = f"CSV dividido correctamente. SDFs guardados en: {config['output_dir']}"
             logger.info(mensaje)
         except Exception as e:
-            QMessageBox.critical(self.main_window, "Error al dividir CSV", str(e))
-            logger.exception(f"Error al dividir CSV: {str(e)}", exc_info=True)
+            QMessageBox.critical(self.main_window, "CSV splitting error", str(e))
+            logger.exception(f"CSV splitting error: {str(e)}", exc_info=True)

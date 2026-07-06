@@ -1,0 +1,1 @@
+"""WideDTA core package."""

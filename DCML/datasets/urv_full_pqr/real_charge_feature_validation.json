@@ -1,0 +1,14 @@
+{
+  "feature_npy": "data_urv/dcml_input/MProURV_all_feature_real_charge.npy",
+  "feature_zip": "data_urv/dcml_input/MProURV_all_feature_real_charge.zip",
+  "shape": [
+    378,
+    118360
+  ],
+  "dtype": "float32",
+  "finite": true,
+  "zero_rows": 0,
+  "distance_nonzero": 6338761,
+  "charge_nonzero": 4385139,
+  "charge_sum_abs": 2.666212618141696e+18
+}

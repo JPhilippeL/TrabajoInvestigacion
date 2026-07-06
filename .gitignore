@@ -1,3 +1,30 @@
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Models / checkpoints
+*.pt
+*.pth
+*.ckpt
+best_model_tmp.pt
+
+# Generated model folders anywhere
+**/Models_EGNN/
+**/Models_EDNN/
+**/Results_EGNN/
+**/Results_EDNN/
+**/Graphs_EGNN/
+**/Graphs_EDNN/
+runs/
+results/
+
+# Data / generated outputs
 Modelos/
 data/
 Datos/
@@ -33,3 +60,15 @@ GIGN_GUI
 CheapNet_GUI
 GraphDTA
 Planet
+Resultados 2025/
+
+# dcml
+DCML/results/*
+!DCML/results/.gitkeep
+
+#CAPLA
+CAPLA/outputs/**
+
+# DEAttentionDTA
+DEAttentionDTA/outputs/**
+

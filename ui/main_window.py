@@ -12,11 +12,12 @@ import logging
 from ui.utils.logger import QtHandler
 from GNNs.controllers.training_controller_process import TrainingControllerProcess
 from GNNs.controllers.testing_controller_process import TestingControllerProcess
+from GNNs.controllers.hyperparameter_search_controller_process import HyperparameterSearchControllerProcess
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Sistema de Análisis Molecular")
+        self.setWindowTitle("Molecular Analysis System")
         self.resize(900, 600)
 
         # Contenedor central permanente
@@ -37,10 +38,10 @@ class MainWindow(QMainWindow):
         # Welcome screen inicial
         self.splitter.addWidget(WelcomeScreen())
 
-        # Área de log 
+        # Área de log
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
-        self.log_output.setPlaceholderText("Mensajes del sistema...")
+        self.log_output.setPlaceholderText("System messages...")
         self.splitter.addWidget(self.log_output)
 
         # Ajustar proporciones: 75% para el contenido, 25% para el log
@@ -61,6 +62,7 @@ class MainWindow(QMainWindow):
         # Controlador de entrenamiento y testeo
         self.training_controller = TrainingControllerProcess(self)
         self.testing_controller = TestingControllerProcess(self)
+        self.hyperparameter_search_controller = HyperparameterSearchControllerProcess(self)
 
     def create_new_graph(self):
         graph = nx.Graph()
@@ -85,7 +87,7 @@ class MainWindow(QMainWindow):
         try:
             graph = parse_sdf(file_path)
         except Exception as e:
-            QMessageBox.critical(self, "Error al cargar", f"No se pudo cargar el archivo:\n{str(e)}")
+            QMessageBox.critical(self, "Loading error", f"Could not load the file:\n{str(e)}")
             return
 
         new_graph_view = MoleculeGraphView(graph)

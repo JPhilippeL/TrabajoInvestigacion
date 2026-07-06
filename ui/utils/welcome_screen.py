@@ -10,7 +10,7 @@ class WelcomeScreen(QWidget):
         layout.setAlignment(Qt.AlignCenter)
 
         image_label = QLabel()
-        # Cargar la imagen como QImage
+        # Load la imagen como QImage
         image = QImage("assets/icono3.png")
 
         # Invertir los colores
@@ -23,7 +23,7 @@ class WelcomeScreen(QWidget):
         image_label.setPixmap(pixmap)
         image_label.setAlignment(Qt.AlignCenter)
 
-        text = QLabel("Sistema de Análisis Molecular")
+        text = QLabel("Molecular Analysis System")
         text.setAlignment(Qt.AlignCenter)
         text.setStyleSheet("font-size: 20px; font-weight: bold;")
 

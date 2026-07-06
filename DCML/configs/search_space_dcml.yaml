@@ -1,0 +1,21 @@
+model_name: DCML
+selection_rule:
+  primary_metric: RMSE
+  primary_goal: min
+  secondary_metric: Pearson
+  secondary_goal: max
+
+fixed:
+  model_type: gradient_boosting
+  device: cpu
+  cast_float32: true
+  seed: 42
+
+search_space:
+  n_estimators: [100, 300]
+  max_depth: [3, 6]
+  learning_rate: [0.01, 0.05]
+  min_samples_split: [2]
+  subsample: [0.7, 1.0]
+  max_features: [sqrt, none]
+  loss: [squared_error]

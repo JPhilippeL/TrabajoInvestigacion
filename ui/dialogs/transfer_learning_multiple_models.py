@@ -13,7 +13,7 @@ class TransferLearningMultipleDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Configuración de Transfer Learning")
+        self.setWindowTitle("Transfer Learning Configuration")
         self.settings = QSettings("Investigacion", "Analisis Molecular")
 
         layout = QVBoxLayout()
@@ -22,32 +22,32 @@ class TransferLearningMultipleDialog(QDialog):
         # ---------- Pretrained model directory ----------
         self.pretrained_dir_input = QLineEdit()
         self.pretrained_dir_input.setText(self.settings.value("transfer/pretrained_model_directory_path", ""))
-        self.pretrained_dir_button = QPushButton("Elegir carpeta...")
+        self.pretrained_dir_button = QPushButton("Choose folder...")
         self.pretrained_dir_button.clicked.connect(self.select_pretrained_folder)
         pretrained_layout = QHBoxLayout()
         pretrained_layout.addWidget(self.pretrained_dir_input)
         pretrained_layout.addWidget(self.pretrained_dir_button)
-        form_layout.addRow("Carpeta de modelos pre-entrenados:", pretrained_layout)
+        form_layout.addRow("Pretrained Models Folder:", pretrained_layout)
 
         # ---------- SDF directory ----------
         self.sdf_path_input = QLineEdit()
         self.sdf_path_input.setText(self.settings.value("transfer/sdf_dir", ""))
-        self.sdf_path_button = QPushButton("Elegir carpeta...")
+        self.sdf_path_button = QPushButton("Choose folder...")
         self.sdf_path_button.clicked.connect(self.select_sdf_folder)
         sdf_layout = QHBoxLayout()
         sdf_layout.addWidget(self.sdf_path_input)
         sdf_layout.addWidget(self.sdf_path_button)
-        form_layout.addRow("Directorio de SDFs:", sdf_layout)
+        form_layout.addRow("SDF Directory:", sdf_layout)
 
         # ---------- Target file ----------
         self.target_file_input = QLineEdit()
         self.target_file_input.setText(self.settings.value("transfer/target_file", ""))
-        self.target_file_button = QPushButton("Elegir archivo...")
+        self.target_file_button = QPushButton("Choose file...")
         self.target_file_button.clicked.connect(self.select_target_file)
         target_layout = QHBoxLayout()
         target_layout.addWidget(self.target_file_input)
         target_layout.addWidget(self.target_file_button)
-        form_layout.addRow("Archivo de targets (.txt):", target_layout)
+        form_layout.addRow("Target File (.txt):", target_layout)
 
         # ---------- Training parameters ----------
         self.epochs_input = QSpinBox()
@@ -74,11 +74,11 @@ class TransferLearningMultipleDialog(QDialog):
         self.early_stopping_patience_input.setRange(0, 100)
         self.early_stopping_patience_input.setValue(int(self.settings.value("transfer/early_stopping_patience", 0)))
 
-        form_layout.addRow("Épocas:", self.epochs_input)
+        form_layout.addRow("Epochs:", self.epochs_input)
         form_layout.addRow("Batch size:", self.batch_input)
         form_layout.addRow("Learning rate:", self.lr_input)
-        form_layout.addRow("Porcentaje validación:", self.valid_split_input)
-        form_layout.addRow("Paciencia Early Stopping (0 desactiva):", self.early_stopping_patience_input)
+        form_layout.addRow("Validation Split:", self.valid_split_input)
+        form_layout.addRow("Early Stopping Patience (0 disables):", self.early_stopping_patience_input)
 
         layout.addLayout(form_layout)
 
@@ -106,7 +106,7 @@ class TransferLearningMultipleDialog(QDialog):
         if file:
             self.target_file_input.setText(file)
 
-    # ---------- Guardar configuraciones ----------
+    # ---------- Save configuraciones ----------
     def accept(self):
         self.settings.setValue("transfer/pretrained_model_directory_path", self.pretrained_dir_input.text())
         self.settings.setValue("transfer/sdf_dir", self.sdf_path_input.text())
