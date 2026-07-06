@@ -357,7 +357,7 @@ def obtener_info_real(target_data_path, mol_id):
                     real_val = float(parts[1])
                     break
     except Exception as e:
-        logger.error(f"Error leyendo archivo de targets: {e}")
+        logger.exception(f"Error leyendo archivo de targets: {e}")
         
     return target_name, real_val
 

@@ -1,8 +1,16 @@
-from PySide6.QtWidgets import QMenuBar
 import logging
-from ui.menus import MenuMolecula, MenuExplainerGNN, MenuTestGNN, MenuTrainGNN, MenuTransferGNN
+
+from PySide6.QtWidgets import QMenuBar
+
+from menu_ui.abstract_factory.cheapnet_factory import cheapnet_menu
+from menu_ui.abstract_factory.gign_factory import gign_menu
+from menu_ui.abstract_factory.graph_dta_factory import graph_dta_menu
+from menu_ui.abstract_factory.planet_factory import planet_menu
+from ui.menus import MenuExplainerGNN, MenuMolecula, MenuTestGNN, MenuTrainGNN, MenuTransferGNN
+from URVDEEPTAF.ui.menus import MenuURVDEEPTAF
 
 logger = logging.getLogger(__name__)
+
 
 class MenuBar(QMenuBar):
     def __init__(self, parent):
@@ -28,3 +36,24 @@ class MenuBar(QMenuBar):
         # 5. Menú Explicadores
         self.menu_explicacion = MenuExplainerGNN(self.parent)
         self.addMenu(self.menu_explicacion)
+
+        # Menu deeptaf
+        self.menu_urvdeepdtaf = MenuURVDEEPTAF(self.parent)
+        self.addMenu(self.menu_urvdeepdtaf)
+
+        # Menu Cheapnet
+
+        self.menu_cheapnet = cheapnet_menu(self.parent)
+        self.addMenu(self.menu_cheapnet)
+
+        # Menu gign
+        self.menu_gign = gign_menu(self.parent)
+        self.addMenu(self.menu_gign)
+
+        # Menu graphdta
+        self.menu_dta = graph_dta_menu(self.parent)
+        self.addMenu(self.menu_dta)
+
+        # Menu planet
+        self.planet_menu = planet_menu(self.parent)
+        self.addMenu(self.planet_menu)

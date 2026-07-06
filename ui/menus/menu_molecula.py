@@ -100,7 +100,7 @@ class MenuMolecula(QMenu):
             logger.info(mensaje)
         except Exception as e:
             mensaje = f"Se detectaron errores químicos en la molécula:\n{str(e)}"
-            logger.error(mensaje)
+            logger.exception(mensaje)
 
     def dividir_sdf(self):
         dialog = SDFSplitDialog(self.main_window)
@@ -123,7 +123,7 @@ class MenuMolecula(QMenu):
             mensaje = f"SDF dividido correctamente. Archivos guardados en: {config['output_dir']}"
             logger.info(mensaje)
         except Exception as e:
-            logger.error(f"Error al dividir SDF: {str(e)}", exc_info=True)
+            logger.exception(f"Error al dividir SDF: {str(e)}", exc_info=True)
 
     def csv_a_sdf(self):
         dialog = CSVtoSDFDialog(self.main_window)
@@ -147,4 +147,4 @@ class MenuMolecula(QMenu):
             logger.info(mensaje)
         except Exception as e:
             QMessageBox.critical(self.main_window, "Error al dividir CSV", str(e))
-            logger.error(f"Error al dividir CSV: {str(e)}", exc_info=True)
+            logger.exception(f"Error al dividir CSV: {str(e)}", exc_info=True)

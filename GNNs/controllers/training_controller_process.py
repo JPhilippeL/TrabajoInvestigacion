@@ -107,7 +107,7 @@ class TrainingControllerProcess:
                 logger.info(f"Modelo guardado en: {path}")
             elif line.startswith("ERROR|"):
                 _, msg = line.split("|", 1)
-                logger.error(f"Error en entrenamiento: {msg}")
+                logger.exception(f"Error en entrenamiento: {msg}")
             else:
                 # logs normales
                 self.parent.log(line)
@@ -117,7 +117,7 @@ class TrainingControllerProcess:
             return
         data = bytes(self.process.readAllStandardError().data()).decode().strip()
         if data:
-            logger.error(data)
+            logger.exception(data)
             self.parent.log(f"[stderr] {data}")
 
     #def on_finished(self, exitCode, exitStatus):

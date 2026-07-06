@@ -55,7 +55,7 @@ class MenuTestGNN(QMenu):
                 logger.info(msg)
 
             except Exception as e:
-                logger.error(f"Error en testear modelo: {str(e)}", exc_info=True)
+                logger.exception(f"Error en testear modelo: {str(e)}", exc_info=True)
 
     def testear_modelo_en_batch(self):
         
@@ -72,7 +72,7 @@ class MenuTestGNN(QMenu):
                 self.image_dialog.show()
 
             except Exception as e:
-                logger.error("Error en testeo por lotes: " + str(e), exc_info=True)
+                logger.exception("Error en testeo por lotes: " + str(e), exc_info=True)
 
     def testear_directorio_modelos(self):
         dialog = BatchAllModelsTestDialog(self.main_window)
@@ -83,7 +83,7 @@ class MenuTestGNN(QMenu):
                 # Ejecutamos testing con el proceso
                 self.main_window.testing_controller.testear_modelos(models_dir, sdf_dir, targets_file)
             except Exception as e:
-                logger.error("Error en testeo de todos los modelos: " + str(e), exc_info=True)
+                logger.exception("Error en testeo de todos los modelos: " + str(e), exc_info=True)
 
     def consultar_parametros_modelo(self):
         file_path, _ = QFileDialog.getOpenFileName(
