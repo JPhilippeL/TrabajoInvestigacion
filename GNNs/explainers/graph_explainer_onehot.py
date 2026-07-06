@@ -263,20 +263,18 @@ def obtener_graph_explainer(
     aplicar_filtro_proporcionalidad = True 
 
     # --- NUEVO PASO: Calcular y filtrar proporcionalidades ---
-    node_feature_names = get_features_names_onehot()
 
     if aplicar_filtro_proporcionalidad:
-        # Ejecuta el cálculo y filtra E_list
         E_list, features_mantenidas, info_eliminada, num_feat_orig = calcular_y_filtrar_proporcionalidad(
-            E_list, 
-            feature_names=node_feature_names, 
+            muestra.to(device),
+            E_list,
             threshold=0.85
         )
     else:
-        # Bypass: Se mantiene E_list original y se setean las variables de control a None
         info_eliminada = None
         num_feat_orig = E_list[0].shape[1] if len(E_list) > 0 else 0
-        print("[i] Filtro de proporcionalidad DESACTIVADO. Se usarán todas las columnas originales.")
+        features_mantenidas = list(range(num_feat_orig)) # <--- IMPORTANTE AÑADIR ESTO
+        print("[i] Filtro de proporcionalidad DESACTIVADO.")
 
 
     # Lo mismo con los edges (onehot)
@@ -284,13 +282,24 @@ def obtener_graph_explainer(
     for data_z in perturbed_samples:
         if data_z.edge_attr is not None:
             A_list.append(data_z.edge_attr.to(device))
+        else:
+            print("Error al añadir los edge features de una molecula")
+
+    if aplicar_filtro_proporcionalidad:
+                A_list, features_mantenidas_e, info_eliminada_e, num_feat_orig_e = calcular_y_filtrar_proporcionalidad(
+                    muestra.to(device),
+                    A_list,
+                    threshold=0.85,
+                    mode="Edges"
+                )
 
     # --------------- HACERLO CON OPTIMIZACION DE PYTORCH ----------------------
     # Si el filtro está en False, 'alfa_reducido' será en realidad el tensor completo
-    alfa_reducido, beta, gamma, delta, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_list, A_list)
+    alfa_reducido, beta, gamma_reducida, delta, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_list, A_list)
 
     # Si info_eliminada es None, reconstruir_alfa simplemente devuelve alfa_reducido tal cual
-    alfa = reconstruir_alfa(alfa_reducido, num_feat_orig, features_mantenidas, info_eliminada)
+    alfa = reconstruir_importancias(alfa_reducido, num_feat_orig, features_mantenidas, info_eliminada)
+    gamma = reconstruir_importancias(gamma_reducida, num_feat_orig_e, features_mantenidas_e, info_eliminada_e)
 
     # Verificar que aprendimos algo distinto de cero
     print(f"Max Alfa: {alfa.max().item():.4f}, Min Alfa: {alfa.min().item():.4f}")
@@ -554,22 +563,28 @@ def stack_and_normalize(tensor_list, device):
     
     return normalized_stacked
 
-def calcular_y_filtrar_proporcionalidad(E_list, feature_names, threshold=0.85):
-    X = torch.cat(E_list, dim=0) 
-    num_features = X.shape[1]
+def calcular_y_filtrar_proporcionalidad(original, feature_list, threshold=0.85, mode="Nodos"):
+    # Ahora X es directamente la matriz original, no necesitamos concatenar nada
 
-    # --- NUEVO: Detectar columnas de puros ceros ---
+    if mode == "Nodos":
+        feature_names = get_features_names_onehot()
+        X = original.x
+        num_features = X.shape[1]
+    else:
+        feature_names = EDGE_FEATURE_NAMES
+        X = original.edge_attr
+        num_features = X.shape[1]
+
+    # --- Detectar columnas de puros ceros en la original ---
     # Si una columna no tiene ningún valor distinto de 0, es True en zero_mask
     zero_mask = ~(X != 0).any(dim=0)
     zero_cols = zero_mask.nonzero(as_tuple=True)[0].tolist()
 
     if len(zero_cols) > 0:
         nombres_ceros = [feature_names[i] for i in zero_cols]
-        print(f"[i] Se detectaron {len(zero_cols)} columnas de puros ceros. Se omitirán.")
-        # Opcional: imprimir cuáles son
-        # print(f"    Variables vacías: {nombres_ceros}")
+        print(f"[i] Se detectaron {len(zero_cols)} columnas de puros ceros en la matriz original. Se omitirán.")
 
-    # Cálculos de matrices (las columnas de ceros darán DoP = 0 por el +1e-8)
+    # Cálculos de matrices sobre la matriz original
     dot_products = torch.matmul(X.T, X)
     norms = torch.norm(X, dim=0)
     norms_matrix = torch.outer(norms, norms) + 1e-8
@@ -606,7 +621,7 @@ def calcular_y_filtrar_proporcionalidad(E_list, feature_names, threshold=0.85):
         print(f"Mayor DoP encontrado:  {max_dop_value:.4f}")
         print(f"Comparando: '{nombre_j}' (j) con '{nombre_k}' (k)")
         print(f"Valor de p calculado:  {p_value:.4f}")
-        print(f"[!] Eliminando la feature: '{nombre_j}'...")
+        print(f"[!] Eliminando la feature: '{nombre_j}' de la lista de perturbaciones...")
         print("----------------------------------------------\n")
         
         if j in features_to_keep:
@@ -620,13 +635,13 @@ def calcular_y_filtrar_proporcionalidad(E_list, feature_names, threshold=0.85):
     else:
         print(f"[i] Ningún DoP supera el threshold de {threshold}.")
 
-    # Filtramos la matriz E
-    E_list_filtrado = [data[:, features_to_keep] for data in E_list]
+    # Filtramos la matriz perturbada (feature_list) usando los índices que mantuvimos
+    feature_list_filtrado = [data[:, features_to_keep] for data in feature_list]
 
-    # Devolvemos features_to_keep porque la necesitamos para reconstruir
-    return E_list_filtrado, features_to_keep, info_eliminada, num_features
+    # Devolvemos features_to_keep porque la necesitamos para reconstruir alfa luego
+    return feature_list_filtrado, features_to_keep, info_eliminada, num_features
 
-def reconstruir_alfa(alfa_reducido, num_features_original, features_mantenidas, info_eliminada):
+def reconstruir_importancias(alfa_reducido, num_features_original, features_mantenidas, info_eliminada):
     """
     Reconstruye el tensor alfa a su dimensión original.
     1. Rellena con 0s por defecto (así las columnas vacías se quedan en 0).
