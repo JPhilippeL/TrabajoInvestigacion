@@ -641,6 +641,88 @@ def calcular_y_filtrar_proporcionalidad(original, feature_list, threshold=0.85, 
     # Devolvemos features_to_keep porque la necesitamos para reconstruir alfa luego
     return feature_list_filtrado, features_to_keep, info_eliminada, num_features
 
+def calcular_y_filtrar_proporcionalidad_filas(original, element_list, threshold=0.85, mode="Nodos"):
+    # Extraemos la matriz X dependiendo del modo
+    if mode == "Nodos":
+        X = original.x
+    else:
+        X = original.edge_attr
+        
+    num_rows = X.shape[0]
+    
+    # Creamos nombres genéricos para las filas, ya que no tienen un "nombre" como las features
+    row_names = [f"Fila_{i}" for i in range(num_rows)]
+
+    # --- Detectar FILAS de puros ceros en la original ---
+    # dim=1 para buscar a lo largo de las filas
+    zero_mask = ~(X != 0).any(dim=1)
+    zero_rows = zero_mask.nonzero(as_tuple=True)[0].tolist()
+
+    if len(zero_rows) > 0:
+        print(f"[i] Se detectaron {len(zero_rows)} filas de puros ceros en {mode}. Se omitirán.")
+
+    # Cálculos de matrices sobre las FILAS
+    # Invertimos el orden: X @ X.T en lugar de X.T @ X
+    dot_products = torch.matmul(X, X.T)
+    
+    # Normas calculadas sobre dim=1 (por cada fila)
+    norms = torch.norm(X, dim=1)
+    norms_matrix = torch.outer(norms, norms) + 1e-8
+    
+    cos_theta = dot_products / norms_matrix
+    dop_matrix = torch.abs(cos_theta)
+
+    norms_sq = torch.pow(norms, 2) + 1e-8
+    # Broadcasting por filas
+    p_matrix = dot_products / norms_sq.view(-1, 1) 
+    dop_matrix.fill_diagonal_(0)
+
+    # Buscar el máximo DoP entre filas
+    max_dop_idx = torch.argmax(dop_matrix).item()
+    j = max_dop_idx // num_rows  
+    k = max_dop_idx % num_rows   
+    
+    max_dop_value = dop_matrix[j, k].item()
+    p_value = p_matrix[j, k].item()
+
+    # Inicializamos la lista con todas las filas
+    rows_to_keep = list(range(num_rows))
+    info_eliminada = None
+
+    # Primero quitamos las filas de ceros
+    for z in zero_rows:
+        if z in rows_to_keep:
+            rows_to_keep.remove(z)
+
+    # Luego evaluamos si hay que quitar la proporcional
+    if max_dop_value >= threshold:
+        nombre_j = row_names[j]
+        nombre_k = row_names[k]
+        
+        print(f"\n--- Análisis de Proporcionalidad por Filas ({mode}) ---")
+        print(f"Mayor DoP encontrado:  {max_dop_value:.4f}")
+        print(f"Comparando: '{nombre_j}' (j) con '{nombre_k}' (k)")
+        print(f"Valor de p calculado:  {p_value:.4f}")
+        print(f"[!] Eliminando la fila: '{nombre_j}'...")
+        print("----------------------------------------------\n")
+        
+        if j in rows_to_keep:
+            rows_to_keep.remove(j)
+            
+        info_eliminada = {
+            'j': j,
+            'k': k,
+            'p': p_value
+        }
+    else:
+        print(f"[i] Ningún DoP supera el threshold de {threshold} en {mode}.")
+
+    # Filtramos la matriz perturbada usando los índices de filas que mantuvimos
+    # Nota el cambio en el slicing: data[rows_to_keep, :]
+    element_list_filtrado = [data[rows_to_keep, :] for data in element_list]
+
+    return element_list_filtrado, rows_to_keep, info_eliminada, num_rows
+
 def reconstruir_importancias(alfa_reducido, num_features_original, features_mantenidas, info_eliminada):
     """
     Reconstruye el tensor alfa a su dimensión original.
@@ -669,3 +751,32 @@ def reconstruir_importancias(alfa_reducido, num_features_original, features_mant
         alfa_completo[j] = 1.0
         
     return alfa_completo
+
+def reconstruir_importancias_filas(importancia_reducida, num_filas_original, rows_mantenidos, info_eliminada):
+    """
+    Reconstruye el tensor de importancia de filas (beta o delta) a su dimensión original.
+    1. Rellena con 0s las posiciones de las filas que eran puramente ceros.
+    2. Coloca los pesos optimizados en sus índices originales correspondientes.
+    3. Aplica la ecuación 16 a las filas afectadas por el filtro de DoP.
+    """
+    # Crear tensor lleno de ceros con el tamaño original [num_filas_original, 1]
+    importancia_completa = torch.zeros((num_filas_original, 1), device=importancia_reducida.device)
+    
+    # 1. Mapear los valores optimizados a sus posiciones originales
+    for idx_reducido, idx_original in enumerate(rows_mantenidos):
+        importancia_completa[idx_original] = importancia_reducida[idx_reducido]
+        
+    # 2. Si se eliminó una fila por alta proporcionalidad, aplicar la fórmula
+    if info_eliminada is not None:
+        j = info_eliminada['j']
+        k = info_eliminada['k']
+        p = info_eliminada['p']
+        
+        # El valor en la posición 'k' ya se asignó en el paso anterior, lo clonamos
+        tilde_k = importancia_completa[k].clone()
+        
+        # Aplicar las condiciones de la Ecuación 16
+        importancia_completa[k] = (1 + p) * tilde_k - p
+        importancia_completa[j] = 1.0
+        
+    return importancia_completa
