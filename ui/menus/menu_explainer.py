@@ -1,23 +1,31 @@
-from PySide6.QtWidgets import QMenu
-from PySide6.QtGui import QAction
-import sys
-import os
 import logging
+import os
+import sys
+
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QMenu
 
 dir_actual = os.path.dirname(os.path.abspath(__file__))
 dir_padre = os.path.abspath(os.path.join(dir_actual, "../.."))
 sys.path.insert(0, dir_padre)
 
-from ui.dialogs.batch_explanation_dialog import BatchExplanationDialog
-from ui.dialogs.image_dialog import ImageDialog
-from ui.dialogs.explanation_dialog import ExplanationDialog
-from ui.dialogs.explainer_comparer_dialog import ExplainerComparerDialog
-from ui.dialogs.batch_explainer_comparer_dialog import BatchComparerDialog
-
+from GNNs.explainers.explanation_fidelity import (
+    generar_comparativa_fidelity,
+    obtener_aucs_directorio,
+)
 from GNNs.explainers.explanation_helper import guardar_pesos_batch
 from GNNs.explainers.graph_explainer_onehot import obtener_graph_explainer
-from GNNs.explainers.model_TorchExplainers import obtener_Dummy_Explainer, obtener_Captum_Explainer, obtener_GNN_Explainer, obtener_SubgraphX_Explainer
-from GNNs.explainers.explanation_fidelity import generar_comparativa_fidelity, obtener_aucs_directorio
+from GNNs.explainers.model_TorchExplainers import (
+    obtener_Captum_Explainer,
+    obtener_Dummy_Explainer,
+    obtener_GNN_Explainer,
+    obtener_SubgraphX_Explainer,
+)
+from ui.dialogs.batch_explainer_comparer_dialog import BatchComparerDialog
+from ui.dialogs.batch_explanation_dialog import BatchExplanationDialog
+from ui.dialogs.explainer_comparer_dialog import ExplainerComparerDialog
+from ui.dialogs.explanation_dialog import ExplanationDialog
+from ui.dialogs.image_dialog import ImageDialog
 from ui.utils.constants import EXPLAINERS
 
 logger = logging.getLogger(__name__)
