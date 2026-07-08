@@ -260,21 +260,29 @@ def obtener_graph_explainer(
     E_list = [data_z.x.to(device) for data_z in perturbed_samples]
 
     # Variable para activar/desactivar el filtro (cámbialo a False para comparar)
-    aplicar_filtro_proporcionalidad = True 
+    aplicar_filtro_columnas = True
+    aplicar_filtro_filas = True 
 
     # --- NUEVO PASO: Calcular y filtrar proporcionalidades ---
 
-    if aplicar_filtro_proporcionalidad:
+    if aplicar_filtro_columnas:
         E_list, features_mantenidas, info_eliminada, num_feat_orig = calcular_y_filtrar_proporcionalidad(
             muestra.to(device),
             E_list,
-            threshold=0.85
+            threshold=0.85,
         )
     else:
         info_eliminada = None
         num_feat_orig = E_list[0].shape[1] if len(E_list) > 0 else 0
         features_mantenidas = list(range(num_feat_orig)) # <--- IMPORTANTE AÑADIR ESTO
         print("[i] Filtro de proporcionalidad DESACTIVADO.")
+
+    if aplicar_filtro_filas:
+        # Nota: Le pasamos el E_list que ya viene limpio de columnas
+        E_list, nodos_mantenidos, info_row, num_nodos_orig = calcular_y_filtrar_proporcionalidad(
+            muestra.to(device), E_list, threshold=0.85, axis=1
+        )
+
 
 
     # Lo mismo con los edges (onehot)
@@ -285,21 +293,27 @@ def obtener_graph_explainer(
         else:
             print("Error al añadir los edge features de una molecula")
 
-    if aplicar_filtro_proporcionalidad:
+    if aplicar_filtro_columnas:
                 A_list, features_mantenidas_e, info_eliminada_e, num_feat_orig_e = calcular_y_filtrar_proporcionalidad(
                     muestra.to(device),
                     A_list,
                     threshold=0.85,
-                    mode="Edges"
+                    mode="Edges",
                 )
+    # if aplicar_filtro_filas:
+    #             A_list, edges_mantenidos, info_row_e, num_edges_orig = calcular_y_filtrar_proporcionalidad_filas(
+    #                 muestra.to(device), A_list, threshold=0.85, mode="Edges"
+    #             )
 
     # --------------- HACERLO CON OPTIMIZACION DE PYTORCH ----------------------
     # Si el filtro está en False, 'alfa_reducido' será en realidad el tensor completo
-    alfa_reducido, beta, gamma_reducida, delta, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_list, A_list)
+    alfa_reducido, beta_reducido, gamma_reducida, delta, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_list, A_list)
 
     # Si info_eliminada es None, reconstruir_alfa simplemente devuelve alfa_reducido tal cual
     alfa = reconstruir_importancias(alfa_reducido, num_feat_orig, features_mantenidas, info_eliminada)
     gamma = reconstruir_importancias(gamma_reducida, num_feat_orig_e, features_mantenidas_e, info_eliminada_e)
+    beta = reconstruir_importancias(beta_reducido, num_nodos_orig, nodos_mantenidos, info_row)
+    # delta = reconstruir_importancias_filas(delta_reducida, num_edges_orig, edges_mantenidos, info_row_e)
 
     # Verificar que aprendimos algo distinto de cero
     print(f"Max Alfa: {alfa.max().item():.4f}, Min Alfa: {alfa.min().item():.4f}")
@@ -563,31 +577,46 @@ def stack_and_normalize(tensor_list, device):
     
     return normalized_stacked
 
-def calcular_y_filtrar_proporcionalidad(original, feature_list, threshold=0.85, mode="Nodos"):
-    # Ahora X es directamente la matriz original, no necesitamos concatenar nada
-
+def calcular_y_filtrar_proporcionalidad(original, element_list, threshold=0.85, mode="Nodos", axis=0):
+    """
+    Filtra colinealidad y ceros.
+    axis=0 : Analiza Columnas (Features)
+    axis=1 : Analiza Filas (Nodos / Aristas)
+    """
     if mode == "Nodos":
-        feature_names = get_features_names_onehot()
         X = original.x
-        num_features = X.shape[1]
+        feature_names = get_features_names_onehot()
     else:
-        feature_names = EDGE_FEATURE_NAMES
         X = original.edge_attr
-        num_features = X.shape[1]
+        feature_names = EDGE_FEATURE_NAMES
 
-    # --- Detectar columnas de puros ceros en la original ---
-    # Si una columna no tiene ningún valor distinto de 0, es True en zero_mask
-    zero_mask = ~(X != 0).any(dim=0)
-    zero_cols = zero_mask.nonzero(as_tuple=True)[0].tolist()
+    # --- LA MAGIA MATEMÁTICA ---
+    # Si analizamos filas, transponemos la matriz. 
+    # Así, las filas se vuelven columnas y usamos la misma matemática para ambas.
+    working_X = X if axis == 0 else X.T
+    num_elements = working_X.shape[1]
 
-    if len(zero_cols) > 0:
-        nombres_ceros = [feature_names[i] for i in zero_cols]
-        print(f"[i] Se detectaron {len(zero_cols)} columnas de puros ceros en la matriz original. Se omitirán.")
+    # Asignar nombres para los prints dependiendo del eje
+    if axis == 0:
+        names = feature_names
+        axis_name = "Columnas/Features"
+    else:
+        names = [f"Fila_{i}" for i in range(num_elements)]
+        axis_name = "Filas/Elementos"
 
-    # Cálculos de matrices sobre la matriz original
-    dot_products = torch.matmul(X.T, X)
-    norms = torch.norm(X, dim=0)
+    # --- Detectar puros ceros ---
+    # Como working_X ya está orientada, siempre buscamos ceros en dim=0
+    zero_mask = ~(working_X != 0).any(dim=0)
+    zero_idx = zero_mask.nonzero(as_tuple=True)[0].tolist()
+
+    if len(zero_idx) > 0:
+        print(f"[i] Se detectaron {len(zero_idx)} {axis_name} de puros ceros en {mode}. Se omitirán.")
+
+    # --- Cálculos de matrices (Unificados) ---
+    dot_products = torch.matmul(working_X.T, working_X)
+    norms = torch.norm(working_X, dim=0)
     norms_matrix = torch.outer(norms, norms) + 1e-8
+    
     cos_theta = dot_products / norms_matrix
     dop_matrix = torch.abs(cos_theta)
 
@@ -597,35 +626,35 @@ def calcular_y_filtrar_proporcionalidad(original, feature_list, threshold=0.85, 
 
     # Buscar el máximo DoP
     max_dop_idx = torch.argmax(dop_matrix).item()
-    j = max_dop_idx // num_features  
-    k = max_dop_idx % num_features   
+    j = max_dop_idx // num_elements  
+    k = max_dop_idx % num_elements   
     
     max_dop_value = dop_matrix[j, k].item()
     p_value = p_matrix[j, k].item()
 
-    # Inicializamos la lista con todas las features
-    features_to_keep = list(range(num_features))
+    # Inicializamos la lista con todos los elementos
+    elements_to_keep = list(range(num_elements))
     info_eliminada = None
 
-    # Primero quitamos las columnas de ceros de la lista
-    for z in zero_cols:
-        if z in features_to_keep:
-            features_to_keep.remove(z)
+    # Primero quitamos los ceros
+    for z in zero_idx:
+        if z in elements_to_keep:
+            elements_to_keep.remove(z)
 
     # Luego evaluamos si hay que quitar la proporcional
     if max_dop_value >= threshold:
-        nombre_j = feature_names[j]
-        nombre_k = feature_names[k]
+        nombre_j = names[j]
+        nombre_k = names[k]
         
-        print("\n--- Análisis de Proporcionalidad de Features ---")
+        print(f"\n--- Análisis de Proporcionalidad por {axis_name} ({mode}) ---")
         print(f"Mayor DoP encontrado:  {max_dop_value:.4f}")
         print(f"Comparando: '{nombre_j}' (j) con '{nombre_k}' (k)")
         print(f"Valor de p calculado:  {p_value:.4f}")
-        print(f"[!] Eliminando la feature: '{nombre_j}' de la lista de perturbaciones...")
+        print(f"[!] Eliminando: '{nombre_j}'...")
         print("----------------------------------------------\n")
         
-        if j in features_to_keep:
-            features_to_keep.remove(j)
+        if j in elements_to_keep:
+            elements_to_keep.remove(j)
             
         info_eliminada = {
             'j': j,
@@ -633,95 +662,16 @@ def calcular_y_filtrar_proporcionalidad(original, feature_list, threshold=0.85, 
             'p': p_value
         }
     else:
-        print(f"[i] Ningún DoP supera el threshold de {threshold}.")
+        print(f"[i] Ningún DoP supera el threshold de {threshold} en {mode} ({axis_name}).")
 
-    # Filtramos la matriz perturbada (feature_list) usando los índices que mantuvimos
-    feature_list_filtrado = [data[:, features_to_keep] for data in feature_list]
-
-    # Devolvemos features_to_keep porque la necesitamos para reconstruir alfa luego
-    return feature_list_filtrado, features_to_keep, info_eliminada, num_features
-
-def calcular_y_filtrar_proporcionalidad_filas(original, element_list, threshold=0.85, mode="Nodos"):
-    # Extraemos la matriz X dependiendo del modo
-    if mode == "Nodos":
-        X = original.x
+    # --- Filtrado Final ---
+    # Recortamos la matriz original de la lista dependiendo de qué eje estamos filtrando
+    if axis == 0:
+        element_list_filtrado = [data[:, elements_to_keep] for data in element_list]
     else:
-        X = original.edge_attr
-        
-    num_rows = X.shape[0]
-    
-    # Creamos nombres genéricos para las filas, ya que no tienen un "nombre" como las features
-    row_names = [f"Fila_{i}" for i in range(num_rows)]
+        element_list_filtrado = [data[elements_to_keep, :] for data in element_list]
 
-    # --- Detectar FILAS de puros ceros en la original ---
-    # dim=1 para buscar a lo largo de las filas
-    zero_mask = ~(X != 0).any(dim=1)
-    zero_rows = zero_mask.nonzero(as_tuple=True)[0].tolist()
-
-    if len(zero_rows) > 0:
-        print(f"[i] Se detectaron {len(zero_rows)} filas de puros ceros en {mode}. Se omitirán.")
-
-    # Cálculos de matrices sobre las FILAS
-    # Invertimos el orden: X @ X.T en lugar de X.T @ X
-    dot_products = torch.matmul(X, X.T)
-    
-    # Normas calculadas sobre dim=1 (por cada fila)
-    norms = torch.norm(X, dim=1)
-    norms_matrix = torch.outer(norms, norms) + 1e-8
-    
-    cos_theta = dot_products / norms_matrix
-    dop_matrix = torch.abs(cos_theta)
-
-    norms_sq = torch.pow(norms, 2) + 1e-8
-    # Broadcasting por filas
-    p_matrix = dot_products / norms_sq.view(-1, 1) 
-    dop_matrix.fill_diagonal_(0)
-
-    # Buscar el máximo DoP entre filas
-    max_dop_idx = torch.argmax(dop_matrix).item()
-    j = max_dop_idx // num_rows  
-    k = max_dop_idx % num_rows   
-    
-    max_dop_value = dop_matrix[j, k].item()
-    p_value = p_matrix[j, k].item()
-
-    # Inicializamos la lista con todas las filas
-    rows_to_keep = list(range(num_rows))
-    info_eliminada = None
-
-    # Primero quitamos las filas de ceros
-    for z in zero_rows:
-        if z in rows_to_keep:
-            rows_to_keep.remove(z)
-
-    # Luego evaluamos si hay que quitar la proporcional
-    if max_dop_value >= threshold:
-        nombre_j = row_names[j]
-        nombre_k = row_names[k]
-        
-        print(f"\n--- Análisis de Proporcionalidad por Filas ({mode}) ---")
-        print(f"Mayor DoP encontrado:  {max_dop_value:.4f}")
-        print(f"Comparando: '{nombre_j}' (j) con '{nombre_k}' (k)")
-        print(f"Valor de p calculado:  {p_value:.4f}")
-        print(f"[!] Eliminando la fila: '{nombre_j}'...")
-        print("----------------------------------------------\n")
-        
-        if j in rows_to_keep:
-            rows_to_keep.remove(j)
-            
-        info_eliminada = {
-            'j': j,
-            'k': k,
-            'p': p_value
-        }
-    else:
-        print(f"[i] Ningún DoP supera el threshold de {threshold} en {mode}.")
-
-    # Filtramos la matriz perturbada usando los índices de filas que mantuvimos
-    # Nota el cambio en el slicing: data[rows_to_keep, :]
-    element_list_filtrado = [data[rows_to_keep, :] for data in element_list]
-
-    return element_list_filtrado, rows_to_keep, info_eliminada, num_rows
+    return element_list_filtrado, elements_to_keep, info_eliminada, num_elements
 
 def reconstruir_importancias(alfa_reducido, num_features_original, features_mantenidas, info_eliminada):
     """
@@ -751,32 +701,3 @@ def reconstruir_importancias(alfa_reducido, num_features_original, features_mant
         alfa_completo[j] = 1.0
         
     return alfa_completo
-
-def reconstruir_importancias_filas(importancia_reducida, num_filas_original, rows_mantenidos, info_eliminada):
-    """
-    Reconstruye el tensor de importancia de filas (beta o delta) a su dimensión original.
-    1. Rellena con 0s las posiciones de las filas que eran puramente ceros.
-    2. Coloca los pesos optimizados en sus índices originales correspondientes.
-    3. Aplica la ecuación 16 a las filas afectadas por el filtro de DoP.
-    """
-    # Crear tensor lleno de ceros con el tamaño original [num_filas_original, 1]
-    importancia_completa = torch.zeros((num_filas_original, 1), device=importancia_reducida.device)
-    
-    # 1. Mapear los valores optimizados a sus posiciones originales
-    for idx_reducido, idx_original in enumerate(rows_mantenidos):
-        importancia_completa[idx_original] = importancia_reducida[idx_reducido]
-        
-    # 2. Si se eliminó una fila por alta proporcionalidad, aplicar la fórmula
-    if info_eliminada is not None:
-        j = info_eliminada['j']
-        k = info_eliminada['k']
-        p = info_eliminada['p']
-        
-        # El valor en la posición 'k' ya se asignó en el paso anterior, lo clonamos
-        tilde_k = importancia_completa[k].clone()
-        
-        # Aplicar las condiciones de la Ecuación 16
-        importancia_completa[k] = (1 + p) * tilde_k - p
-        importancia_completa[j] = 1.0
-        
-    return importancia_completa
