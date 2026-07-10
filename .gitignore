@@ -15,3 +15,10 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+.idea
+CheapNet_GUI
+GIGN_GUI
+GraphDTA
+global_axis.npy
+mo.yml
