@@ -142,7 +142,6 @@ def train_one_split_for_tuning(
                 f"Epoch {epoch} | Loss: {loss.item() / y.size(0):.4f}"
             )
 
-        # 4. EVALUATION
         model.eval()
 
         train_metrics, _, _ = test(
@@ -164,7 +163,6 @@ def train_one_split_for_tuning(
         train_rmse = float(train_metrics["RMSE"])
         val_rmse = float(val_metrics["RMSE"])
 
-        # 5. LOGGING
         for metric_name, metric_value in train_metrics.items():
             writer.add_scalar(f"train/{metric_name}", metric_value, epoch)
 
@@ -179,7 +177,6 @@ def train_one_split_for_tuning(
                 f"Val RMSE: {val_rmse:.4f}"
             )
 
-        # 6. CHECKPOINTING
         if epoch >= save_best_epoch and val_rmse < best_val_rmse:
             best_val_rmse = val_rmse
             best_train_rmse = train_rmse
@@ -492,8 +489,8 @@ def run_hyperparameter_search(
 
 
 if __name__ == "__main__":
-    data = None
-    output = None
+    data = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Datos"
+    output = "/home/andromeda/Documentos/mohamedA/deepdtaf_tuning"
     search_space = default_search_space()
     cpu_used_per_trial = 4
     gpu_used_per_trial = 1
