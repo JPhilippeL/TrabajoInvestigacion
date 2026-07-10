@@ -1,6 +1,7 @@
 import json
 import logging
 import sys
+from time import time
 
 from PySide6.QtWidgets import QDialog
 from ray import tune
@@ -85,4 +86,7 @@ def launch_tuning(params):
 
 if __name__ == "__main__":
     params = json.loads(sys.argv[1])
+    starting_tuning = time()
     launch_tuning(params)
+    end_tuning = time()
+    logger.info(f"time elapsed is {end_tuning - starting_tuning:.2f} seconds")
