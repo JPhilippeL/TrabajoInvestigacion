@@ -9,10 +9,15 @@ import logging
 import gc
 import math
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+import re
 
-from torch_geometric.nn import GINConv, GINEConv, GATConv, global_add_pool, TransformerConv
+from torch_geometric.nn import GINConv, GINEConv, GATConv, global_mean_pool, TransformerConv, NNConv
 
-from GNNs.data_processing import prepare_sdf_training_data
+dir_actual = os.path.dirname(os.path.abspath(__file__))
+dir_padre = os.path.abspath(os.path.join(dir_actual, ".."))
+sys.path.insert(0, dir_padre)
+
+from GNNs.data_processing import prepare_split_training_data, prepare_split_pt_training_data
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,9 +26,21 @@ logging.basicConfig(
     stream=sys.stdout
 )
 
-from ui.utils.constants import RESULTADOS_DIR, MODELOS_DIR, hybridization_types, periodic_elements, N_BOND_TYPES, ATOM_EMB_PR, HYBRID_EMB_PR, BOND_EMB_PR, OTHER_EDGE_FEATURES, OTHER_NODE_FEATURES
+from ui.utils.constants import (RESULTADOS_DIR,
+                                MODELOS_DIR,
+                                hybridization_types, 
+                                periodic_elements, 
+                                N_BOND_TYPES, 
+                                ATOM_EMB_PR, 
+                                HYBRID_EMB_PR, 
+                                BOND_EMB_PR, 
+                                OTHER_EDGE_FEATURES, 
+                                OTHER_NODE_FEATURES,
+                                GNN_ARCHITECTURES )
 HEADS = 4  # Número de cabezas para GAT y GraphTransformer
 
+MODELOS = GNN_ARCHITECTURES
+CAPAS = [2,3,4,5]
 
 class EmbeddingEncoder(torch.nn.Module):
     def __init__(self, atom_emb_dim, hybrid_emb_dim, bond_emb_dim):
@@ -45,19 +62,22 @@ class EmbeddingEncoder(torch.nn.Module):
 
     def encode_edges(self, edge_attr):
         bond_idx = edge_attr[:, 0].long()
-        bond_dist = edge_attr[:, 1].unsqueeze(1)
+        # Tomamos TODAS las features continuas de enlaces (distancia y rotación)
+        cont_features = edge_attr[:, 1:] 
+        
         bond_emb = self.bond_embedding(bond_idx)
-        return torch.cat([bond_emb, bond_dist], dim=1)
+        return torch.cat([bond_emb, cont_features], dim=1)
 
 
 # ----------------------
 # Modelos GNN
 # ----------------------    
 class GINNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=128, dropout = 0.2):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout = 0.2):
         super().__init__()
 
         self.dropout = dropout  # Guardamos la probabilidad de dropout
+        fc_hidden_dim = hidden_dim//2
 
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
@@ -85,7 +105,7 @@ class GINNet(torch.nn.Module):
             x = conv(x, edge_index)
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         out = self.fc(x)
         return out.view(-1)
         
@@ -94,13 +114,15 @@ class GINNet(torch.nn.Module):
         for conv in self.convs:
             x = conv(x, edge_index) if edge_attr is None else conv(x, edge_index, edge_attr)
             x = F.relu(x)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         return x
     
 class GINENet(torch.nn.Module):
     # Añadimos el argumento 'dropout' al init
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=128, dropout=0.2):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout=0.2):
         super().__init__()
+        
+        fc_hidden_dim = hidden_dim//2
         
         self.dropout = dropout  # Guardamos la probabilidad de dropout
 
@@ -134,7 +156,7 @@ class GINENet(torch.nn.Module):
             # Dropout después de cada bloque convolucional
             x = F.dropout(x, p=self.dropout, training=self.training)
             
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         out = self.fc(x)
         return out.view(-1)
     
@@ -143,12 +165,14 @@ class GINENet(torch.nn.Module):
         for conv in self.convs:
             x = conv(x, edge_index) if edge_attr is None else conv(x, edge_index, edge_attr)
             x = F.relu(x)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         return x
     
 class GATNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128, dropout = 0.2):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout = 0.2):
         super().__init__()
+
+        fc_hidden_dim = hidden_dim//2
 
         self.dropout = dropout  # Guardamos la probabilidad de dropout
 
@@ -175,7 +199,7 @@ class GATNet(torch.nn.Module):
             x = conv(x, edge_index)
             x = F.elu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         out = self.fc(x)
         return out.view(-1)
     
@@ -184,14 +208,16 @@ class GATNet(torch.nn.Module):
         for conv in self.convs:
             x = conv(x, edge_index) if edge_attr is None else conv(x, edge_index, edge_attr)
             x = F.relu(x)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         return x
     
 class EGATNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128, dropout = 0.2):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout = 0.2):
         super().__init__()
 
         self.dropout = dropout
+
+        fc_hidden_dim = hidden_dim//2
 
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
@@ -222,7 +248,7 @@ class EGATNet(torch.nn.Module):
             x = conv(x, edge_index, edge_attr)
             x = F.elu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         out = self.fc(x)
         return out.view(-1)
     
@@ -231,14 +257,16 @@ class EGATNet(torch.nn.Module):
         for conv in self.convs:
             x = conv(x, edge_index) if edge_attr is None else conv(x, edge_index, edge_attr)
             x = F.relu(x)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         return x
     
 class GraphTransformerNet(torch.nn.Module):
-    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=128, dropout = 0.2):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, heads=4, fc_hidden_dim=32, dropout = 0.2):
         super().__init__()
 
         self.dropout = dropout
+
+        fc_hidden_dim = hidden_dim//2
 
         self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim,)
         self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
@@ -270,7 +298,7 @@ class GraphTransformerNet(torch.nn.Module):
             x = conv(x, edge_index, edge_attr)
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
         out = self.fc(x)
         return out.view(-1)
     
@@ -279,7 +307,72 @@ class GraphTransformerNet(torch.nn.Module):
         for conv in self.convs:
             x = conv(x, edge_index) if edge_attr is None else conv(x, edge_index, edge_attr)
             x = F.relu(x)
-        x = global_add_pool(x, batch)
+        x = global_mean_pool(x, batch)
+        return x
+    
+class NNConvNet(torch.nn.Module):
+    def __init__(self, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim=64, num_layers=3, fc_hidden_dim=32, dropout=0.2):
+        super().__init__()
+
+        self.dropout = dropout
+
+        fc_hidden_dim = hidden_dim//2
+
+        # Instancia del encoder compartido
+        self.encoder = EmbeddingEncoder(atom_emb_dim, hibrid_emb_dim, bond_emb_dim)
+        self.node_encoder = torch.nn.Linear(input_dim, hidden_dim)
+        self.convs = torch.nn.ModuleList()
+
+        for _ in range(num_layers):
+            # Para NNConv, la red neuronal sobre las aristas debe transformar
+            # la dimensión de la arista (edge_dim) a (in_channels * out_channels)
+            edge_nn = torch.nn.Sequential(
+                torch.nn.Linear(edge_dim, hidden_dim),
+                torch.nn.ReLU(),
+                torch.nn.Linear(hidden_dim, hidden_dim * hidden_dim)
+            )
+            
+            conv = NNConv(
+                in_channels=hidden_dim, 
+                out_channels=hidden_dim, 
+                nn=edge_nn, 
+                aggr='add',
+                root_weight=True,
+                bias=True
+            )
+            self.convs.append(conv)
+
+        self.fc = torch.nn.Sequential(
+            torch.nn.Linear(hidden_dim, fc_hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(p=dropout),
+            torch.nn.Linear(fc_hidden_dim, 1)
+        )
+
+    def forward(self, x, edge_index, edge_attr, batch):
+        # 1. Codificación inicial
+        x = self.encoder.encode_nodes(x)
+        x = self.node_encoder(x)
+        edge_attr = self.encoder.encode_edges(edge_attr)
+        
+        # 2. Paso de mensajes a través de las capas NNConv
+        for conv in self.convs:
+            x = conv(x, edge_index, edge_attr)
+            x = F.relu(x)
+            x = F.dropout(x, p=self.dropout, training=self.training)
+            
+        # 3. Pooling y fully connected
+        x = global_mean_pool(x, batch)
+        out = self.fc(x)
+        return out.view(-1)
+    
+    def get_embedding(self, x, edge_index, edge_attr=None, batch=None):
+        x = self.node_encoder(x) if hasattr(self, 'node_encoder') else x
+        for conv in self.convs:
+            # NNConv requiere edge_attr obligatoriamente
+            x = conv(x, edge_index, edge_attr) if edge_attr is not None else conv(x, edge_index)
+            x = F.relu(x)
+        x = global_mean_pool(x, batch)
         return x
 
 
@@ -298,6 +391,8 @@ def create_model(model_name, input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_d
         return GraphTransformerNet(input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim, num_layers, HEADS)
     elif model_name == "EGAT":
         return EGATNet(input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim, num_layers, HEADS)
+    elif model_name == "NNConv":
+        return NNConvNet(input_dim, atom_emb_dim, hibrid_emb_dim, bond_emb_dim, edge_dim, hidden_dim, num_layers)
     else:
         raise ValueError(f"Modelo desconocido: {model_name}")
 
@@ -481,7 +576,8 @@ def save_model(
 
 
 def train_and_save_model(
-    sdf_dir,
+    train_dir,
+    val_dir,
     target_file,
     model_type,
     epochs,
@@ -497,8 +593,8 @@ def train_and_save_model(
     bond_emb_dim = BOND_EMB_PR
 ):
     # 1. Calcular dimensiones y cargar datos
-    train_loader, val_loader, device, targetname = prepare_sdf_training_data(
-        sdf_dir, target_file, batch_size=batch_size, valid_split=valid_split
+    train_loader, val_loader, device, targetname = prepare_split_training_data(
+        train_dir, val_dir, target_file, batch_size=batch_size
     )
     
     calc_atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)
@@ -554,7 +650,8 @@ def train_and_save_model(
 
 # Entrenar y guardar modelos cambiandole las capas
 def train_multiple_models(
-    sdf_dir,
+    train_dir,
+    val_dir,
     target_file,
     epochs,
     batch_size=32,
@@ -564,15 +661,17 @@ def train_multiple_models(
     patience=0,
     atom_emb_dim = ATOM_EMB_PR,
     hibrid_emb_dim = HYBRID_EMB_PR,
-    bond_emb_dim = BOND_EMB_PR
+    bond_emb_dim = BOND_EMB_PR,
+    output_dir = MODELOS_DIR
 ):
-    model_types = ["GIN", "GINE", "GAT", "EGAT", "GraphTransformer"]
-    capas = [2, 3, 4, 5]
+    # model_types = GNN_ARCHITECTURES
+    model_types = MODELOS
+    capas = CAPAS
     nombreTarget = os.path.splitext(os.path.basename(target_file))[0]
 
     # Preparar datos
-    train_loader, val_loader, device, targetname = prepare_sdf_training_data(
-        sdf_dir, target_file, batch_size=batch_size, valid_split=valid_split
+    train_loader, val_loader, device, targetname = prepare_split_training_data(
+        train_dir, val_dir, target_file, batch_size=batch_size
     )
 
     calc_atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)
@@ -613,6 +712,7 @@ def train_multiple_models(
                 num_layers=num_layers,
                 batch_size=batch_size,
                 lr=lr,
+                modelos_dir=output_dir,
                 valid_split=valid_split,
                 patience=patience,
                 atom_emb_dim = atom_emb_dim,
@@ -620,6 +720,255 @@ def train_multiple_models(
                 bond_emb_dim = bond_emb_dim
             )
             logging.info(f"Modelo guardado en: {save_path}")
+
+def train_and_save_model_from_pt(
+    train_pt,
+    val_pt,
+    model_type,
+    epochs,
+    model_name,  # Este es el nombre "sugerido" por el usuario
+    batch_size=32,
+    lr=0.001,
+    valid_split=0.2,
+    hidden_dim=64,
+    num_layers=3,
+    patience=0,
+    atom_emb_dim = ATOM_EMB_PR,
+    hibrid_emb_dim = HYBRID_EMB_PR,
+    bond_emb_dim = BOND_EMB_PR
+):
+    # 1. Calcular dimensiones y cargar datos
+    train_loader, val_loader, device, targetname = prepare_split_pt_training_data(
+        train_pt, val_pt, batch_size=batch_size
+    )
+
+    # Cambia esto temporalmente
+    device = torch.device("cpu")
+    
+    calc_atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)
+    calc_hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
+    calc_bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
+
+    input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
+    edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
+
+    # --- NUEVO: CALCULAR NOMBRE ÚNICO AQUÍ ---
+    # Buscamos qué nombre está libre en la carpeta de modelos.
+    # Así usamos ESE MISMO nombre para la gráfica y para el guardado.
+    final_model_name = get_unique_name(model_name, MODELOS_DIR, extension=".pt")
+    
+    logging.info(f"Iniciando entrenamiento para: {final_model_name}")
+
+    # 2. Crear modelo
+    model = create_model(
+        model_type,
+        input_dim,
+        calc_atom_emb_dim,
+        calc_hibrid_emb_dim, 
+        calc_bond_emb_dim, 
+        hidden_dim=hidden_dim, 
+        num_layers=num_layers, 
+        edge_dim=edge_dim)
+
+    # 3. Entrenar (Pasamos final_model_name para que la gráfica no se sobrescriba)
+    train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience, model_name=final_model_name)
+
+    # 4. Guardar (Pasamos final_model_name para que coincida con la gráfica)
+    save_path = save_model(
+        model=model,
+        model_name=final_model_name, # <--- Usamos el nombre único
+        input_dim=input_dim,
+        edge_dim=edge_dim,
+        target_name=targetname,
+        model_type=model_type,
+        epochs=epochs,
+        hidden_dim=hidden_dim,
+        num_layers=num_layers,
+        batch_size=batch_size,
+        lr=lr,
+        valid_split=valid_split,
+        patience=patience,
+        atom_emb_dim = atom_emb_dim,
+        hibrid_emb_dim = hibrid_emb_dim,
+        bond_emb_dim = bond_emb_dim
+    )
+    logging.info(f"Modelo y gráficas guardados bajo el ID: {final_model_name}")
+
+    return save_path
+
+# Entrenar y guardar modelos cambiandole las capas
+def train_multiple_models_from_pt(
+    train_pt,
+    val_pt,
+    epochs,
+    batch_size=32,
+    lr=0.001,
+    valid_split=0.2,
+    hidden_dim=64,
+    patience=0,
+    atom_emb_dim = ATOM_EMB_PR,
+    hibrid_emb_dim = HYBRID_EMB_PR,
+    bond_emb_dim = BOND_EMB_PR,
+    output_dir = MODELOS_DIR
+):
+    # model_types = GNN_ARCHITECTURES
+    model_types = MODELOS
+    capas = CAPAS
+    nombreTarget = "BindingAffinity"
+
+    # 1. Calcular dimensiones y cargar datos
+    train_loader, val_loader, device, targetname = prepare_split_pt_training_data(
+        train_pt, val_pt, batch_size=batch_size
+    )
+
+    calc_atom_emb_dim = calc_dim(len(periodic_elements) * atom_emb_dim)
+    calc_hibrid_emb_dim = calc_dim(len(hybridization_types) * hibrid_emb_dim)
+    calc_bond_emb_dim = calc_dim(N_BOND_TYPES * bond_emb_dim)
+
+    # Son porcentajes por los que se multiplican las dimensiones reales, 
+    # de esta manera el usuario elige si quiere desde 1 dimension sola hasta el 100%
+    input_dim = calc_atom_emb_dim + calc_hibrid_emb_dim + OTHER_NODE_FEATURES
+    edge_dim = calc_bond_emb_dim + OTHER_EDGE_FEATURES
+
+    for model_type in model_types:
+        for num_layers in capas:
+            model_name = f"{model_type}_{num_layers}capas_fromPT_{nombreTarget}"
+            logging.info(f"Entrenando modelo: {model_name}")
+            # Crear modelo
+            model = create_model(
+                model_type,
+                input_dim,
+                calc_atom_emb_dim,
+                calc_hibrid_emb_dim, 
+                calc_bond_emb_dim, 
+                hidden_dim=hidden_dim, 
+                num_layers=num_layers, 
+                edge_dim=edge_dim)
+            # Entrenar
+            train(model, train_loader, device, epochs=epochs, lr=lr, val_loader=val_loader, patience=patience, model_name=model_name)
+            # Guardar
+            save_path = save_model(
+                model=model,
+                model_name=model_name,
+                input_dim=input_dim,
+                edge_dim=edge_dim,
+                target_name=targetname,
+                model_type=model_type,
+                epochs=epochs,
+                hidden_dim=hidden_dim,
+                num_layers=num_layers,
+                batch_size=batch_size,
+                lr=lr,
+                modelos_dir=output_dir,
+                valid_split=valid_split,
+                patience=patience,
+                atom_emb_dim = atom_emb_dim,
+                hibrid_emb_dim = hibrid_emb_dim,
+                bond_emb_dim = bond_emb_dim
+            )
+            logging.info(f"Modelo guardado en: {save_path}")
+
+def train_all_splits(
+    mother_dir,
+    target_file,
+    epochs,
+    **kwargs        # Permite pasar batch_size, lr, etc., directamente a la función base
+):
+    """
+    Explora 'mother_dir', busca los splits y lanza el entrenamiento iterativo para cada uno.
+    """
+    # 1. Obtener todas las subcarpetas dentro del directorio madre
+    posibles_splits = [d for d in os.listdir(mother_dir) if os.path.isdir(os.path.join(mother_dir, d))]
+    
+    for split_folder in sorted(posibles_splits):
+        split_path = os.path.join(mother_dir, split_folder)
+        
+        # 2. Definir rutas esperadas de train y validation
+        train_dir = os.path.join(split_path, "train")
+        val_dir = os.path.join(split_path, "validation") # Cambia a "val" si tu carpeta se llama así
+        
+        # 3. Validar que realmente sea una carpeta de split
+        if not os.path.exists(train_dir) or not os.path.exists(val_dir):
+            logging.warning(f"Ignorando '{split_folder}': No contiene carpetas 'train' o 'validation'.")
+            continue
+            
+        logging.info(f"\n{5}\nIniciando entrenamiento para: {split_folder}\n{'='*10}")
+        
+        # 4. Crear un directorio ÚNICO de guardado para este split
+        # Ej: base_save_dir/split_1/
+        split_save_dir = os.path.join(MODELOS_DIR, split_folder)
+        os.makedirs(split_save_dir, exist_ok=True)
+        
+        # 5. Ejecutar tu función original, pasándole el directorio de guardado
+        train_multiple_models(
+            train_dir=train_dir,
+            val_dir=val_dir,
+            target_file=target_file,
+            epochs=epochs,
+            output_dir=split_save_dir, # <--- ¡NUEVO PARÁMETRO!
+            **kwargs
+        )
+
+def train_all_splits_from_pt(
+    mother_dir,
+    epochs,
+    **kwargs
+):
+    """
+    Explora 'mother_dir', busca los archivos .pt (train y valid) por número de split,
+    y lanza el entrenamiento iterativo para cada par.
+    """
+    # 1. Obtener todos los archivos .pt en la carpeta madre
+    archivos_pt = [f for f in os.listdir(mother_dir) if f.endswith('.pt')]
+    
+    # 2. Encontrar qué números de split existen
+    # Usamos una expresión regular para buscar números al final del nombre del archivo (antes de .pt)
+    # Ej: "pocket_BD_train_0.pt" -> extrae "0"
+    splits_encontrados = set()
+    for archivo in archivos_pt:
+        match = re.search(r'_(\d+)\.pt$', archivo)
+        if match:
+            splits_encontrados.add(int(match.group(1)))
+            
+    # Ordenamos los splits para que se ejecuten en orden (0, 1, 2...)
+    splits_ordenados = sorted(list(splits_encontrados))
+    
+    if not splits_ordenados:
+        logging.warning(f"No se encontraron archivos .pt con el formato '_X.pt' en {mother_dir}")
+        return
+
+    logging.info(f"Splits detectados: {splits_ordenados}")
+
+    # 3. Iterar sobre cada número de split encontrado
+    for num_split in splits_ordenados:
+        # 4. Construir los nombres de archivo esperados para este split
+        # Asumiendo que el prefijo es "pocket_BD_"
+        train_file = f"pocket_BD_train_{num_split}.pt"
+        val_file = f"pocket_BD_valid_{num_split}.pt"
+        
+        train_path = os.path.join(mother_dir, train_file)
+        val_path = os.path.join(mother_dir, val_file)
+        
+        # 5. Validar que ambos archivos (train y valid) existan para este split
+        if not os.path.exists(train_path) or not os.path.exists(val_path):
+            logging.warning(f"Ignorando split {num_split}: Faltan archivos de train o valid.")
+            continue
+            
+        logging.info(f"\n{'='*50}\nIniciando entrenamiento para el Split: {num_split}\n{'='*50}")
+        
+        # 6. Crear un directorio ÚNICO de guardado para este split
+        nombre_carpeta_split = f"split_{num_split}"
+        split_save_dir = os.path.join(MODELOS_DIR, nombre_carpeta_split)
+        os.makedirs(split_save_dir, exist_ok=True)
+        
+        # 7. Ejecutar tu función adaptada para .pt
+        train_multiple_models_from_pt(
+            train_pt=train_path,    # Le pasamos la ruta completa del archivo .pt de train
+            val_pt=val_path,        # Le pasamos la ruta completa del archivo .pt de validation
+            epochs=epochs,
+            output_dir=split_save_dir, # <--- Pasamos el directorio para guardar los modelos de este split
+            **kwargs
+        )
 
 def calc_dim(x):
     return max(1, math.ceil(x))
@@ -641,3 +990,43 @@ def get_unique_name(base_name, directory, extension=".pt"):
         counter += 1
         
     return unique_name
+
+# ==========================================
+if __name__ == "__main__":
+    # Configurar el logging para que los mensajes salgan bonitos por consola
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
+    
+    print("🚀 Iniciando el pipeline de entrenamiento para todos los splits...")
+    
+    # Definir las rutas principales (¡Cámbialas por tus rutas reales!)
+    CARPETA_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/SplitsSMILES" 
+    ARCHIVO_TARGET = "/home/andromeda/Documentos/Philippe/Datos Philippe/Splits/pIC50.txt"
+    train_all_splits(
+        mother_dir=CARPETA_MADRE,
+        target_file=ARCHIVO_TARGET,
+        epochs = 500,
+        batch_size=16,
+        lr=0.001,
+        valid_split=0.2,
+        hidden_dim=64,
+        patience=100,
+        atom_emb_dim = ATOM_EMB_PR,
+        hibrid_emb_dim = HYBRID_EMB_PR,
+        bond_emb_dim = BOND_EMB_PR,
+    )
+
+    # CARPETA_MADRE = "/home/andromeda/Documentos/Philippe/Datos Philippe/data_list_splits_by_folds"
+    # train_all_splits_from_pt(
+    #     mother_dir=CARPETA_MADRE,
+    #     epochs = 500,
+    #     batch_size=16,
+    #     lr=0.001,
+    #     valid_split=0.2,
+    #     hidden_dim=64,
+    #     patience=100,
+    #     atom_emb_dim = 0.1,
+    #     hibrid_emb_dim = HYBRID_EMB_PR,
+    #     bond_emb_dim = BOND_EMB_PR,
+    # )
+    
+    print("✅ ¡Entrenamiento de todos los splits finalizado!")

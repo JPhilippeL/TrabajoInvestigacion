@@ -8,37 +8,48 @@ from ui.utils.constants import ATOM_EMB_PR, HYBRID_EMB_PR, BOND_EMB_PR
 
 class TrainMultipleModelsDialog(QDialog):
     session_defaults = {
-        "sdf_dir": "",
+        "train_sdf_dir": "",
+        "val_sdf_dir": "",
         "target_file": ""
     }
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Multiple Training Configuration")
+        self.setWindowTitle("Configuración de entrenamiento múltiple")
         self.settings = QSettings("Investigacion", "Analisis Molecular")
 
         layout = QVBoxLayout()
         form_layout = QFormLayout()
 
-        # ---------- SDF directory ----------
-        self.sdf_path_input = QLineEdit()
-        self.sdf_path_input.setText(self.settings.value("train_multi/sdf_dir", ""))
-        self.sdf_path_button = QPushButton("Choose folder...")
-        self.sdf_path_button.clicked.connect(self.select_sdf_folder)
-        sdf_layout = QHBoxLayout()
-        sdf_layout.addWidget(self.sdf_path_input)
-        sdf_layout.addWidget(self.sdf_path_button)
-        form_layout.addRow("SDF Directory:", sdf_layout)
+        # ---------- Train SDF directory ----------
+        self.train_sdf_input = QLineEdit()
+        self.train_sdf_input.setText(self.settings.value("train_multi/train_sdf_dir", ""))
+        self.train_sdf_button = QPushButton("Elegir carpeta...")
+        self.train_sdf_button.clicked.connect(self.select_train_sdf_folder)
+        train_layout = QHBoxLayout()
+        train_layout.addWidget(self.train_sdf_input)
+        train_layout.addWidget(self.train_sdf_button)
+        form_layout.addRow("Directorio SDF (Train):", train_layout)
+
+        # ---------- Validation SDF directory ----------
+        self.val_sdf_input = QLineEdit()
+        self.val_sdf_input.setText(self.settings.value("train_multi/val_sdf_dir", ""))
+        self.val_sdf_button = QPushButton("Elegir carpeta...")
+        self.val_sdf_button.clicked.connect(self.select_val_sdf_folder)
+        val_layout = QHBoxLayout()
+        val_layout.addWidget(self.val_sdf_input)
+        val_layout.addWidget(self.val_sdf_button)
+        form_layout.addRow("Directorio SDF (Validation):", val_layout)
 
         # ---------- Target file ----------
         self.target_file_input = QLineEdit()
         self.target_file_input.setText(self.settings.value("train_multi/target_file", ""))
-        self.target_file_button = QPushButton("Choose file...")
+        self.target_file_button = QPushButton("Elegir archivo...")
         self.target_file_button.clicked.connect(self.select_target_file)
         target_layout = QHBoxLayout()
         target_layout.addWidget(self.target_file_input)
         target_layout.addWidget(self.target_file_button)
-        form_layout.addRow("Target File (.txt):", target_layout)
+        form_layout.addRow("Archivo de targets (.txt):", target_layout)
 
         # ---------- Otros parámetros ----------
         self.epochs_input = QSpinBox()
@@ -54,12 +65,6 @@ class TrainMultipleModelsDialog(QDialog):
         self.lr_input.setRange(0.00001, 1.0)
         self.lr_input.setSingleStep(0.0001)
         self.lr_input.setValue(float(self.settings.value("train_multi/lr", 0.001)))
-
-        self.valid_split_input = QDoubleSpinBox()
-        self.valid_split_input.setDecimals(2)
-        self.valid_split_input.setRange(0.0, 0.5)
-        self.valid_split_input.setSingleStep(0.05)
-        self.valid_split_input.setValue(float(self.settings.value("train_multi/valid_split", 0.2)))
 
         self.hidden_dim_input = QSpinBox()
         self.hidden_dim_input.setRange(8, 1024)
@@ -89,12 +94,11 @@ class TrainMultipleModelsDialog(QDialog):
         self.bond_emb_pr_input.setValue(float(self.settings.value("train_multi/bond_emb_pr", BOND_EMB_PR)))
 
         # ---------- Añadir al formulario ----------
-        form_layout.addRow("Epochs:", self.epochs_input)
+        form_layout.addRow("Épocas:", self.epochs_input)
         form_layout.addRow("Batch size:", self.batch_input)
         form_layout.addRow("Learning rate:", self.lr_input)
-        form_layout.addRow("Validation Split:", self.valid_split_input)
         form_layout.addRow("Hidden dim:", self.hidden_dim_input)
-        form_layout.addRow("Early Stopping Patience (0 disables):", self.patience_input)
+        form_layout.addRow("Paciencia Early Stopping (0 desactiva):", self.patience_input)
 
         # ---- NUEVOS ----
         form_layout.addRow("Atom Embedding %:", self.atom_emb_pr_input)
@@ -115,10 +119,15 @@ class TrainMultipleModelsDialog(QDialog):
     # Selección de archivos
     # --------------------
 
-    def select_sdf_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta con SDFs")
+    def select_train_sdf_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta SDF de Entrenamiento")
         if folder:
-            self.sdf_path_input.setText(folder)
+            self.train_sdf_input.setText(folder)
+
+    def select_val_sdf_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta SDF de Validación")
+        if folder:
+            self.val_sdf_input.setText(folder)
 
     def select_target_file(self):
         file, _ = QFileDialog.getOpenFileName(self, "Seleccionar archivo de targets", filter="TXT files (*.txt)")
@@ -126,16 +135,16 @@ class TrainMultipleModelsDialog(QDialog):
             self.target_file_input.setText(file)
 
     # --------------------
-    # Save configuraciones
+    # Guardar configuraciones
     # --------------------
 
     def accept(self):
-        self.settings.setValue("train_multi/sdf_dir", self.sdf_path_input.text())
+        self.settings.setValue("train_multi/train_sdf_dir", self.train_sdf_input.text())
+        self.settings.setValue("train_multi/val_sdf_dir", self.val_sdf_input.text())
         self.settings.setValue("train_multi/target_file", self.target_file_input.text())
         self.settings.setValue("train_multi/epochs", self.epochs_input.value())
         self.settings.setValue("train_multi/batch_size", self.batch_input.value())
         self.settings.setValue("train_multi/lr", self.lr_input.value())
-        self.settings.setValue("train_multi/valid_split", self.valid_split_input.value())
         self.settings.setValue("train_multi/hidden_dim", self.hidden_dim_input.value())
         self.settings.setValue("train_multi/patience", self.patience_input.value())
 
@@ -152,12 +161,12 @@ class TrainMultipleModelsDialog(QDialog):
 
     def get_values(self):
         return {
-            "sdf_dir": self.sdf_path_input.text(),
+            "train_sdf_dir": self.train_sdf_input.text(),
+            "val_sdf_dir": self.val_sdf_input.text(),
             "target_file": self.target_file_input.text(),
             "epochs": self.epochs_input.value(),
             "batch_size": self.batch_input.value(),
             "lr": self.lr_input.value(),
-            "valid_split": self.valid_split_input.value(),
             "hidden_dim": self.hidden_dim_input.value(),
             "patience": self.patience_input.value(),
             "atom_emb_pr": self.atom_emb_pr_input.value(),

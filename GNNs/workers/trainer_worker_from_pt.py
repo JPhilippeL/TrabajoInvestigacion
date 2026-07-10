@@ -3,14 +3,13 @@ import argparse
 import time
 import torch
 import gc
-from GNNs.model_trainer import train_and_save_model
+from GNNs.model_trainer import train_and_save_model_from_pt
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--train_dir")
-    parser.add_argument("--val_dir")
-    parser.add_argument("--target_file")
+    parser.add_argument("--train_pt")
+    parser.add_argument("--val_pt")
     parser.add_argument("--model_type")
     parser.add_argument("--epochs", type=int)
     parser.add_argument("--model_name", type=str)
@@ -26,10 +25,9 @@ def main():
 
     try:
         start = time.time()
-        path = train_and_save_model(
-            train_dir=args.train_dir,
-            val_dir=args.val_dir,
-            target_file=args.target_file,
+        path = train_and_save_model_from_pt(
+            train_pt = args.train_pt,
+            val_pt = args.val_pt,
             model_type=args.model_type,
             epochs=args.epochs,
             model_name=args.model_name,

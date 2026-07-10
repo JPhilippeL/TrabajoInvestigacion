@@ -7,8 +7,9 @@ from ui.dialogs.model_test_dialog import ModelTestDialog
 from ui.dialogs.batch_model_test_dialog import BatchModelTestDialog
 from ui.dialogs.test_all_models_dialog import BatchAllModelsTestDialog
 from ui.dialogs.image_dialog import ImageDialog
+from ui.dialogs.batch_model_test_pt_dialog import BatchAllModelsTestDialogPT
 
-from GNNs.model_tester import test_model_on_directory,cargar_y_predecir, obtener_info_checkpoint
+from GNNs.model_tester import test_model_on_directory,cargar_y_predecir, obtener_info_checkpoint, test_all_models_in_directory_pt
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,11 @@ class MenuTestGNN(QMenu):
         testeo_all_models_action = QAction("Test All Models", self)
         testeo_all_models_action.triggered.connect(self.testear_directorio_modelos)
         self.addAction(testeo_all_models_action)
+
+        # Testeo de TODOS los modelos en un directorio
+        testeo_all_models_pt_action = QAction("Testear todos los modelos PT", self)
+        testeo_all_models_pt_action.triggered.connect(self.testear_directorio_modelos_pt)
+        self.addAction(testeo_all_models_pt_action)
 
         # Consultar parámetros modelo
         consultar_params_action = QAction("Inspect Model", self)
@@ -84,6 +90,17 @@ class MenuTestGNN(QMenu):
                 self.main_window.testing_controller.testear_modelos(models_dir, sdf_dir, targets_file)
             except Exception as e:
                 logger.exception("Error en testeo de todos los modelos: " + str(e), exc_info=True)
+
+    def testear_directorio_modelos_pt(self):
+        dialog = BatchAllModelsTestDialogPT(self.main_window)
+        if dialog.exec():
+            models_dir, pt_file = dialog.get_paths()
+
+            try:
+                # Ejecutamos testing con el proceso
+                test_all_models_in_directory_pt(models_dir, pt_file)
+            except Exception as e:
+                logger.error("Error en testeo de todos los modelos: " + str(e), exc_info=True)
 
     def consultar_parametros_modelo(self):
         file_path, _ = QFileDialog.getOpenFileName(
