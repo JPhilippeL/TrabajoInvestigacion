@@ -1,4 +1,6 @@
+import json
 import logging
+import sys
 
 from PySide6.QtWidgets import QDialog
 from ray import tune
@@ -27,10 +29,7 @@ def partition_batch_size(min_batch_size, max_batch_size):
         raise ValueError("Minimum batch size must be greater than 0.")
 
     if max_batch_size < min_batch_size:
-        raise ValueError(
-            "Maximum batch size must be greater than or equal "
-            "to minimum batch size."
-        )
+        raise ValueError("Maximum batch size must be greater than or equal to minimum batch size.")
 
     batch_size = min_batch_size
     batch_size_list = []
@@ -66,13 +65,7 @@ def config(params):
     }
 
 
-def launch_tuning(parent=None):
-    params = open_dialog(parent)
-
-    if params is None:
-        logger.info("Hyperparameter tuning cancelled by the user.")
-        return None
-
+def launch_tuning(params):
     search_space = config(params)
 
     return run_hyperparameter_search(
@@ -86,5 +79,10 @@ def launch_tuning(parent=None):
         seed=params["seed"],
         num_workers=params["num_workers"],
         save_best_epoch=params["save_best_epoch"],
-        log_callback=logger.info,
+        log_callback=lambda message: print(message, flush=True),
     )
+
+
+if __name__ == "__main__":
+    params = json.loads(sys.argv[1])
+    launch_tuning(params)
