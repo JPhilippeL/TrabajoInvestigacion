@@ -486,29 +486,3 @@ def run_hyperparameter_search(
         log_callback(f"All trials CSV saved at: {csv_path}")
 
     return best_result
-
-
-if __name__ == "__main__":
-    data = "/home/andromeda/Documentos/Philippe/TrabajoInvestigacion/Datos"
-    output = "/home/andromeda/Documentos/mohamedA/deepdtaf_tuning"
-    search_space = default_search_space()
-    cpu_used_per_trial = 4
-    gpu_used_per_trial = 1
-    number_of_trials = 50
-    seed = 42
-    num_workers = 0
-    save_best_epoch = 1
-
-    for model in MODEL_DICT:
-        run_hyperparameter_search(
-            model_name=model,
-            mother_dir=data,
-            output_path=output,
-            search_space=search_space,
-            cpu_used_per_trial=cpu_used_per_trial,
-            gpu_used_per_trial=gpu_used_per_trial,
-            seed=seed,
-            num_workers=num_workers,
-            save_best_epoch=save_best_epoch,
-            log_callback=print,
-        )
