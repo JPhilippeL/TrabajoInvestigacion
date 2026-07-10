@@ -147,7 +147,7 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1], noise_level=0
 def generate_perturbed_samples(data, feature_mask, num_samples=50, noise_level=0.05):
     perturbed_samples = []
     for i in range(num_samples):
-        sample_specific_prob = random.uniform(0.01, 0.25)
+        sample_specific_prob = random.uniform(0.01, 0.50)
         # sample_specific_prob = random.uniform(0.01, 0.99)
 
         perturbed_sample = perturb_features_sample(data, feature_mask, noise_level, sample_specific_prob)
@@ -262,7 +262,7 @@ def obtener_graph_explainer(
     # Variable para activar/desactivar el filtro (cámbialo a False para comparar)
     aplicar_filtro_columnas = True
     aplicar_filtro_filas = True
-    THRESHOLD = 100
+    THRESHOLD = 1
 
     # --- NUEVO PASO: Calcular y filtrar proporcionalidades ---
 
