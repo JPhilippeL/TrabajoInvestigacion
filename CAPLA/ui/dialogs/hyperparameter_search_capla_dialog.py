@@ -29,7 +29,7 @@ class HyperparameterSearchCAPLADialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("CAPLA Hyperparameter Search Configuration")
+        self.setWindowTitle("CAPLA Search Configuration")
         self.resize(860, 670)
         self.settings = QSettings("ResearchApp", "CAPLA_HyperparameterSearch")
 

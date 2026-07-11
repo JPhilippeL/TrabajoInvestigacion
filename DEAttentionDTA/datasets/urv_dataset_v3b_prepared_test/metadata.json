@@ -1,0 +1,12 @@
+{
+  "fold_index": "1..5",
+  "format": "DEAttentionDTA URV prepared CSV format: seq_data_all.csv, affinity_all.csv, split_manifest.csv, splits/split_XX/seq_{train,valid,test}.csv, splits/split_XX/affinity_{train,valid,test}.csv",
+  "generated_by": "generate_deattentiondta_from_mpro_v2",
+  "model_name": "DEAttentionDTA",
+  "output_root": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test",
+  "raw_source_root": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2",
+  "samples_kept": 376,
+  "samples_skipped": 2,
+  "split_mode": "train/valid/test",
+  "timestamp": "2026-07-11T22:51:01.826862+00:00"
+}

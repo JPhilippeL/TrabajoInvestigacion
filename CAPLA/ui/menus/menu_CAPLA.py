@@ -8,21 +8,20 @@
 from __future__ import annotations
 
 import logging
+import json
 from pathlib import Path
 
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QDialog, QMenu, QMessageBox
 
-from CAPLA.ui.dialogs.debug_capla_dialog import DebugCAPLADialog
-from CAPLA.ui.dialogs.finetune_capla_dialog import FinetuneCAPLADialog
 from CAPLA.ui.dialogs.hyperparameter_search_capla_dialog import HyperparameterSearchCAPLADialog
+from CAPLA.ui.dialogs.prepare_capla_dataset_dialog import PrepareCAPLADatasetDialog
 from CAPLA.ui.dialogs.test_capla_dialog import TestCAPLADialog
 from CAPLA.ui.dialogs.train_capla_dialog import TrainCAPLADialog
 from CAPLA.workers import (
-    DebugOfficialDatasetThread,
+    GenerateDataThread,
     HyperparameterSearchCAPLAThread,
     PredictPreparedDatasetThread,
-    PretrainedVsFinetunedThread,
     TrainOfficialSplitsThread,
 )
 
@@ -41,35 +40,28 @@ class MenuCAPLA(QMenu):
 
     def init_actions(self) -> None:
 
-        self.debug_action = QAction("Validate Prepared Dataset", self)
-        self.debug_action.triggered.connect(self.open_debug_dialog)
-        self.addAction(self.debug_action)
+        self.generate_data_action = QAction("Generate Data", self)
+        self.generate_data_action.triggered.connect(self.open_generate_data_dialog)
+        self.addAction(self.generate_data_action)
 
-        self.addSeparator()
-
-        self.train_action = QAction("Train Official Split(s) From Scratch", self)
+        self.train_action = QAction("Train", self)
         self.train_action.triggered.connect(self.open_train_dialog)
         self.addAction(self.train_action)
 
-        self.hpo_action = QAction("Hyperparameter Search", self)
+        self.hpo_action = QAction("Search", self)
         self.hpo_action.triggered.connect(self.open_hpo_dialog)
         self.addAction(self.hpo_action)
 
-        self.test_action = QAction("Evaluate Model on Prepared Dataset", self)
+        self.test_action = QAction("Evaluate", self)
         self.test_action.triggered.connect(self.open_test_dialog)
         self.addAction(self.test_action)
 
-        self.finetune_action = QAction("Compare Pretrained vs Fine-Tuned", self)
-        self.finetune_action.triggered.connect(self.open_finetune_dialog)
-        self.addAction(self.finetune_action)
-
     def _set_actions_enabled(self, enabled: bool) -> None:
         for action in (
-            self.debug_action,
+            self.generate_data_action,
             self.train_action,
             self.hpo_action,
             self.test_action,
-            self.finetune_action,
         ):
             action.setEnabled(enabled)
 
@@ -118,22 +110,24 @@ class MenuCAPLA(QMenu):
         worker.finished.connect(self.on_thread_finished)
         worker.start()
 
-    def open_debug_dialog(self) -> None:
-        dialog = DebugCAPLADialog(self.parent_window)
+    def open_generate_data_dialog(self) -> None:
+        dialog = PrepareCAPLADatasetDialog(self.parent_window)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         try:
             params = dialog.get_inputs()
-            self._require_directory(params["dataset_dir"], "Prepared dataset")
-            self._require_text(params["output_dir"], "Output directory")
+            self._require_directory(params["raw_root"], "Raw MPro-URV_Version2 root")
+            self._require_text(params["output_root"], "Output prepared dataset root")
+            if params.get("feature_mode") != "generate":
+                self._require_directory(params["feature_source_root"], "Existing CAPLA feature source root")
         except Exception as exc:
             QMessageBox.critical(
                 self.parent_window,
-                "CAPLA Validation Configuration Error",
+                "CAPLA Generate Data Configuration Error",
                 str(exc),
             )
             return
-        self._start_worker(DebugOfficialDatasetThread(params))
+        self._start_worker(GenerateDataThread(params))
 
     def open_train_dialog(self) -> None:
         dialog = TrainCAPLADialog(self.parent_window)
@@ -173,7 +167,7 @@ class MenuCAPLA(QMenu):
         except Exception as exc:
             QMessageBox.critical(
                 self.parent_window,
-                "CAPLA Hyperparameter Search Configuration Error",
+                "CAPLA Search Configuration Error",
                 str(exc),
             )
             return
@@ -197,27 +191,22 @@ class MenuCAPLA(QMenu):
             return
         self._start_worker(PredictPreparedDatasetThread(params))
 
-    def open_finetune_dialog(self) -> None:
-        dialog = FinetuneCAPLADialog(self.parent_window)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        try:
-            params = dialog.get_inputs()
-            self._require_directory(params["dataset_dir"], "Prepared dataset")
-            self._require_file(params["checkpoint_original"], "Original checkpoint")
-            self._require_text(params["results_dir"], "Results directory")
-            self._require_text(params["models_dir"], "Models directory")
-            self._require_text(params["splits"], "Official splits")
-        except Exception as exc:
-            QMessageBox.critical(
+    def on_success(self, summary: dict) -> None:
+        if "samples_kept" in summary:
+            split_sizes = json.dumps(summary.get("split_sizes", {}), indent=2)
+            QMessageBox.information(
                 self.parent_window,
-                "CAPLA Fine-Tuning Configuration Error",
-                str(exc),
+                "CAPLA Generate Data Finished",
+                "Status: success\n\n"
+                f"Output path: {summary.get('output_root')}\n"
+                f"Samples kept: {summary.get('samples_kept')}\n"
+                f"Samples skipped: {summary.get('samples_skipped')}\n"
+                f"Mode: {summary.get('mode')}\n"
+                f"Warnings: {len(summary.get('warnings', []))}\n"
+                f"Report: {summary.get('report_json')}\n\n"
+                f"Split sizes:\n{split_sizes}",
             )
             return
-        self._start_worker(PretrainedVsFinetunedThread(params))
-
-    def on_success(self, summary: dict) -> None:
         artifacts = summary.get("artifacts", {})
         artifact_text = "\n".join(
             f"{key}: {value}" for key, value in artifacts.items()
@@ -231,10 +220,13 @@ class MenuCAPLA(QMenu):
 
     def on_error(self, error_message: str) -> None:
         self._log(error_message)
+        lines = [line.strip() for line in str(error_message).splitlines() if line.strip()]
+        detail = lines[-1] if lines else str(error_message)
         QMessageBox.critical(
             self.parent_window,
             "CAPLA Error",
-            "The CAPLA operation failed. "
+            "The CAPLA operation failed.\n\n"
+            f"{detail}\n\n"
             "The complete traceback is available in the application logs.",
         )
 

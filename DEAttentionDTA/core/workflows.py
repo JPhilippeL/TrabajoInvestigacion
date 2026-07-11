@@ -1,12 +1,13 @@
 """GUI-facing DEAttentionDTA workflow functions.
 
 The functions in this file adapt GUI dictionaries to the standalone scripts
-kept in ``TFM_Implementation/DEAttentionDTA``.  The original repository under
-``src/`` is only imported by those scripts and is never modified.
+kept in the maintained DEAttentionDTA package. The archival source tree is not
+imported at runtime.
 """
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 from typing import Any, Mapping
 
@@ -37,39 +38,38 @@ def _floating(params: Mapping[str, Any], key: str, default: float) -> float:
 
 
 def _boolean(params: Mapping[str, Any], key: str, default: bool = False) -> bool:
-    return bool(params.get(key, default))
+    value = params.get(key, default)
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
 
 
 def prepare_urv_dataset(params: Mapping[str, Any]) -> dict[str, Any]:
-    """Reconstruct DEAttentionDTA Position/Pocket columns from MPro-URV V2."""
-    runner = load_prepare_runner()
-    args = SimpleNamespace(
-        urv_dir=as_absolute_string(_text(params, "urv_v3b_dir"), must_exist=True),
-        urv_v2_dir=as_absolute_string(_text(params, "urv_v2_dir"), must_exist=True),
-        out_dir=as_absolute_string(_text(params, "out_dir")),
-        distance_cutoff=_floating(params, "distance_cutoff", 4.5),
-    )
-    summary = runner.prepare(args)
-    reports_dir = ensure_dir(args.out_dir) / "reports"
-    return {
-        "status": "success",
-        "operation": "prepare_urv_dataset",
-        "summary": summary,
-        "artifacts": {
-            "prepared_dataset": args.out_dir,
-            "position_report_json": str(reports_dir / "position_report.json"),
-            "position_report_csv": str(reports_dir / "position_report.csv"),
-            "dropped_rows_csv": str(reports_dir / "dropped_rows.csv"),
-        },
-    }
+    """Generate DEAttentionDTA prepared data from a raw MPro-v2-like root."""
+    from .generate_deattentiondta_from_mpro_v2 import generate_deattentiondta_dataset_from_mpro_v2
 
+    raw_root = _text(params, "raw_root", _text(params, "urv_v3b_dir", ""))
+    output_root = _text(params, "output_root", _text(params, "out_dir", ""))
+    max_smiles_len = params.get("max_smiles_len")
+    max_protein_len = params.get("max_protein_len")
+    max_smiles_len = int(max_smiles_len) if max_smiles_len not in (None, "", 0, "0") else None
+    max_protein_len = int(max_protein_len) if max_protein_len not in (None, "", 0, "0") else None
+
+    return generate_deattentiondta_dataset_from_mpro_v2(
+        raw_root=raw_root,
+        output_root=output_root,
+        overwrite=_boolean(params, "overwrite", False),
+        max_smiles_len=max_smiles_len,
+        max_protein_len=max_protein_len,
+        strict=_boolean(params, "strict", True),
+    )
 
 def _base_args(params: Mapping[str, Any]) -> SimpleNamespace:
     return SimpleNamespace(
         urv_dir=as_absolute_string(_text(params, "urv_v3b_dir", "DEAttentionDTA/data/urv_dataset_v3b")),
         prepared_dir=as_absolute_string(_text(params, "prepared_dir"), must_exist=True),
         models_dir=as_absolute_string(_text(params, "models_dir", "DEAttentionDTA/models/from_scratch")),
-        results_dir=as_absolute_string(_text(params, "results_dir", "DEAttentionDTA/outputs/from_scratch")),
+        results_dir=as_absolute_string(_text(params, "results_dir", _text(params, "output_dir", "DEAttentionDTA/outputs/from_scratch"))),
         zero_seq_policy="drop",
         skip_prepare=True,
         splits=_text(params, "splits", "all"),
@@ -137,6 +137,7 @@ def _pretrained_args(params: Mapping[str, Any]) -> SimpleNamespace:
         max_seq_len=DEFAULT_MAX_SEQ_LEN,
         max_smi_len=DEFAULT_MAX_SMI_LEN,
         non_strict_pretrained=_boolean(params, "non_strict_pretrained", False),
+        eval_split_mode=_text(params, "eval_split_mode", _text(params, "split", "test")),
     )
 
 
@@ -171,7 +172,7 @@ def evaluate_checkpoint(params: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def finetune_pretrained_checkpoint(params: Mapping[str, Any]) -> dict[str, Any]:
-    """Fine-tune the same original checkpoint independently on each split."""
+    """Fine-tune the same pretrained checkpoint independently on each split."""
     runner = load_finetune_runner()
     args = _pretrained_args(params)
     summary_csv, aggregate_json = runner.run_finetune(args, str(MODULE_ROOT))

@@ -29,6 +29,9 @@ dependencies:
   # Bio / chemistry
   - rdkit
   - biopython
+  - dssp
+  - pdb2pqr
+  - openbabel
 
   # Deep learning
   - pytorch=2.3.1

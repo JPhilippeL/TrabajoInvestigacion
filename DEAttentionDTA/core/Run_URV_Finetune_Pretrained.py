@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Fine-tune or evaluate the original/pretrained DEAttentionDTA checkpoint on the
+Fine-tune or evaluate a pretrained DEAttentionDTA checkpoint on the
 URV official 5-split protocol used in this TFM.
 
 Python 3.6 compatible.
@@ -350,7 +350,7 @@ def save_split_eval_outputs(split_result_dir, split_id, prefix, role, metrics, i
 def run_debug_pretrained(args, repo_root):
     prepared_dir = ensure_prepared_dataset(args, repo_root)
     device = BASE.choose_device(args.device)
-    model_cls, bestmodel_path = BASE.load_model_class(repo_root)
+    model_cls, model_source_path = BASE.load_model_class(repo_root)
     paths, train_dataset, _, _ = build_datasets(args, prepared_dir, 1)
     loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
@@ -372,7 +372,7 @@ def run_debug_pretrained(args, repo_root):
         "script": SCRIPT_NAME,
         "mode": "debug-pretrained",
         "device": str(device),
-        "bestmodel_path": bestmodel_path,
+        "model_source_path": model_source_path,
         "prepared_train_split_1_rows": int(len(train_dataset)),
         "input_paths": paths,
         "batch_size": int(args.batch_size),
@@ -399,9 +399,9 @@ def evaluate_pretrained_split(args, repo_root, split_id):
 
     BASE.set_seed(args.seed + split_id)
     device = BASE.choose_device(args.device)
-    model_cls, bestmodel_path = BASE.load_model_class(repo_root)
+    model_cls, model_source_path = BASE.load_model_class(repo_root)
     paths, train_dataset, valid_dataset, test_dataset = build_datasets(args, prepared_dir, split_id)
-    _, valid_loader, test_loader = build_loaders(args, train_dataset, valid_dataset, test_dataset, shuffle_train=False)
+    train_loader, valid_loader, test_loader = build_loaders(args, train_dataset, valid_dataset, test_dataset, shuffle_train=False)
 
     model = model_cls().to(device)
     strict = not args.non_strict_pretrained
@@ -411,31 +411,63 @@ def evaluate_pretrained_split(args, repo_root, split_id):
     )
     criterion = nn.MSELoss()
 
-    val_metrics, val_ids, val_true, val_pred = BASE.evaluate(model, valid_loader, criterion, device)
-    test_metrics, test_ids, test_true, test_pred = BASE.evaluate(model, test_loader, criterion, device)
+    requested = getattr(args, "eval_split_mode", "test")
+    if requested == "validation":
+        requested = "valid"
+    if requested not in ["train", "valid", "test", "all"]:
+        raise ValueError("Evaluation split must be train, valid, test, or all: {0}".format(requested))
 
-    save_split_eval_outputs(split_result_dir, split_id, "zero_shot", "validation", val_metrics, val_ids, val_true, val_pred)
-    save_split_eval_outputs(split_result_dir, split_id, "zero_shot", "test", test_metrics, test_ids, test_true, test_pred)
+    role_loaders = {
+        "train": (train_loader, int(len(train_dataset))),
+        "valid": (valid_loader, int(len(valid_dataset))),
+        "test": (test_loader, int(len(test_dataset))),
+    }
+    roles = ["train", "valid", "test"] if requested == "all" else [requested]
 
+    metrics_by_role = {}
+    row_counts = {"train": int(len(train_dataset)), "valid": int(len(valid_dataset)), "test": int(len(test_dataset))}
     summary = {
         "split": int(split_id),
         "mode": "zero-shot",
+        "eval_split_mode": requested,
         "pretrained_path": join_root(repo_root, args.pretrained_path),
-        "bestmodel_path": bestmodel_path,
-        "train_rows_unused": int(len(train_dataset)),
-        "validation_rows": int(len(valid_dataset)),
-        "test_rows": int(len(test_dataset)),
-        "val_RMSE": val_metrics["RMSE"],
-        "val_MAE": val_metrics["MAE"],
-        "val_Pearson": val_metrics["Pearson"],
-        "test_RMSE": test_metrics["RMSE"],
-        "test_MAE": test_metrics["MAE"],
-        "test_Pearson": test_metrics["Pearson"],
+        "model_source_path": model_source_path,
+        "row_counts": row_counts,
         "load_pretrained_report": load_report,
     }
+
+    for role in roles:
+        loader, _count = role_loaders[role]
+        metrics, ids, y_true, y_pred = BASE.evaluate(model, loader, criterion, device)
+        metrics_by_role[role] = metrics
+        output_role = "validation" if role == "valid" else role
+        save_split_eval_outputs(split_result_dir, split_id, "zero_shot", output_role, metrics, ids, y_true, y_pred)
+        prefix = "val" if role == "valid" else role
+        summary[prefix + "_RMSE"] = metrics["RMSE"]
+        summary[prefix + "_MSE"] = metrics.get("MSE")
+        summary[prefix + "_MAE"] = metrics["MAE"]
+        summary[prefix + "_Pearson"] = metrics["Pearson"]
+        summary[prefix + "_N"] = metrics.get("N")
+
+    summary["metrics"] = metrics_by_role
+    run_config = {
+        "model_name": "DEAttentionDTA",
+        "workflow": "evaluate",
+        "prepared_dir": prepared_dir,
+        "checkpoint_path": join_root(repo_root, args.pretrained_path),
+        "results_dir": results_dir,
+        "device": str(device),
+        "fold_index": int(split_id),
+        "split": requested,
+        "batch_size": int(args.batch_size),
+        "seed": int(args.seed + split_id),
+    }
+    write_json(os.path.join(split_result_dir, "run_config.json"), run_config)
     write_json(os.path.join(split_result_dir, "zero_shot_summary.json"), summary)
-    print("Zero-shot split {0}: test_RMSE={1:.6f} test_Pearson={2:.6f}".format(
-        split_id, test_metrics["RMSE"], test_metrics["Pearson"]
+    primary_role = roles[-1]
+    primary_metrics = metrics_by_role[primary_role]
+    print("Zero-shot split {0} {1}: RMSE={2:.6f} Pearson={3:.6f}".format(
+        split_id, primary_role, primary_metrics["RMSE"], primary_metrics["Pearson"]
     ))
     return summary
 
@@ -449,7 +481,7 @@ def finetune_split(args, repo_root, split_id):
 
     BASE.set_seed(args.seed + split_id)
     device = BASE.choose_device(args.device)
-    model_cls, bestmodel_path = BASE.load_model_class(repo_root)
+    model_cls, model_source_path = BASE.load_model_class(repo_root)
     paths, train_dataset, valid_dataset, test_dataset = build_datasets(args, prepared_dir, split_id)
     train_loader, valid_loader, test_loader = build_loaders(args, train_dataset, valid_dataset, test_dataset, shuffle_train=True)
 
@@ -537,7 +569,7 @@ def finetune_split(args, repo_root, split_id):
         "pretrained_load_report": load_report,
         "best_epoch": int(best_epoch),
         "state_dict": best_state,
-        "bestmodel_path": bestmodel_path,
+        "model_source_path": model_source_path,
         "input_paths": paths,
         "max_seq_len": int(args.max_seq_len),
         "max_smi_len": int(args.max_smi_len),
@@ -597,11 +629,15 @@ def aggregate_summaries(summaries, results_dir, mode):
 
     aggregate = {"splits_completed": int(len(summary_df)), "mode": mode}
     if len(summary_df) > 0:
-        for prefix in ["test_RMSE", "test_MAE", "test_Pearson"]:
-            aggregate[prefix + "_mean"] = float(summary_df[prefix].mean())
-            aggregate[prefix + "_std"] = float(summary_df[prefix].std(ddof=1)) if len(summary_df) > 1 else float("nan")
-        if mode == "finetune" and "before_test_RMSE" in summary_df.columns:
-            for prefix in ["before_test_RMSE", "before_test_MAE", "before_test_Pearson"]:
+        metric_columns = [
+            "train_RMSE", "train_MSE", "train_MAE", "train_Pearson", "train_N",
+            "val_RMSE", "val_MSE", "val_MAE", "val_Pearson", "val_N",
+            "test_RMSE", "test_MSE", "test_MAE", "test_Pearson", "test_N",
+        ]
+        if mode == "finetune":
+            metric_columns.extend(["before_test_RMSE", "before_test_MAE", "before_test_Pearson"])
+        for prefix in metric_columns:
+            if prefix in summary_df.columns:
                 aggregate[prefix + "_mean"] = float(summary_df[prefix].mean())
                 aggregate[prefix + "_std"] = float(summary_df[prefix].std(ddof=1)) if len(summary_df) > 1 else float("nan")
 
@@ -636,13 +672,13 @@ def build_parser():
     )
     parser.add_argument("--mode", choices=["debug-pretrained", "zero-shot", "finetune"], default="finetune")
     parser.add_argument("--prepared-dir", default="data/urv_dataset_v3b_prepared", help="Path to prepared DEAttentionDTA CSVs generated by Prepare_URV_Positions_From_V2_Dataset.py.")
-    parser.add_argument("--pretrained-path", default="models/pretrained/DEAttentionDTA.pt", help="Path to original/pretrained DEAttentionDTA checkpoint. Supports simple state_dict checkpoints and aggregate checkpoints with fold_state_dicts.")
+    parser.add_argument("--pretrained-path", default="models/pretrained/DEAttentionDTA.pt", help="Path to pretrained DEAttentionDTA checkpoint weights. Supports simple state_dict checkpoints and aggregate checkpoints with fold_state_dicts.")
     parser.add_argument("--pretrained-fold", default="matching",
                         help="For aggregate checkpoints with fold_state_dicts: matching, first, or a fold id such as 1. Default: matching")
     parser.add_argument("--models-dir", default="models/finetuned", help="Output directory for fine-tuned .pt models, one subfolder per split.")
     parser.add_argument("--results-dir", default="outputs/pretrained_vs_finetuned", help="Output directory for zero-shot/fine-tuning metrics, predictions, plots and histories.")
     parser.add_argument("--splits", default="all", help="Comma-separated split ids, e.g. 1,2,3,4,5 or all")
-    parser.add_argument("--device", choices=["auto", "cuda", "cpu"], default="auto")
+    parser.add_argument("--device", choices=["auto", "cuda", "cuda:0", "cpu"], default="auto")
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--lr", "--learning-rate", dest="lr", type=float, default=5e-5, help="Learning rate used by Adam during fine-tuning. Alias: --learning-rate.")
@@ -652,6 +688,7 @@ def build_parser():
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--max-seq-len", type=int, default=BASE.DEFAULT_MAX_SEQ_LEN)
     parser.add_argument("--max-smi-len", type=int, default=BASE.DEFAULT_MAX_SMI_LEN)
+    parser.add_argument("--eval-split-mode", choices=["train", "valid", "test", "all"], default="test")
     parser.add_argument("--non-strict-pretrained", action="store_true",
                         help="Load checkpoint with strict=False. Use only if strict loading fails after verifying the report.")
     return parser

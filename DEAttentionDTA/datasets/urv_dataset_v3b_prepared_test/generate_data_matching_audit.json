@@ -1,0 +1,110 @@
+{
+  "SDF_files_found": 378,
+  "SMI_files_found": 378,
+  "complete_candidate_samples_detected": 376,
+  "first_10_normalized_PDB_keys": [
+    "5RGV",
+    "5RGVPROTEIN",
+    "5RGX",
+    "5RGXPROTEIN",
+    "5RH2",
+    "5RH2PROTEIN",
+    "5RH3",
+    "5RH3PROTEIN",
+    "6M2N",
+    "6M2NPROTEIN"
+  ],
+  "first_10_normalized_SDF_keys": [
+    "5RGV",
+    "5RGVLIGAND",
+    "5RGX",
+    "5RGXLIGAND",
+    "5RH2",
+    "5RH2LIGAND",
+    "5RH3",
+    "5RH3LIGAND",
+    "6M2N",
+    "6M2NLIGAND"
+  ],
+  "first_10_normalized_SMI_keys": [
+    "5RGV",
+    "5RGVUGG",
+    "5RGX",
+    "5RGXUGP",
+    "5RH2",
+    "5RH2UH7",
+    "5RH3",
+    "5RH3UHA",
+    "6M2N",
+    "6M2N3WL"
+  ],
+  "first_10_normalized_pIC50_IDs": [
+    "5RGV",
+    "5RGX",
+    "5RH2",
+    "5RH3",
+    "6M2N",
+    "7B2J",
+    "7CA8",
+    "7DDC",
+    "7EN8",
+    "7EN9"
+  ],
+  "folders_searched": {
+    "pIC50": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2/pIC50.txt",
+    "protein_pdb_search": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2",
+    "raw_root": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2",
+    "sdf_search": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2",
+    "smi_search": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2",
+    "test_split": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2/Splits/test_index_folder.txt",
+    "train_split": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2/Splits/train_index_folder.txt",
+    "valid_split": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2/Splits/valid_index_folder.txt"
+  },
+  "output_root": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test",
+  "pIC50_records_parsed": 378,
+  "protein_PDB_files_found": 379,
+  "raw_source_root": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2",
+  "skipped_examples": [
+    {
+      "PDBname": "8UDX",
+      "protein_path": "Protein/Protein_PDB/8UDX_protein.pdb",
+      "reason": "unsupported_protein_tokens:X",
+      "smiles_path": "Ligand/Ligand_SMI/8UDX_WCZ.smi"
+    },
+    {
+      "PDBname": "9MVM",
+      "protein_path": "Protein/Protein_PDB/9MVM_protein.pdb",
+      "reason": "unsupported_protein_tokens:X",
+      "smiles_path": "Ligand/Ligand_SMI/9MVM_A1BTM.smi"
+    }
+  ],
+  "skipped_reasons": {
+    "unsupported_protein_tokens:X": 2
+  },
+  "timestamp": "2026-07-11T22:51:01.693752+00:00",
+  "unmatched_SMI_examples": [
+    "5RGVUGG",
+    "5RGXUGP",
+    "5RH2UH7",
+    "5RH3UHA",
+    "6M2N3WL",
+    "7B2JSQ2",
+    "7CA8FNO",
+    "7DDCH3F",
+    "7EN8J7R",
+    "7EN9J7O"
+  ],
+  "unmatched_pIC50_examples": [],
+  "unmatched_protein_examples": [
+    "5RGVPROTEIN",
+    "5RGXPROTEIN",
+    "5RH2PROTEIN",
+    "5RH3PROTEIN",
+    "6M2NPROTEIN",
+    "7B2JPROTEIN",
+    "7CA8PROTEIN",
+    "7DDCPROTEIN",
+    "7EN8PROTEIN",
+    "7EN9PROTEIN"
+  ]
+}

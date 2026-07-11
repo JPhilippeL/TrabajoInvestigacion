@@ -407,25 +407,32 @@ def set_seed(seed):
 
 
 def choose_device(device_arg):
-    if device_arg == "cuda":
+    if str(device_arg).startswith("cuda"):
         if not torch.cuda.is_available():
-            raise RuntimeError("--device cuda was requested but CUDA is not available")
-        return torch.device("cuda:0")
+            raise RuntimeError("--device {0} was requested but CUDA is not available".format(device_arg))
+        return torch.device(device_arg)
     if device_arg == "cpu":
         return torch.device("cpu")
     return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 def load_model_class(repo_root):
-    bestmodel_path = os.path.join(repo_root, "original", "src", "bestmodel.py")
-    if not os.path.isfile(bestmodel_path):
-        raise IOError("Cannot find upstream model file: {0}".format(bestmodel_path))
-    spec = importlib.util.spec_from_file_location("deattentiondta_bestmodel", bestmodel_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    if not hasattr(module, "MyModule"):
-        raise RuntimeError("original/src/bestmodel.py does not expose MyModule")
-    return module.MyModule, bestmodel_path
+    try:
+        from .model import MODEL_SOURCE, get_model_class
+    except ImportError:
+        try:
+            from DEAttentionDTA.core.model import MODEL_SOURCE, get_model_class
+        except ImportError:
+            model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model.py")
+            spec = importlib.util.spec_from_file_location("deattentiondta_maintained_model", model_path)
+            if spec is None or spec.loader is None:
+                raise ImportError("Cannot load maintained DEAttentionDTA model from: {0}".format(model_path))
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            MODEL_SOURCE = module.MODEL_SOURCE
+            get_model_class = module.get_model_class
+
+    return get_model_class(), MODEL_SOURCE
 
 
 def to_device(batch, device):
@@ -450,7 +457,20 @@ def regression_metrics(y_true, y_pred):
         pearson = float(np.corrcoef(y_true, y_pred)[0, 1])
     else:
         pearson = float("nan")
-    return {"RMSE": rmse, "MAE": mae, "MSE": mse, "Pearson": pearson, "N": int(len(y_true))}
+    if len(y_true) >= 2:
+        true_rank = pd.Series(y_true).rank(method="average").to_numpy()
+        pred_rank = pd.Series(y_pred).rank(method="average").to_numpy()
+        if float(np.std(true_rank)) > 0.0 and float(np.std(pred_rank)) > 0.0:
+            spearman = float(np.corrcoef(true_rank, pred_rank)[0, 1])
+        else:
+            spearman = float("nan")
+        ss_res = float(np.sum(diff ** 2))
+        ss_tot = float(np.sum((y_true - np.mean(y_true)) ** 2))
+        r2 = float(1.0 - ss_res / ss_tot) if ss_tot > 0.0 else float("nan")
+    else:
+        spearman = float("nan")
+        r2 = float("nan")
+    return {"RMSE": rmse, "MAE": mae, "MSE": mse, "Pearson": pearson, "Spearman": spearman, "R2": r2, "N": int(len(y_true))}
 
 
 def evaluate(model, dataloader, criterion, device):
@@ -565,7 +585,7 @@ def run_debug(args, repo_root):
     prepared_dir = maybe_prepare(args, repo_root)
     paths = split_paths(prepared_dir, 1)
     device = choose_device(args.device)
-    model_cls, bestmodel_path = load_model_class(repo_root)
+    model_cls, model_source_path = load_model_class(repo_root)
     dataset = URVDEAttentionDataset(paths["train_seq"], paths["train_aff"], args.max_seq_len, args.max_smi_len)
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
     model = model_cls().to(device)
@@ -578,7 +598,7 @@ def run_debug(args, repo_root):
         "script": SCRIPT_NAME,
         "mode": "debug",
         "device": str(device),
-        "bestmodel_path": bestmodel_path,
+        "model_source_path": model_source_path,
         "batch_size": int(args.batch_size),
         "output_shape": list(output.detach().cpu().size()),
         "target_shape": list(affinity.detach().cpu().size()),
@@ -611,7 +631,7 @@ def train_and_test_split(args, repo_root, split_id):
 
     set_seed(args.seed + split_id)
     device = choose_device(args.device)
-    model_cls, bestmodel_path = load_model_class(repo_root)
+    model_cls, model_source_path = load_model_class(repo_root)
 
     train_dataset = URVDEAttentionDataset(paths["train_seq"], paths["train_aff"], args.max_seq_len, args.max_smi_len)
     valid_dataset = URVDEAttentionDataset(paths["valid_seq"], paths["valid_aff"], args.max_seq_len, args.max_smi_len)
@@ -688,7 +708,7 @@ def train_and_test_split(args, repo_root, split_id):
         "split_id": int(split_id),
         "best_epoch": int(best_epoch),
         "state_dict": best_state,
-        "bestmodel_path": bestmodel_path,
+        "model_source_path": model_source_path,
         "input_paths": paths,
         "max_seq_len": int(args.max_seq_len),
         "max_smi_len": int(args.max_smi_len),
@@ -786,7 +806,7 @@ def build_parser():
     parser.add_argument("--zero-seq-policy", choices=["drop", "impute-consensus"], default="drop")
     parser.add_argument("--skip-prepare", action="store_true", help="Do not regenerate prepared CSVs. Use this after running Prepare_URV_Positions_From_V2_Dataset.py so Version2-derived Position/Pocket are not overwritten.")
     parser.add_argument("--splits", default="all", help="Comma-separated split ids, e.g. 1,2,3,4,5 or all")
-    parser.add_argument("--device", choices=["auto", "cuda", "cpu"], default="auto")
+    parser.add_argument("--device", choices=["auto", "cuda", "cuda:0", "cpu"], default="auto")
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--lr", "--learning-rate", dest="lr", type=float, default=1e-4, help="Learning rate used by Adam. Alias: --learning-rate.")

@@ -16,6 +16,8 @@ from typing import Any
 
 from PySide6.QtCore import QThread, Signal
 
+from CAPLA.core.generate_capla_from_mpro_v2 import generate_capla_dataset_from_mpro_v2
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -104,6 +106,40 @@ class CAPLASubprocessThread(QThread):
             self.finished_error.emit(traceback.format_exc())
         finally:
             self._process = None
+
+
+class GenerateDataThread(QThread):
+    """Generate a CAPLA prepared dataset from raw MPro-URV_Version2."""
+
+    log_line = Signal(str)
+    finished_success = Signal(dict)
+    finished_error = Signal(str)
+
+    def __init__(self, params: dict, parent=None):
+        super().__init__(parent)
+        self.params = dict(params)
+
+    def run(self) -> None:
+        try:
+            raw_root = _absolute_project_path(self.params["raw_root"])
+            output_root = _absolute_project_path(self.params["output_root"])
+            feature_source_root = self.params.get("feature_source_root") or None
+            if feature_source_root:
+                feature_source_root = _absolute_project_path(feature_source_root)
+
+            self.log_line.emit(f"[CAPLA] Generating prepared dataset from raw MPro root: {raw_root}")
+            report = generate_capla_dataset_from_mpro_v2(
+                raw_root=raw_root,
+                output_root=output_root,
+                overwrite=bool(self.params.get("overwrite", False)),
+                pocket_cutoff=float(self.params.get("pocket_cutoff", 4.5)),
+                secondary_structure_mode=self.params.get("secondary_structure_mode", "dssp"),
+                feature_mode=self.params.get("feature_mode", "generate"),
+                feature_source_root=feature_source_root,
+            )
+            self.finished_success.emit(report)
+        except Exception:
+            self.finished_error.emit(traceback.format_exc())
 
 
 class PrepareOfficialDatasetThread(CAPLASubprocessThread):

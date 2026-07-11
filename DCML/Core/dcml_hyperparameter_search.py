@@ -150,6 +150,7 @@ def run_hyperparameter_search(
     subsample_values: Sequence[float] | None = None,
     max_features_values: Sequence[str | int | float | None] | None = None,
     loss_values: Sequence[str] | None = None,
+    progress_callback=None,
 ) -> dict[str, Any]:
     """Run DCML hyperparameter search.
 
@@ -164,6 +165,14 @@ def run_hyperparameter_search(
     validation_label_npy_path = resolve_path(validation_label_npy)
     models_root_path = ensure_dir(models_root)
     results_root_path = ensure_dir(results_root)
+    if progress_callback:
+        progress_callback("DCML HPO resolving inputs.")
+        progress_callback(f"Train feature ZIP: {train_feature_zip_path}")
+        progress_callback(f"Train label NPY: {train_label_npy_path}")
+        progress_callback(f"Validation feature ZIP: {validation_feature_zip_path}")
+        progress_callback(f"Validation label NPY: {validation_label_npy_path}")
+        progress_callback(f"Models root: {models_root_path}")
+        progress_callback(f"Results root: {results_root_path}")
 
     search_grid = build_search_grid(
         n_estimators_values=n_estimators_values,
@@ -176,6 +185,10 @@ def run_hyperparameter_search(
     )
     if not search_grid:
         raise HyperparameterSearchDCMLError("The DCML search grid is empty.")
+    if progress_callback:
+        progress_callback(f"Parsed hyperparameter grid: {search_grid}")
+        progress_callback(f"Number of combinations: {len(search_grid)}")
+        progress_callback("Selection rule: min validation RMSE, then max validation Pearson. Test metrics are not used.")
 
     started_at = time.perf_counter()
     run_dir = ensure_dir(results_root_path / f"dcml_hpo_{time.strftime('%Y%m%d_%H%M%S')}")
@@ -207,11 +220,14 @@ def run_hyperparameter_search(
         "search_grid": search_grid,
     }
     _write_json(search_config_json, search_config)
+    if progress_callback:
+        progress_callback(f"Search config written: {search_config_json}")
 
     rows: list[dict[str, Any]] = []
     best_row: Optional[dict[str, Any]] = None
 
     for index, hparams in enumerate(search_grid, start=1):
+        trial_start = time.perf_counter()
         trial_id = f"trial_{index:04d}"
         trial_model_dir = ensure_dir(models_root_path / trial_id)
         trial_result_dir = ensure_dir(run_dir / trial_id)
@@ -234,6 +250,9 @@ def run_hyperparameter_search(
 
         try:
             LOGGER.info("Starting DCML HPO %s/%s: %s", index, len(search_grid), hparams)
+            if progress_callback:
+                progress_callback(f"Starting trial {index}/{len(search_grid)} ({trial_id}).")
+                progress_callback(f"Trial parameters: {hparams}")
             train_summary = train_dcml(
                 train_feature_zip=train_feature_zip_path,
                 train_label_npy=train_label_npy_path,
@@ -244,7 +263,14 @@ def run_hyperparameter_search(
                 device=device,
                 seed=int(seed),
                 cast_float32=bool(cast_float32),
+                progress_callback=progress_callback,
             )
+            if progress_callback:
+                train_dataset = train_summary.get("dataset", {})
+                progress_callback(
+                    f"Trial {trial_id} train size: samples={train_dataset.get('n_samples')}, "
+                    f"features={train_dataset.get('n_features')}"
+                )
             prediction_summary = test_dcml(
                 model_pt=model_path,
                 feature_zip=validation_feature_zip_path,
@@ -254,8 +280,10 @@ def run_hyperparameter_search(
                 split_id=trial_id,
                 dataset_name="validation",
                 cast_float32=bool(cast_float32),
+                progress_callback=progress_callback,
             )
             metrics = prediction_summary["metrics"]
+            trial_elapsed = time.perf_counter() - trial_start
             row.update(
                 {
                     "status": "success",
@@ -267,15 +295,35 @@ def run_hyperparameter_search(
                     "error_message": "",
                 }
             )
+            if progress_callback:
+                valid_dataset = prediction_summary.get("dataset", {})
+                progress_callback(
+                    f"Trial {trial_id} validation size: samples={valid_dataset.get('n_samples')}, "
+                    f"features={valid_dataset.get('n_features')}"
+                )
+                progress_callback(
+                    f"Trial {trial_id} result: validation RMSE={float(metrics['RMSE']):.6f}, "
+                    f"Pearson={float(metrics['Pearson']):.6f}, MAE={float(metrics['MAE']):.6f}, "
+                    f"elapsed={trial_elapsed:.3f}s"
+                )
             if _is_better(row, best_row):
                 best_row = dict(row)
+                if progress_callback:
+                    progress_callback(
+                        f"Best config updated: {trial_id} with RMSE={float(row['RMSE']):.6f}, "
+                        f"Pearson={float(row['Pearson']):.6f}"
+                    )
         except Exception as exc:
             row["status"] = "failure"
             row["error_message"] = str(exc)
             LOGGER.exception("DCML HPO trial failed: %s", trial_id)
+            if progress_callback:
+                progress_callback(f"Trial {trial_id} failed: {exc}")
         finally:
             rows.append(row)
             _write_trials_csv(trials_csv, rows)
+            if progress_callback:
+                progress_callback(f"Trials CSV updated: {trials_csv}")
 
     elapsed_seconds = time.perf_counter() - started_at
     if best_row is None:
@@ -337,6 +385,11 @@ def run_hyperparameter_search(
         "n_failures": sum(1 for row in rows if row.get("status") != "success"),
     }
     _write_yaml(best_config_yaml, best_payload)
+    if progress_callback:
+        progress_callback(f"Final best trial: {best_row['trial_id']}")
+        progress_callback(f"Final best config written: {best_config_yaml}")
+        progress_callback(f"Best model written: {best_model_copy}")
+        progress_callback(f"Trials CSV: {trials_csv}")
 
     return {
         "status": "success",
