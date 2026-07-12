@@ -22,15 +22,17 @@ The root README gives a high-level project map. Model-specific technical details
 The finalized model cards use the following common workflow:
 
 ```text
-Generate Data -> Train -> Search -> Evaluate
+Generate Data -> Search -> Train -> Evaluate
 ```
 
-| Action | Purpose |
+| Stage | Purpose |
 |---|---|
-| Generate Data | Converts raw or prepared molecular datasets into the format required by the selected model. |
-| Train | Trains a model using the selected dataset, split and configuration. |
-| Search | Runs hyperparameter search using validation metrics. Test metrics must not be used for model selection. |
-| Evaluate | Loads trained checkpoint(s) or model bundles and computes predictions and metrics. |
+| Generate Data | Convert raw molecular data into model-specific inputs such as graph objects, sequence files, matrix features, or prepared split files. |
+| Search | Run hyperparameter search using validation metrics only. |
+| Train | Train the selected model on official or configured train/validation/test splits. |
+| Evaluate | Load trained checkpoints or model bundles and compute predictions, metrics, and reports. |
+
+`Train` can also be used independently with a manually selected configuration, for example for smoke tests or controlled experiments. However, for a complete experimental protocol, hyperparameter search should normally be performed before the final training stage.
 
 Each model card opens its own dialogs and writes outputs to model-specific folders.
 
@@ -111,7 +113,7 @@ TrabajoInvestigacion/
 - `ui/` contains the main PySide6 frontend, dashboard, dialogs, menus and shared theme.
 - Model folders such as `EGNN/`, `EDNN/`, `DeepDTA/`, `WideDTA/`, `DCML/`, `CAPLA/` and `DEAttentionDTA/` contain model-specific integrations.
 - Older or colleague-owned GNN modules are stored under folders such as `models/`, `menu_ui/`, `job_config/`, `core/` and `GNNs/`.
-- Generated data and results are usually kept in model-specific `data/`, `models/`, `outputs/`, `results/`, `Graphs_*`, `Models_*` or `Results_*` folders.
+- Generated data and results are usually kept in modeA is a sequence-based drug-target affinity model. It represA is a sequence-based drug-target affinity model. It represl-specific `data/`, `models/`, `outputs/`, `results/`, `Graphs_*`, `Models_*` or `Results_*` folders.
 
 ## Dataset Note
 
@@ -160,7 +162,7 @@ The adapted MPro-URV format includes `ligands_can.txt`, `proteins.txt`, `motif2.
 Available GUI workflow: `Generate Data`, `Train`, `Search`, `Evaluate`.
 
 Detailed documentation: [WideDTA/README.md](WideDTA/README.md)
-
+d
 ### DCML
 
 DCML is a matrix-based workflow, not a PyTorch graph neural network. The current implementation trains a scikit-learn `GradientBoostingRegressor` on precomputed feature matrices.
@@ -179,7 +181,7 @@ The adapted module uses official URV v3b splits. Hyperparameter search should us
 
 Available GUI workflow: `Generate Data`, `Train`, `Search`, `Evaluate`.
 
-Detailed documentation: [CAPLA/Readme.md](CAPLA/Readme.md)
+Detailedd documentation: [CAPLA/Readme.md](CAPLA/Readme.md)
 
 ### DEAttentionDTA
 
