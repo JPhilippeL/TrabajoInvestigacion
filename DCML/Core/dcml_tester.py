@@ -164,6 +164,7 @@ def test_dcml(
     split_id: str | None = None,
     dataset_name: str | None = None,
     cast_float32: bool = True,
+    progress_callback=None,
 ) -> dict[str, Any]:
     """Evaluate a trained DCML bundle on an external dataset."""
     model_path = resolve_path(model_pt)
@@ -175,27 +176,51 @@ def test_dcml(
         raw_output_dir = raw_output_dir.split("Output directory:", 1)[1].strip()
 
     output_dir_path = ensure_dir(raw_output_dir)
+    if progress_callback:
+        progress_callback("Loading model checkpoint.")
+        progress_callback(f"Model checkpoint: {model_path}")
+        progress_callback(f"Feature ZIP: {feature_zip_path}")
+        progress_callback(f"Label NPY: {label_npy_path}")
 
     device_info = choose_device(device)
     warning = cpu_only_warning(device_info, "inference")
     LOGGER.warning(warning)
+    if progress_callback:
+        progress_callback("Warning: " + warning)
 
     bundle, estimator = load_estimator_from_bundle(model_path)
+    if progress_callback:
+        progress_callback(f"Loaded model bundle. Expected features: {bundle.get('n_features')}")
     dataset = load_dcml_dataset(
         feature_zip=feature_zip_path,
         label_npy=label_npy_path,
         cast_float32=bool(cast_float32),
         sample_id_mode="row_index",
     )
+    if progress_callback:
+        progress_callback(
+            f"Loaded evaluation feature shape: {tuple(dataset.features.shape)}, dtype={dataset.report.feature_dtype_final}"
+        )
+        progress_callback(
+            f"Loaded evaluation label shape: {tuple(dataset.labels.shape)}, dtype={dataset.report.label_dtype_final}"
+        )
     _check_feature_compatibility(bundle, estimator, dataset)
 
+    if progress_callback:
+        progress_callback("Running predictions.")
     predictions = run_prediction(estimator, dataset)
     metrics = compute_metrics(dataset.labels, predictions)
+    if progress_callback:
+        progress_callback(f"Evaluation metrics: {metrics}")
 
     predictions_csv, metrics_csv, scatter_png, summary_json = _resolve_outputs(output_dir_path, split_id)
     save_predictions_csv(dataset.sample_ids, dataset.labels, predictions, predictions_csv)
     save_metrics_csv(metrics, metrics_csv, std_default=0.0)
     save_scatter_plot(dataset.labels, predictions, scatter_png, model_name="DCML", split_id=split_id)
+    if progress_callback:
+        progress_callback(f"Predictions written: {predictions_csv}")
+        progress_callback(f"Metrics written: {metrics_csv}")
+        progress_callback(f"Scatter plot written: {scatter_png}")
 
     summary = {
         "script": "dcml_tester.py",
@@ -240,6 +265,8 @@ def test_dcml(
         "versions": {"numpy": np.__version__, "sklearn": sklearn_version},
     }
     _write_json(summary_json, summary)
+    if progress_callback:
+        progress_callback(f"Evaluation summary written: {summary_json}")
     return summary
 
 

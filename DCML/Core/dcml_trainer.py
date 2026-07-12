@@ -176,6 +176,7 @@ def train_dcml(
     device: str | None = "cpu",
     seed: int = 42,
     cast_float32: bool = True,
+    progress_callback=None,
 ) -> dict[str, Any]:
     """Train DCML from a feature ZIP and label NPY.
 
@@ -188,18 +189,33 @@ def train_dcml(
     output_model_path = resolve_path(output_model)
     output_dir_path = ensure_dir(output_dir)
     ensure_dir(output_model_path.parent)
+    if progress_callback:
+        progress_callback("Loading training features and labels.")
+        progress_callback(f"Feature ZIP: {feature_zip_path}")
+        progress_callback(f"Label NPY: {label_npy_path}")
 
     device_info = choose_device(device)
     warning = cpu_only_warning(device_info, "training")
     LOGGER.warning(warning)
+    if progress_callback:
+        progress_callback("Warning: " + warning)
 
     hparams = validate_hyperparameters(hyperparameters)
+    if progress_callback:
+        progress_callback(f"Validated hyperparameters: {hparams}")
 
     dataset = load_dcml_dataset(
         feature_zip=feature_zip_path,
         label_npy=label_npy_path,
         cast_float32=bool(cast_float32),
     )
+    if progress_callback:
+        progress_callback(
+            f"Loaded training feature shape: {tuple(dataset.features.shape)}, dtype={dataset.report.feature_dtype_final}"
+        )
+        progress_callback(
+            f"Loaded training label shape: {tuple(dataset.labels.shape)}, dtype={dataset.report.label_dtype_final}"
+        )
 
     config_payload = {
         "script": "dcml_trainer.py",
@@ -230,7 +246,12 @@ def train_dcml(
 
     estimator = build_estimator(model_type, hparams, int(seed))
     try:
+        if progress_callback:
+            progress_callback("Training started.")
         estimator, train_metrics, training_seconds = train_model(dataset, estimator)
+        if progress_callback:
+            progress_callback(f"Training finished in {training_seconds:.3f}s.")
+            progress_callback(f"Train metrics: {train_metrics}")
     except NUMPY_MEMORY_EXCEPTIONS as exc:
         raise TrainDCMLError(
             "Training ran out of memory. Enable cast_float32 or reduce n_estimators/max_depth."
@@ -256,6 +277,8 @@ def train_dcml(
         extra_metadata=extra_metadata,
     )
     save_bundle(bundle, output_model_path)
+    if progress_callback:
+        progress_callback(f"Model checkpoint written: {output_model_path}")
 
     bundle_size_mb = output_model_path.stat().st_size / (1024.0 * 1024.0) if output_model_path.exists() else None
     summary_payload: dict[str, Any] = {
@@ -296,6 +319,8 @@ def train_dcml(
         "versions": {"sklearn": sklearn_version, "numpy": np.__version__},
     }
     _write_json(output_dir_path / "training_summary.json", summary_payload)
+    if progress_callback:
+        progress_callback(f"Training summary written: {output_dir_path / 'training_summary.json'}")
     return summary_payload
 
 

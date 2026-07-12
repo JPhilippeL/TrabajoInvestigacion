@@ -1,2 +1,0 @@
-trial_id,split,model_pt,history_csv,best_epoch,val_RMSE,val_MAE,val_Pearson,elapsed_seconds,train_rows,validation_rows,test_rows_used
-trial_0001,1,/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/models/hpo_smoke_test/deattentiondta_hpo_20260607_011241/trial_0001/split_01/DEAttentionDTA_HPO_trial_0001_split01.pt,/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/outputs/hpo_smoke_test/deattentiondta_hpo_20260607_011241/trial_0001/split_01/train_history.csv,1,1.121040738641576,0.9296190001747825,0.5648379011397603,89.79309558868408,228,55,0

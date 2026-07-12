@@ -1,2 +1,0 @@
-split,model_pt,results_dir,best_epoch,train_rows,validation_rows,test_rows,val_RMSE,val_MAE,val_Pearson,test_RMSE,test_MAE,test_Pearson
-1,/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/models/from_scratch_smoke_test/split_01/DEAttentionDTA_URV_v3b_split01.pt,/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/outputs/from_scratch_smoke_test/split_01,1,228,55,74,1.3102399212493345,1.0628606449473987,0.7243957825380253,1.1905025045823756,0.9674241413941255,0.7085023209729098

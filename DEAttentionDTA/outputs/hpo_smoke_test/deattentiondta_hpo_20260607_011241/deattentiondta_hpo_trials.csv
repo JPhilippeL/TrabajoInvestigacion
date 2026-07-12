@@ -1,2 +1,0 @@
-trial_id,status,lr,batch_size,weight_decay,tuning_splits,mean_val_RMSE,mean_val_Pearson,mean_val_MAE,mean_best_epoch,elapsed_seconds,models_dir,trial_dir,error_message
-trial_0001,success,0.0001,4,0.0,1,1.121040738641576,0.5648379011397603,0.9296190001747825,1.0,89.79309558868408,/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/models/hpo_smoke_test/deattentiondta_hpo_20260607_011241/trial_0001,/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/outputs/hpo_smoke_test/deattentiondta_hpo_20260607_011241/trial_0001,

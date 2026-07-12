@@ -59,7 +59,7 @@ class MoleculeGraphScene(QGraphicsScene):
 
     def on_modify_node(self, node_item):
         node_id = self._get_node_id_from_item(node_item)
-        new_element, ok = QInputDialog.getText(None, "Modificar nodo", "Nuevo símbolo químico:")
+        new_element, ok = QInputDialog.getText(None, "Modificar átomo", "Nuevo símbolo químico:")
         if ok and new_element:
             new_element = self.fix_element_symbol(new_element.strip())
             GraphManager.modify_node(self.graph, node_id, new_element)
@@ -163,7 +163,7 @@ class MoleculeGraphScene(QGraphicsScene):
     # Método para añadir un nodo en medio de una arista existente
     def on_add_node_to_edge(self, edge_item):
         # 1. Preguntar al usuario el símbolo químico
-        symbol, ok = QInputDialog.getText(self.views()[0], "Nuevo nodo", "Símbolo del nuevo átomo (Ej: C, O, N):")
+        symbol, ok = QInputDialog.getText(self.views()[0], "Nuevo átomo", "Símbolo del nuevo átomo (Ej: C, O, N):")
         if not ok or not symbol.strip():
             return
 
@@ -204,7 +204,7 @@ class MoleculeGraphScene(QGraphicsScene):
 
     # Metodo para crear un nuevo nodo en una posición específica
     def _create_node_at(self, pos):
-        symbol, ok = QInputDialog.getText(None, "Nuevo nodo", "Símbolo del nuevo átomo (Ej: C, O, N):")
+        symbol, ok = QInputDialog.getText(None, "Nuevo átomo", "Símbolo del nuevo átomo (Ej: C, O, N):")
         if not ok or not symbol.strip():
             return
 

@@ -18,6 +18,7 @@ import torch.nn as nn
 from torch import optim
 from torch.utils.data import DataLoader, SubsetRandomSampler
 
+from DeepDTA.Core.deepdta_audit import audit_dataset_splits
 from DeepDTA.data import NumbersDataset
 from DeepDTA.model import CNNcom
 
@@ -362,6 +363,8 @@ def train(
     @return Dictionary containing metrics and checkpoint path.
     """
     set_seed(seed)
+    if max_train_batches == 0:
+        max_train_batches = None
 
     dataset_name = dataset_name.lower().strip()
     torch_device = resolve_device(device)
@@ -373,6 +376,15 @@ def train(
 
     ligand_path, protein_path, affinity_path = get_dataset_paths(dataset_name)
     dataset = NumbersDataset(ligand_path, protein_path, affinity_path)
+    split_audit = audit_dataset_splits(
+        dataset_name=dataset_name,
+        fold_index=fold_index,
+        use_dataset_folds=use_dataset_folds,
+        val_split=val_split,
+        test_split=test_split,
+        seed=seed,
+        output_dir=output_base,
+    )
 
     if use_dataset_folds and dataset_has_fold_files(dataset_name):
         split_mode = "dataset_folds"
@@ -476,4 +488,11 @@ def train(
         "test_pearson": test_metrics["Pearson"],
         "checkpoint_path": best_checkpoint_path,
         "output_base": output_base,
+        "split_audit_path": split_audit.get("audit_path"),
+        "warnings": split_audit.get("warnings", []) + (
+            ["DEBUG RUN - metrics are not scientifically valid."]
+            if max_train_batches is not None
+            else []
+        ),
+        "debug_run": max_train_batches is not None,
     }

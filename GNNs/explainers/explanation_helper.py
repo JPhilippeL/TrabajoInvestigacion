@@ -11,7 +11,8 @@ import os
 
 logger = logging.getLogger(__name__)
 
-from ui.utils.constants import RESULTADOS_DIR, hybridization_types, periodic_elements
+from ui.utils.constants import RESULTADOS_DIR, EXPLAINERS, hybridization_types, periodic_elements
+from graph_managment.sdf_converter import parse_sdf
 
 # --- FUNCIÓN MAESTRA ---
 def guardar_dashboard_explicacion(
@@ -421,6 +422,22 @@ def guardar_pesos(alfa, beta, gamma, delta, model_name, mol_name, algo_name):
     
     return saved_paths
 
+def guardar_pesos_batch(batch_dict, model_name, algo_name):
+    """
+    Guarda el diccionario completo del batch en un solo archivo .pt
+    Estructura esperada: {'Molecula1': {'alfa': tensor, ...}, 'Molecula2': {...}}
+    """
+    specific_dir = os.path.join(RESULTADOS_DIR, model_name, algo_name)
+    os.makedirs(specific_dir, exist_ok=True)
+    
+    filename = f"{model_name}_{algo_name}_BATCH_COMPLETO.pt"
+    full_path = os.path.join(specific_dir, filename)
+    
+    # Guardamos el diccionario gigante
+    torch.save(batch_dict, full_path)
+    
+    return full_path
+
 def get_feature_names_embedding():
     return [
         "Atom Symbol", 
@@ -584,3 +601,132 @@ def procesar_features_onehot(importance_tensor, feature_names, input_data):
     # === CORRECCIÓN AQUÍ ===
     # Convertimos el array 1D (9,) de vuelta a una matriz columna 2D (9, 1)
     return final_imp.reshape(-1, 1), sorted_names.tolist()
+
+# ====================================================================
+# 1. LOGICA DE EXTRACCIÓN (HELPER)
+# ====================================================================
+def extraer_pesos_torchexplainers(explanation):
+    """
+    Convierte la salida compleja de GNNExplainer/Captum en los 4 tensores base (Raw).
+    Mantiene el orden original de los nodos (índices).
+    """
+    node_mask = explanation.node_mask
+    edge_mask = explanation.edge_mask
+
+    # --- ALFA (Features Importancia Global) ---
+    alfa_raw = None
+    if node_mask is not None:
+        if node_mask.ndim > 1:
+            alfa_raw = node_mask.mean(dim=0) 
+        else:
+            alfa_raw = node_mask
+
+    # --- BETA (Nodos Importancia Estructural) ---
+    beta_raw = None
+    if node_mask is not None:
+        if node_mask.ndim > 1:
+            beta_raw = node_mask.mean(dim=1)
+        else:
+            beta_raw = node_mask
+
+    # --- DELTA Y GAMMA (Aristas) ---
+    delta_raw = None
+    gamma_raw = None 
+
+    if edge_mask is not None:
+        if edge_mask.ndim > 1:
+            # CASO A: El explicador generó pesos para atributos de aristas (Shape 2D)
+            # Promedio por arista para obtener topología pura (Delta)
+            delta_raw = edge_mask.mean(dim=1)
+            # Promedio por columna (feature) para obtener importancia global de las features (Gamma)
+            gamma_raw = edge_mask.mean(dim=0)
+        else:
+            # CASO B: El explicador solo devolvió topología (Shape 1D plano)
+            delta_raw = edge_mask
+            gamma_raw = None
+
+    return alfa_raw, beta_raw, gamma_raw, delta_raw
+
+
+# ====================================================================
+# 2. PIPELINE DE ANÁLISIS Y VISUALIZACIÓN
+# ====================================================================
+def pipeline_visualizacion_torchexplainers(
+    alfa_raw, beta_raw, delta_raw, gamma_raw,
+    edge_index, sdf_path, model, data, device,
+    mol_name, target_name, real_val, pred_val, 
+    model_name, algo_name="GNNExplainer"
+):
+    """
+    Toma los pesos CRUDOS y coordina:
+    1. Cálculo de Fidelity (con orden original).
+    2. Procesamiento para Heatmaps (ordenar y etiquetar).
+    3. Generación del Dashboard.
+    """
+    
+    # A. PREPARACIÓN DE DATOS BASE
+    graph_obj = parse_sdf(sdf_path)
+    
+    # Convertimos a numpy normalizado (Norma) para pintar y para el threshold de fidelity
+    beta_np = normalizar_por_norma(tensor_to_abs_numpy(beta_raw))
+    delta_normalized = normalizar_por_norma(tensor_to_abs_numpy(delta_raw)) if delta_raw is not None else np.array([])
+
+    # ---------------------------------------------------------
+    # B. CÁLCULO DE FIDELITY (Sobre datos alineados con grafos)
+    # ---------------------------------------------------------
+    # if model is not None and data is not None:
+    #     try:
+    #         logger.info("Calculando curvas de fidelity...")
+    #         k_vals, fiab_minus = calcular_curvas_fidelity_general(
+    #             model, data, beta_np, device
+    #         )
+    #         guardar_plot_fidelity(
+    #             k_values=k_vals, fiab_minus=fiab_minus, 
+    #             model_name=model_name, mol_name=mol_name, algo_name=algo_name
+    #         )
+    #     except Exception as e:
+    #         logger.error(f"Error calculando fidelity: {e}")
+
+    # ---------------------------------------------------------
+    # C. PROCESAMIENTO PARA HEATMAPS (Aquí sí alteramos el orden)
+    # ---------------------------------------------------------
+    # Solo necesario para ALFA y GAMMA que llevan etiquetas de texto
+    feature_names = get_feature_names_embedding()
+    
+    # ALFA
+    if alfa_raw is not None:
+        alfa_sorted, row_labels_alfa = procesar_features_ordenadas(
+            alfa_raw, feature_names, data.x
+        )
+    else:
+        alfa_sorted, row_labels_alfa = None, []
+
+    # GAMMA
+    if gamma_raw is not None:
+        gamma_sorted, row_labels_gamma = procesar_features_ordenadas(
+            gamma_raw, ["Bond Type", "Dist"], data.edge_attr
+        )
+    else:
+        gamma_sorted, row_labels_gamma = None, []
+
+    # ---------------------------------------------------------
+    # D. GENERAR DASHBOARD FINAL
+    # ---------------------------------------------------------
+    plot_path = guardar_dashboard_explicacion(
+        graph_obj=graph_obj,
+        edge_index=edge_index,
+        node_importance=beta_np.flatten(),
+        edge_importance=delta_normalized.flatten(),
+        alfa_sorted=alfa_sorted,
+        row_labels_alfa=row_labels_alfa,
+        gamma_sorted=gamma_sorted,
+        row_labels_gamma=row_labels_gamma,
+        mol_name=mol_name,
+        target_name=target_name,
+        real_val=real_val,
+        pred_val=pred_val,
+        algo_name=algo_name,
+        model_name=model_name
+    )
+    
+    return plot_path

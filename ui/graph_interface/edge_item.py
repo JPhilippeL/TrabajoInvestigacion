@@ -106,7 +106,7 @@ class EdgeItem(QGraphicsItemGroup, QObject):
         menu = QMenu()
         modify_action = menu.addAction("Modificar enlace")
         delete_action = menu.addAction("Eliminar enlace")
-        add_node_action = menu.addAction("Añadir nodo")
+        add_node_action = menu.addAction("Añadir átomo")
 
         action = menu.exec(event.screenPos())
 

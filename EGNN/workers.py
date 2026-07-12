@@ -12,7 +12,7 @@ from PySide6.QtCore import QThread, Signal
 
 from EGNN.Core.egnn_generate_data import generate_data
 from EGNN.Core.egnn_hyperparameter_search import run_hyperparameter_search
-from EGNN.Core.egnn_tester import test_all_models_in_folder, test_model
+from EGNN.Core.egnn_tester import evaluate_checkpoint_or_run, test_all_models_in_folder
 from EGNN.Core.egnn_trainer import train
 
 
@@ -74,7 +74,7 @@ class TestThread(QThread):
 
     def run(self):
         try:
-            metrics = test_model(**self.params)
+            metrics = evaluate_checkpoint_or_run(**self.params)
             self.finished_success.emit(metrics)
         except Exception:
             self.finished_error.emit(traceback.format_exc())

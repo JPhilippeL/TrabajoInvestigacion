@@ -29,6 +29,9 @@ dependencies:
   # Bio / chemistry
   - rdkit
   - biopython
+  - dssp
+  - pdb2pqr
+  - openbabel
 
   # Deep learning
   - pytorch=2.3.1
@@ -58,5 +61,11 @@ dependencies:
   - pip:
       - deepsmiles
       - torch-geometric==2.7.0
+      - dive-into-graphs
+      - pyg_lib
+      - torch_scatter
+      - torch_sparse
+      - torch_cluster
+      - torch_spline_conv
       - pgmpy
       - pyro-ppl

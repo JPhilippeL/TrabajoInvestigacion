@@ -1,9 +1,0 @@
-{
-  "splits_completed": 1,
-  "test_MAE_mean": 0.9674241413941255,
-  "test_MAE_std": NaN,
-  "test_Pearson_mean": 0.7085023209729098,
-  "test_Pearson_std": NaN,
-  "test_RMSE_mean": 1.1905025045823756,
-  "test_RMSE_std": NaN
-}

@@ -20,6 +20,7 @@ try:
 except ImportError:
     yaml = None
 
+from DeepDTA.Core.deepdta_audit import audit_dataset_splits
 from DeepDTA.Core.deepdta_trainer import train
 
 
@@ -71,6 +72,7 @@ def ensure_trials_csv(csv_path: str) -> None:
         "duration_hms",
         "status",
         "error_message",
+        "debug_run",
     ]
 
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
@@ -99,6 +101,7 @@ def append_trial_result(csv_path: str, row: Dict[str, Any]) -> None:
         row.get("duration_hms"),
         row.get("status"),
         row.get("error_message"),
+        row.get("debug_run"),
     ]
 
     with open(csv_path, "a", newline="", encoding="utf-8") as f:
@@ -219,6 +222,18 @@ def run_hyperparameter_search(
 
     ensure_trials_csv(trials_csv_path)
 
+    split_audit = audit_dataset_splits(
+        dataset_name=dataset_name,
+        fold_index=fold_index,
+        use_dataset_folds=use_dataset_folds,
+        val_split=val_split,
+        test_split=test_split,
+        seed=seed,
+        output_dir=reports_dir,
+    )
+    if max_train_batches is not None:
+        split_audit.setdefault("warnings", []).append("DEBUG RUN - metrics are not scientifically valid.")
+
     best_metrics: Dict[str, Any] | None = None
     best_trial_payload: Dict[str, Any] | None = None
     best_trial_name: str | None = None
@@ -293,6 +308,7 @@ def run_hyperparameter_search(
                     "duration_hms": format_duration_hms(trial_duration_seconds),
                     "status": "success",
                     "error_message": "",
+                    "debug_run": max_train_batches is not None,
                 },
             )
 
@@ -336,6 +352,7 @@ def run_hyperparameter_search(
                     "duration_hms": format_duration_hms(trial_duration_seconds),
                     "status": "failed_exception",
                     "error_message": str(exc)[:1000],
+                    "debug_run": max_train_batches is not None,
                 },
             )
 
@@ -350,12 +367,14 @@ def run_hyperparameter_search(
     if best_trial_payload is None:
         return {
             "status": "failed",
+            "split_audit_json": split_audit.get("audit_path"),
             "message": "No valid DeepDTA configuration found.",
             "run_dir": run_dir,
             "models_dir": models_dir,
             "reports_dir": reports_dir,
             "trials_csv": trials_csv_path,
             "best_config_yaml": best_config_yaml_path,
+            "split_audit_json": split_audit.get("audit_path"),
             "elapsed_seconds": elapsed_seconds,
             "elapsed_time": elapsed_time,
             "hyperparameter_search_time": search_elapsed_hms,
@@ -374,6 +393,8 @@ def run_hyperparameter_search(
         "reports_dir": reports_dir,
         "trials_csv": trials_csv_path,
         "best_config_yaml": best_config_yaml_path,
+        "split_audit_json": split_audit.get("audit_path"),
+        "debug_run": max_train_batches is not None,
         "elapsed_seconds": elapsed_seconds,
         "elapsed_time": elapsed_time,
         "hyperparameter_search_time": search_elapsed_hms,

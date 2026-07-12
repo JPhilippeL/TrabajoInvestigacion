@@ -15,7 +15,7 @@ class MenuHyperparameterSearchGNN(QMenu):
         self.init_actions()
 
     def init_actions(self):
-        search_action = QAction("Run Hyperparameter Search", self)
+        search_action = QAction("Search GNN", self)
         search_action.triggered.connect(self.run_hyperparameter_search)
         self.addAction(search_action)
 

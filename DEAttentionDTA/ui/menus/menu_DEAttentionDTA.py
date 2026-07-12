@@ -8,20 +8,14 @@ from pathlib import Path
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QDialog, QMenu, QMessageBox
 
-from DEAttentionDTA.ui.dialogs.debug_deattentiondta_dialog import DebugDEAttentionDTADialog
-from DEAttentionDTA.ui.dialogs.debug_pretrained_deattentiondta_dialog import DebugPretrainedDEAttentionDTADialog
-from DEAttentionDTA.ui.dialogs.finetune_deattentiondta_dialog import FinetuneDEAttentionDTADialog
 from DEAttentionDTA.ui.dialogs.hyperparameter_search_deattentiondta_dialog import HyperparameterSearchDEAttentionDTADialog
 from DEAttentionDTA.ui.dialogs.prepare_deattentiondta_dataset_dialog import PrepareDEAttentionDTADatasetDialog
 from DEAttentionDTA.ui.dialogs.test_deattentiondta_dialog import TestDEAttentionDTADialog
 from DEAttentionDTA.ui.dialogs.train_deattentiondta_dialog import TrainDEAttentionDTADialog
 from DEAttentionDTA.workers import (
-    DebugOfficialDatasetThread,
-    DebugPretrainedCheckpointThread,
     EvaluateCheckpointThread,
     HyperparameterSearchDEAttentionDTAThread,
     PrepareURVDatasetThread,
-    PretrainedVsFinetunedThread,
     TrainOfficialSplitsThread,
 )
 
@@ -39,38 +33,25 @@ class MenuDEAttentionDTA(QMenu):
         self.init_actions()
 
     def init_actions(self) -> None:
-        self.train_action = QAction("Train Official Split(s) From Scratch", self)
+        self.generate_data_action = QAction("Generate Data", self)
+        self.generate_data_action.triggered.connect(self.open_prepare_dialog)
+        self.addAction(self.generate_data_action)
+
+        self.train_action = QAction("Train", self)
         self.train_action.triggered.connect(self.open_train_dialog)
         self.addAction(self.train_action)
 
-        self.hpo_action = QAction("Hyperparameter Search", self)
+        self.hpo_action = QAction("Search", self)
         self.hpo_action.triggered.connect(self.open_hpo_dialog)
         self.addAction(self.hpo_action)
 
-        self.test_action = QAction("Evaluate Checkpoint on Official Split(s)", self)
+        self.test_action = QAction("Evaluate", self)
         self.test_action.triggered.connect(self.open_test_dialog)
         self.addAction(self.test_action)
 
-        self.finetune_action = QAction("Compare Pretrained vs Fine-Tuned", self)
-        self.finetune_action.triggered.connect(self.open_finetune_dialog)
-        self.addAction(self.finetune_action)
-
-        self.addSeparator()
-
-        self.validation_menu = self.addMenu("Advanced Validation")
-
-        self.debug_action = QAction("Validate Prepared Dataset", self)
-        self.debug_action.triggered.connect(self.open_debug_dialog)
-        self.validation_menu.addAction(self.debug_action)
-
-        self.debug_pretrained_action = QAction("Validate Pretrained Checkpoint", self)
-        self.debug_pretrained_action.triggered.connect(
-            self.open_debug_pretrained_dialog
-        )
-        self.validation_menu.addAction(self.debug_pretrained_action)
-
     def _set_actions_enabled(self, enabled: bool) -> None:
-        for action in (self.debug_action, self.debug_pretrained_action, self.train_action, self.hpo_action, self.test_action, self.finetune_action): action.setEnabled(enabled)
+        for action in (self.generate_data_action, self.train_action, self.hpo_action, self.test_action):
+            action.setEnabled(enabled)
 
     @staticmethod
     def _resolve(value: str) -> Path:
@@ -110,34 +91,18 @@ class MenuDEAttentionDTA(QMenu):
         dialog = PrepareDEAttentionDTADatasetDialog(self.parent_window)
         if dialog.exec() != QDialog.DialogCode.Accepted: return
         try:
-            params = dialog.get_inputs(); self._require_directory(params["urv_v3b_dir"], "URV v3b source"); self._require_directory(params["urv_v2_dir"], "MPro-URV Version2 source"); self._require_text(params["out_dir"], "Prepared output directory")
+            params = dialog.get_inputs()
+            self._require_directory(params["raw_root"], "Raw MPro-v2-like dataset")
+            self._require_text(params["output_root"], "Prepared output root")
         except Exception as exc:
-            QMessageBox.critical(self.parent_window, "DEAttentionDTA Preparation Configuration Error", str(exc)); return
+            QMessageBox.critical(self.parent_window, "DEAttentionDTA Generate Data Configuration Error", str(exc)); return
         self._start_worker(PrepareURVDatasetThread(params))
-
-    def open_debug_dialog(self) -> None:
-        dialog = DebugDEAttentionDTADialog(self.parent_window)
-        if dialog.exec() != QDialog.DialogCode.Accepted: return
-        try:
-            params = dialog.get_inputs(); self._require_directory(params["prepared_dir"], "Prepared dataset"); self._require_text(params["results_dir"], "Output directory")
-        except Exception as exc:
-            QMessageBox.critical(self.parent_window, "DEAttentionDTA Validation Configuration Error", str(exc)); return
-        self._start_worker(DebugOfficialDatasetThread(params))
-
-    def open_debug_pretrained_dialog(self) -> None:
-        dialog = DebugPretrainedDEAttentionDTADialog(self.parent_window)
-        if dialog.exec() != QDialog.DialogCode.Accepted: return
-        try:
-            params = dialog.get_inputs(); self._require_directory(params["prepared_dir"], "Prepared dataset"); self._require_file(params["checkpoint"], "Checkpoint"); self._require_text(params["results_dir"], "Output directory")
-        except Exception as exc:
-            QMessageBox.critical(self.parent_window, "DEAttentionDTA Checkpoint Validation Configuration Error", str(exc)); return
-        self._start_worker(DebugPretrainedCheckpointThread(params))
 
     def open_train_dialog(self) -> None:
         dialog = TrainDEAttentionDTADialog(self.parent_window)
         if dialog.exec() != QDialog.DialogCode.Accepted: return
         try:
-            params = dialog.get_inputs(); self._require_directory(params["prepared_dir"], "Prepared dataset"); self._require_text(params["results_dir"], "Results directory"); self._require_text(params["models_dir"], "Models directory"); self._require_text(params["splits"], "Official splits")
+            params = dialog.get_inputs(); self._require_directory(params["prepared_dir"], "Prepared dataset"); self._require_text(params["output_dir"], "Output directory"); self._require_text(params["splits"], "Fold index")
         except Exception as exc:
             QMessageBox.critical(self.parent_window, "DEAttentionDTA Training Configuration Error", str(exc)); return
         self._start_worker(TrainOfficialSplitsThread(params))
@@ -146,34 +111,42 @@ class MenuDEAttentionDTA(QMenu):
         dialog = HyperparameterSearchDEAttentionDTADialog(self.parent_window)
         if dialog.exec() != QDialog.DialogCode.Accepted: return
         try:
-            params = dialog.get_inputs(); self._require_directory(params["prepared_dir"], "Prepared dataset"); self._require_text(params["models_root"], "HPO models directory"); self._require_text(params["results_root"], "HPO results directory"); self._require_text(params["splits"], "Tuning splits")
+            params = dialog.get_inputs(); self._require_directory(params["prepared_dir"], "Prepared dataset"); self._require_text(params["output_dir"], "Output root"); self._require_text(params["splits"], "Fold index")
             if not params["lr_values"]: raise ValueError("At least one learning-rate value is required.")
             if not params["batch_size_values"]: raise ValueError("At least one batch-size value is required.")
             if not params["weight_decay_values"]: raise ValueError("At least one weight-decay value is required.")
         except Exception as exc:
-            QMessageBox.critical(self.parent_window, "DEAttentionDTA Hyperparameter Search Configuration Error", str(exc)); return
+            QMessageBox.critical(self.parent_window, "DEAttentionDTA Search Configuration Error", str(exc)); return
         self._start_worker(HyperparameterSearchDEAttentionDTAThread(params))
 
     def open_test_dialog(self) -> None:
         dialog = TestDEAttentionDTADialog(self.parent_window)
         if dialog.exec() != QDialog.DialogCode.Accepted: return
         try:
-            params = dialog.get_inputs(); self._require_file(params["checkpoint"], "Checkpoint"); self._require_directory(params["prepared_dir"], "Prepared dataset"); self._require_text(params["results_dir"], "Results directory"); self._require_text(params["splits"], "Official splits")
+            params = dialog.get_inputs(); self._require_file(params["checkpoint"], "Checkpoint"); self._require_directory(params["prepared_dir"], "Prepared dataset"); self._require_text(params["results_dir"], "Output directory"); self._require_text(params["splits"], "Fold index")
         except Exception as exc:
             QMessageBox.critical(self.parent_window, "DEAttentionDTA Evaluation Configuration Error", str(exc)); return
         self._start_worker(EvaluateCheckpointThread(params))
 
-    def open_finetune_dialog(self) -> None:
-        dialog = FinetuneDEAttentionDTADialog(self.parent_window)
-        if dialog.exec() != QDialog.DialogCode.Accepted: return
-        try:
-            params = dialog.get_inputs(); self._require_directory(params["prepared_dir"], "Prepared dataset"); self._require_file(params["checkpoint"], "Original checkpoint"); self._require_text(params["results_dir"], "Results directory"); self._require_text(params["models_dir"], "Models directory"); self._require_text(params["splits"], "Official splits")
-        except Exception as exc:
-            QMessageBox.critical(self.parent_window, "DEAttentionDTA Fine-Tuning Configuration Error", str(exc)); return
-        self._start_worker(PretrainedVsFinetunedThread(params))
-
     def on_success(self, summary: dict) -> None:
         artifacts = summary.get("artifacts", {})
+        details = summary.get("summary", {}) if isinstance(summary.get("summary", {}), dict) else {}
+        if summary.get("operation") == "generate_deattentiondta_dataset_from_mpro_v2":
+            split_sizes = details.get("split_sizes", {})
+            split_text = ", ".join(f"{key}={value}" for key, value in list(split_sizes.items())[:6])
+            if len(split_sizes) > 6:
+                split_text += ", ..."
+            message = (
+                "Status: success\n\n"
+                f"Output path: {artifacts.get('prepared_dataset', '')}\n"
+                f"Samples kept: {details.get('samples_kept', '')}\n"
+                f"Samples skipped: {details.get('samples_skipped', '')}\n"
+                f"Split sizes: {split_text or 'See report'}\n"
+                f"Report path: {artifacts.get('generate_data_report_json', '')}\n"
+                f"Warnings: {details.get('warnings_count', 0)}"
+            )
+            QMessageBox.information(self.parent_window, "DEAttentionDTA Generate Data Finished", message)
+            return
         artifact_text = "\n".join(f"{key}: {value}" for key, value in artifacts.items())
         QMessageBox.information(self.parent_window, "DEAttentionDTA Operation Finished", "Status: success\n\nGenerated artifacts:\n" + (artifact_text or "See application logs."))
 

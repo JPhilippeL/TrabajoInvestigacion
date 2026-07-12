@@ -14,13 +14,13 @@ class TrainingControllerProcess:
 
     def entrenar(
         self,
-        sdf_dir,
+        train_dir,
+        val_dir,
         target_file,
         model_type,
         epochs,
         batch_size,
         lr,
-        valid_split,
         model_name,
         hidden_dim,
         num_layers,
@@ -37,14 +37,60 @@ class TrainingControllerProcess:
         self.process.setProgram(sys.executable)  # ejecuta el mismo Python
         self.process.setArguments([
             "-m", "GNNs.workers.trainer_worker",
-            "--sdf_dir", sdf_dir,
+            "--train_dir", train_dir,
+            "--val_dir", val_dir,
             "--target_file", target_file,
             "--model_type", model_type,
             "--epochs", str(epochs),
             "--model_name", model_name,
             "--batch_size", str(batch_size),
             "--lr", str(lr),
-            "--valid_split", str(valid_split),
+            "--hidden_dim", str(hidden_dim),
+            "--num_layers", str(num_layers),
+            "--patience", str(patience),
+            "--atom_emb_dim", str(atom_emb_dim),
+            "--hibrid_emb_dim", str(hibrid_emb_dim),
+            "--bond_emb_dim", str(bond_emb_dim)
+        ])
+
+        # Conectar señales
+        self.process.readyReadStandardOutput.connect(self.on_stdout)
+        self.process.readyReadStandardError.connect(self.on_stderr)
+        #self.process.finished.connect(self.on_finished)
+
+        self.process.start()
+
+    def entrenar_desde_pt(
+        self,
+        train_pt,
+        val_pt,
+        model_type,
+        epochs,
+        batch_size,
+        lr,
+        model_name,
+        hidden_dim,
+        num_layers,
+        patience,
+        atom_emb_dim,
+        hibrid_emb_dim,
+        bond_emb_dim
+    ):
+        
+        # Mostrar mensaje en GUI
+        logger.info("Inicializando entrenamiento...")
+        
+        self.process = QProcess()
+        self.process.setProgram(sys.executable)  # ejecuta el mismo Python
+        self.process.setArguments([
+            "-m", "GNNs.workers.trainer_worker_from_pt",
+            "--train_pt", train_pt,
+            "--val_pt", val_pt,
+            "--model_type", model_type,
+            "--epochs", str(epochs),
+            "--model_name", model_name,
+            "--batch_size", str(batch_size),
+            "--lr", str(lr),
             "--hidden_dim", str(hidden_dim),
             "--num_layers", str(num_layers),
             "--patience", str(patience),
@@ -125,12 +171,12 @@ class TrainingControllerProcess:
 
     def train_multiple_models(
         self,
-        sdf_dir,
+        train_dir,
+        val_dir,
         target_file,
         epochs,
         batch_size,
         lr,
-        valid_split,
         hidden_dim,
         patience,
         atom_emb_dim,
@@ -143,12 +189,47 @@ class TrainingControllerProcess:
         self.process.setProgram(sys.executable)
         self.process.setArguments([
             "-m", "GNNs.workers.multiple_models_trainer_worker",
-            "--sdf_dir", sdf_dir,
+            "--train_dir", train_dir,
+            "--val_dir", val_dir,
             "--target_file", target_file,
             "--epochs", str(epochs),
             "--batch_size", str(batch_size),
             "--lr", str(lr),
-            "--valid_split", str(valid_split),
+            "--hidden_dim", str(hidden_dim),
+            "--patience", str(patience),
+            "--atom_emb_dim", str(atom_emb_dim),
+            "--hibrid_emb_dim", str(hibrid_emb_dim),
+            "--bond_emb_dim", str(bond_emb_dim)
+        ])
+
+        self.process.readyReadStandardOutput.connect(self.on_stdout)
+        self.process.readyReadStandardError.connect(self.on_stderr)
+        self.process.start()
+
+    def train_multiple_models_pt(
+        self,
+        train_pt,
+        val_pt,
+        epochs,
+        batch_size,
+        lr,
+        hidden_dim,
+        patience,
+        atom_emb_dim,
+        hibrid_emb_dim,
+        bond_emb_dim
+    ):      
+        logger.info("Inicializando entrenamiento múltiple...")
+
+        self.process = QProcess()
+        self.process.setProgram(sys.executable)
+        self.process.setArguments([
+            "-m", "GNNs.workers.multiple_models_trainer_worker_pt",
+            "--train_pt", train_pt,
+            "--val_pt", val_pt,
+            "--epochs", str(epochs),
+            "--batch_size", str(batch_size),
+            "--lr", str(lr),
             "--hidden_dim", str(hidden_dim),
             "--patience", str(patience),
             "--atom_emb_dim", str(atom_emb_dim),

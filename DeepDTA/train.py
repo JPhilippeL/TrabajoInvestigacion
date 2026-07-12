@@ -1,59 +1,49 @@
-#criterian
-##RMSE LOSS
-import model
-import data
-from data import*
-from model import*
-import torch.nn as nn
-from torch import optim
-import torch.nn.functional as F
-dataset = NumbersDataset(ligand_path, protein_path, affinity_path)
-train_loader, test_loader = load_splitset(dataset, .2)
+"""
+@file train.py
+@brief Command-line entry point for DeepDTA training.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+
+from DeepDTA.Core.deepdta_trainer import train
 
 
-class rmsloss(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.mse=nn.MSELoss()
-    def forward(self,yhat,y):
-       return torch.sqrt(self.mse(yhat,y))
-model2 = CNNcom()
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Train DeepDTA.")
+    parser.add_argument("--dataset", default="mpro_urv", choices=["davis", "kiba", "mpro_urv"])
+    parser.add_argument("--output-base", default=None)
+    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--epochs", type=int, default=3)
+    parser.add_argument("--lr", type=float, default=0.003)
+    parser.add_argument("--device", default="auto")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--val-split", type=float, default=0.1)
+    parser.add_argument("--test-split", type=float, default=0.2)
+    parser.add_argument("--max-train-batches", type=int, default=0)
+    parser.add_argument("--fold-index", type=int, default=0)
+    parser.add_argument("--use-dataset-folds", action="store_true", default=True)
+    parser.add_argument("--no-dataset-folds", action="store_true")
+    args = parser.parse_args()
 
-def train_d(model,train):
-#criterion = nn.MSELoss()
-    criterion = rmsloss()
-    # model2 = CNNcom()
-    optimizer=optim.Adam(model.parameters(),lr=0.003)
-
-    num_epochs = 3
-    for epoch in range(num_epochs):
-       r_loss = 0
-       loss1 = []
-       out1 = []
-       count = 0
-       for i, j in (train):
-           m=i[0]
-           m = m.reshape((4, 62, 50))
-           p=i[1]
-           p = p.reshape((4, 25, 600))
-           output = model(m, p)
-           out1.append(output)
-           loss = criterion(output, j)
-           optimizer.zero_grad()
-           loss.backward()
-           optimizer.step()
-           loss1.append(loss)
-           count += 1
-           if count == 50:
-               break
-    return loss1,out1
+    results = train(
+        dataset_name=args.dataset,
+        output_base=args.output_base,
+        batch_size=args.batch_size,
+        epochs=args.epochs,
+        lr=args.lr,
+        device=args.device,
+        seed=args.seed,
+        val_split=args.val_split,
+        test_split=args.test_split,
+        max_train_batches=None if args.max_train_batches == 0 else args.max_train_batches,
+        fold_index=args.fold_index,
+        use_dataset_folds=args.use_dataset_folds and not args.no_dataset_folds,
+    )
+    print(json.dumps(results, indent=4, default=str))
 
 
-tt = train_d(model2,train_loader)
-torch.save(model2,'deep.pt')
-if __name__ == '__main__':
-     #traind = train_d(train_loader)
-     print(tt[0])
-     print(tt[1])
-
-
+if __name__ == "__main__":
+    main()
