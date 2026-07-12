@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Molecular Analysis System
-Comment=Protein-ligand binding affinity prediction platform
-Exec=/home/mohamed/miniconda3/envs/gui_app/bin/python /home/mohamed/Studies/stage/TrabajoInvestigacion/main.py
-Icon=/home/mohamed/Studies/stage/TrabajoInvestigacion/ui/assets/icons/app_icon.png
-Terminal=false
-Categories=Science;Education;
-StartupWMClass=Molecular Analysis System
