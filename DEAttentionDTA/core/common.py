@@ -1,8 +1,7 @@
 """Shared helpers for the DEAttentionDTA GUI integration.
 
-This module deliberately treats the original repository as an external source
-of truth.  Upstream model files are loaded dynamically; they are not copied or
-rewritten by the GUI layer.
+This module loads only GUI-maintained DEAttentionDTA code. The archival source
+tree is not a runtime dependency.
 """
 
 from __future__ import annotations

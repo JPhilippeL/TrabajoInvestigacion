@@ -445,12 +445,12 @@ def run_hyperparameter_search(params: Mapping[str, Any]) -> dict[str, Any]:
 
     check_args = SimpleNamespace(prepared_dir=str(prepared_dir))
     base.ensure_prepared_exists(check_args, str(MODULE_ROOT))
-    model_cls, bestmodel_path = base.load_model_class(str(MODULE_ROOT))
+    model_cls, model_source_path = base.load_model_class(str(MODULE_ROOT))
 
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     run_dir = ensure_dir(results_root / f"deattentiondta_hpo_{timestamp}")
     trial_models_root = ensure_dir(models_root / f"deattentiondta_hpo_{timestamp}")
-    trials_csv = run_dir / "deattentiondta_hpo_trials.csv"
+    trials_csv = run_dir / "trials.csv"
 
     save_json(
         {
@@ -459,7 +459,7 @@ def run_hyperparameter_search(params: Mapping[str, Any]) -> dict[str, Any]:
             "methodology": "official train and validation subsets only; official test subsets excluded",
             "selection_rule": "min mean validation RMSE, then max mean validation Pearson",
             "prepared_dir": str(prepared_dir),
-            "upstream_bestmodel_path": str(bestmodel_path),
+            "model_source_path": str(model_source_path),
             "device": str(device),
             "tuning_splits": tuning_splits,
             "search_grid": grid,
@@ -557,7 +557,7 @@ def run_hyperparameter_search(params: Mapping[str, Any]) -> dict[str, Any]:
 
     if best_row is None:
         raise DEAttentionDTAHPOError(
-            "All DEAttentionDTA HPO trials failed. Inspect deattentiondta_hpo_trials.csv."
+            "All DEAttentionDTA HPO trials failed. Inspect trials.csv."
         )
 
     best_models_dir = run_dir / "best_models"

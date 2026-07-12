@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 
 from PySide6.QtCore import QSettings
-from PySide6.QtWidgets import QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog, QFormLayout, QHBoxLayout, QLineEdit, QPushButton, QSpinBox, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog, QFormLayout, QHBoxLayout, QLineEdit, QPushButton, QSpinBox, QVBoxLayout, QWidget
 
 from DeepDTA.utils.constants import DEFAULT_DATASET, DEFAULT_DEVICE, DEFAULT_EPOCHS, DEFAULT_SEED, DEFAULT_TEST_SPLIT, DEFAULT_VAL_SPLIT, MODULE_ROOT
 
@@ -23,7 +23,7 @@ class TrainDeepDTADialog(QDialog):
         self.lr_spin = QDoubleSpinBox(); self.lr_spin.setDecimals(6); self.lr_spin.setRange(0.000001, 1.0); self.lr_spin.setValue(float(self.settings.value("lr", 0.003)))
         
         self.fold_spin = QSpinBox(); self.fold_spin.setRange(0, 99); self.fold_spin.setValue(int(self.settings.value("fold_index", 0)))
-        self.use_folds_check = QCheckBox("Use dataset fold files when available"); self.use_folds_check.setChecked(self.settings.value("use_dataset_folds", True, type=bool))
+        self.fold_spin.setToolTip("Index of the official dataset split to use, usually 0 to 4.")
         self.val_spin = QDoubleSpinBox(); self.val_spin.setDecimals(2); self.val_spin.setRange(0.0, 0.8); self.val_spin.setSingleStep(0.05); self.val_spin.setValue(float(self.settings.value("val_split", DEFAULT_VAL_SPLIT)))
         self.test_spin = QDoubleSpinBox(); self.test_spin.setDecimals(2); self.test_spin.setRange(0.05, 0.8); self.test_spin.setSingleStep(0.05); self.test_spin.setValue(float(self.settings.value("test_split", DEFAULT_TEST_SPLIT)))
         self.max_batches_spin = QSpinBox(); self.max_batches_spin.setRange(0, 100000); self.max_batches_spin.setValue(int(self.settings.value("max_train_batches", 0)))
@@ -36,8 +36,7 @@ class TrainDeepDTADialog(QDialog):
         form.addRow("Batch size:", self.batch_spin)
         form.addRow("Learning rate:", self.lr_spin)
         
-        form.addRow("Use dataset folds:", self.use_folds_check)
-        form.addRow("Fold index:", self.fold_spin)
+        form.addRow("Split/Fold index:", self.fold_spin)
         form.addRow("Validation split:", self.val_spin)
         form.addRow("Test split:", self.test_spin)
         form.addRow("Max train batches:", self.max_batches_spin)
@@ -65,7 +64,7 @@ class TrainDeepDTADialog(QDialog):
         params = {
             "dataset_name": self.dataset_combo.currentText(), "output_base": output, "device": self.device_combo.currentText(),
             "seed": self.seed_spin.value(), "epochs": self.epochs_spin.value(), "batch_size": self.batch_spin.value(), "lr": self.lr_spin.value(),
-            "fold_index": self.fold_spin.value(), "use_dataset_folds": self.use_folds_check.isChecked(), "val_split": self.val_spin.value(),
+            "fold_index": self.fold_spin.value(), "use_dataset_folds": True, "val_split": self.val_spin.value(),
             "test_split": self.test_spin.value(), "max_train_batches": None if max_batches == 0 else max_batches,
         }
         

@@ -11,14 +11,12 @@ import logging
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu
 
-from EGNN.ui.dialogs.batch_test_egnn_dialog import BatchTestDialog
 from EGNN.ui.dialogs.batch_train_egnn_dialog import BatchTrainDialog
 from EGNN.ui.dialogs.generate_data_dialog import DBGenerationDialog
 from EGNN.ui.dialogs.test_egnn_dialog import TestDialog
 from EGNN.ui.dialogs.train_egnn_dialog import TrainDialog
 from EGNN.workers import (
     DBGenerationThread,
-    TestAllModelsThread,
     TestThread,
     TrainAllModelsThread,
     TrainThread,
@@ -38,21 +36,17 @@ class MenuEGNN(QMenu):
         generate_data_action.triggered.connect(self.generate_data_egnn)
         self.addAction(generate_data_action)
 
-        train_action = QAction("Train Model", self)
+        train_action = QAction("Train", self)
         train_action.triggered.connect(self.train_model_egnn)
         self.addAction(train_action)
 
-        batch_train_action = QAction("Hyperparameter Search", self)
+        batch_train_action = QAction("Search", self)
         batch_train_action.triggered.connect(self.train_all_models_egnn)
         self.addAction(batch_train_action)
 
-        test_action = QAction("Evaluate Model", self)
+        test_action = QAction("Evaluate", self)
         test_action.triggered.connect(self.test_model_egnn)
         self.addAction(test_action)
-
-        batch_test_action = QAction("Evaluate All Models", self)
-        batch_test_action.triggered.connect(self.test_multiple_models_egnn)
-        self.addAction(batch_test_action)
 
     def generate_data_egnn(self):
         dialog = DBGenerationDialog(self.main_window)
@@ -120,7 +114,7 @@ class MenuEGNN(QMenu):
         if dialog.exec():
             params = dialog.get_inputs()
 
-            if not params["graphs_dir"] or not params["test_split_file"] or not params["models_dir"]:
+            if not params["graphs_dir"] or not params["test_split_file"] or not params["checkpoint_or_run"]:
                 logger.warning("Missing required paths for EGNN evaluation.")
                 return
 
@@ -131,24 +125,6 @@ class MenuEGNN(QMenu):
             self.test_thread.finished_success.connect(self.on_test_success)
             self.test_thread.finished_error.connect(self.on_thread_error)
             self.test_thread.start()
-
-    def test_multiple_models_egnn(self):
-        dialog = BatchTestDialog(self.main_window)
-        if dialog.exec():
-            params = dialog.get_inputs()
-
-            if not params["graphs_dir"] or not params["test_split_file"] or not params["models_root"]:
-                logger.warning("Missing required paths for EGNN batch evaluation.")
-                return
-
-            logger.info("Starting EGNN batch evaluation.")
-            self.main_window.setEnabled(False)
-
-            self.test_batch_thread = TestAllModelsThread(params)
-            self.test_batch_thread.finished_success.connect(self.on_batch_test_model_success)
-            self.test_batch_thread.finished_error.connect(self.on_thread_error)
-            self.test_batch_thread.all_finished.connect(self.on_batch_test_all_finished)
-            self.test_batch_thread.start()
 
     def on_thread_error(self, error_msg):
         self.main_window.setEnabled(True)
@@ -177,7 +153,7 @@ class MenuEGNN(QMenu):
         metrics_log = " | ".join(
             [f"{k}: {v:.4f}" if isinstance(v, (float, int)) else f"{k}: {v}" for k, v in metrics.items()]
         )
-        logger.info("[EGNN Batch Evaluation] %s completed. Metrics: %s", model_name, metrics_log)
+        logger.info("[EGNN Evaluation] %s completed. Metrics: %s", model_name, metrics_log)
 
     def on_batch_test_all_finished(self, csv_path):
         self.main_window.setEnabled(True)

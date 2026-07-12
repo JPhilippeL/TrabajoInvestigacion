@@ -1,6 +1,5 @@
 """
 @file test_dcml_dialog.py
-@author Mohamed EL BOUKHIARI
 @brief Evaluation dialog for the DCML module.
 """
 
@@ -8,18 +7,9 @@ from __future__ import annotations
 
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QDialog,
-    QDialogButtonBox,
-    QFileDialog,
-    QFormLayout,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QPushButton,
-    QVBoxLayout,
-    QWidget,
+    QComboBox, QDialog, QDialogButtonBox, QFileDialog,
+    QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox,
+    QVBoxLayout, QWidget,
 )
 
 
@@ -28,196 +18,79 @@ class TestDCMLDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("DCML Evaluation Configuration")
-        self.resize(760, 460)
+        self.setWindowTitle("DCML Evaluate")
+        self.resize(760, 440)
         self.settings = QSettings("ResearchApp", "DCML_Evaluation")
 
-        model_pt = self._clean_path_text(
-            self.settings.value("evaluation/model_pt", "DCML/results/DCML.pt")
-        )
-        feature_zip = self._clean_path_text(
-            self.settings.value("evaluation/feature_zip", "")
-        )
-        label_npy = self._clean_path_text(
-            self.settings.value("evaluation/label_npy", "")
-        )
-        output_dir = self._clean_path_text(
-            self.settings.value("evaluation/output_dir", "DCML/results/predict")
-        )
+        self.prepared_root_input = QLineEdit(self.settings.value("evaluation/prepared_root", "DCML/datasets"))
+        self.prepared_root_btn = QPushButton("Browse...")
+        self.prepared_root_btn.clicked.connect(lambda: self._browse_dir("Select prepared feature root", self.prepared_root_input))
 
-        # Purge previously corrupted QSettings values.
-        self.settings.setValue("evaluation/model_pt", model_pt)
-        self.settings.setValue("evaluation/feature_zip", feature_zip)
-        self.settings.setValue("evaluation/label_npy", label_npy)
-        self.settings.setValue("evaluation/output_dir", output_dir)
-
-        self.model_pt_input = QLineEdit(model_pt)
-        self.model_pt_input.setPlaceholderText("DCML.pt")
+        self.model_pt_input = QLineEdit(self.settings.value("evaluation/model_pt", "DCML/results/train/DCML.pt"))
         self.model_pt_btn = QPushButton("Browse...")
-        self.model_pt_btn.clicked.connect(self.browse_model_pt)
+        self.model_pt_btn.clicked.connect(lambda: self._browse_file("Select DCML model bundle", "PyTorch Bundle (*.pt);;All Files (*)", self.model_pt_input))
 
-        self.feature_zip_input = QLineEdit(feature_zip)
-        self.feature_zip_input.setPlaceholderText("test_feature.zip or validation_feature.zip")
-        self.feature_zip_btn = QPushButton("Browse...")
-        self.feature_zip_btn.clicked.connect(self.browse_feature_zip)
-
-        self.label_npy_input = QLineEdit(label_npy)
-        self.label_npy_input.setPlaceholderText("test_label.npy or validation_label.npy")
-        self.label_npy_btn = QPushButton("Browse...")
-        self.label_npy_btn.clicked.connect(self.browse_label_npy)
-
-        self.output_dir_input = QLineEdit(output_dir)
-        self.output_dir_input.setPlaceholderText("Evaluation output directory")
+        self.output_dir_input = QLineEdit(self.settings.value("evaluation/output_dir", "DCML/results/evaluate"))
         self.output_dir_btn = QPushButton("Browse...")
-        self.output_dir_btn.clicked.connect(self.browse_output_dir)
+        self.output_dir_btn.clicked.connect(lambda: self._browse_dir("Select output directory", self.output_dir_input))
 
-        self.dataset_name_input = QLineEdit(self.settings.value("evaluation/dataset_name", "test"))
-        self.dataset_name_input.setPlaceholderText("test, validation, MPro-URV...")
+        self.labels_input = QLineEdit(self.settings.value("evaluation/labels_path", ""))
+        self.labels_btn = QPushButton("Browse...")
+        self.labels_btn.clicked.connect(lambda: self._browse_file("Select labels file", "Data Files (*.npy *.csv);;All Files (*)", self.labels_input))
 
-        self.split_id_input = QLineEdit(self.settings.value("evaluation/split_id", ""))
-        self.split_id_input.setPlaceholderText("Optional, e.g. test, validation, 00")
+        self.sample_ids_input = QLineEdit(self.settings.value("evaluation/sample_ids_path", ""))
+        self.sample_ids_btn = QPushButton("Browse...")
+        self.sample_ids_btn.clicked.connect(lambda: self._browse_file("Select sample IDs file", "CSV Files (*.csv);;All Files (*)", self.sample_ids_input))
 
-        self.device_combo = QComboBox()
-        self.device_combo.addItems(["cpu", "auto", "cuda", "cuda:0", "cuda:1"])
-        self.device_combo.setCurrentText(self.settings.value("evaluation/device", "cpu"))
+        self.variant_combo = QComboBox(); self.variant_combo.addItems(["distance_only", "real_charge", "full"]); self.variant_combo.setCurrentText(self.settings.value("evaluation/variant", "distance_only"))
+        self.split_combo = QComboBox(); self.split_combo.addItems(["train", "valid", "test", "all"]); self.split_combo.setCurrentText(self.settings.value("evaluation/split", "test"))
+        self.fold_spin = QSpinBox(); self.fold_spin.setRange(0, 9999); self.fold_spin.setValue(int(self.settings.value("evaluation/fold_index", 0)))
+        self.fold_spin.setToolTip("Index of the official dataset split to use, usually 0 to 4.")
 
-        self.cast_float32_check = QCheckBox("Cast features to float32")
-        self.cast_float32_check.setChecked(
-            str(self.settings.value("evaluation/cast_float32", "true")).lower()
-            in {"true", "1", "yes"}
-        )
+        form = QFormLayout()
+        form.addRow("Prepared feature root:", self._with_button(self.prepared_root_input, self.prepared_root_btn))
+        form.addRow("Model/checkpoint path:", self._with_button(self.model_pt_input, self.model_pt_btn))
+        form.addRow("Output directory:", self._with_button(self.output_dir_input, self.output_dir_btn))
+        form.addRow("Labels path:", self._with_button(self.labels_input, self.labels_btn))
+        form.addRow("Sample IDs path:", self._with_button(self.sample_ids_input, self.sample_ids_btn))
+        form.addRow("Variant:", self.variant_combo)
+        form.addRow("Split/Fold index:", self.fold_spin)
+        form.addRow("Split:", self.split_combo)
+        form.addRow("Note:", QLabel("Metrics are computed only on the selected split."))
 
-        form_layout = QFormLayout()
-        form_layout.addRow(QLabel("<b>1. Model and dataset</b>"))
-        form_layout.addRow("Model bundle:", self._with_button(self.model_pt_input, self.model_pt_btn))
-        form_layout.addRow("Feature ZIP:", self._with_button(self.feature_zip_input, self.feature_zip_btn))
-        form_layout.addRow("Label NPY:", self._with_button(self.label_npy_input, self.label_npy_btn))
-        form_layout.addRow("Output directory:", self._with_button(self.output_dir_input, self.output_dir_btn))
-
-        form_layout.addRow(QLabel("<br><b>2. Metadata</b>"))
-        form_layout.addRow("Dataset name:", self.dataset_name_input)
-        form_layout.addRow("Split ID:", self.split_id_input)
-
-        form_layout.addRow(QLabel("<br><b>3. Runtime</b>"))
-        form_layout.addRow("Device:", self.device_combo)
-        form_layout.addRow("Memory:", self.cast_float32_check)
-        form_layout.addRow(
-            "Note:",
-            QLabel("DCML uses scikit-learn. Inference runs on CPU even if CUDA is selected.")
-        )
-
-        layout = QVBoxLayout()
-        layout.addLayout(form_layout)
-
+        layout = QVBoxLayout(); layout.addLayout(form)
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        self.buttons.accepted.connect(self.accept)
-        self.buttons.rejected.connect(self.reject)
-        layout.addWidget(self.buttons)
-
-        self.setLayout(layout)
-
-    @staticmethod
-    def _clean_path_text(value) -> str:
-        """Clean paths accidentally polluted by GUI labels or previous QSettings values."""
-        if value is None:
-            return ""
-
-        text = str(value).strip()
-
-        # Main defensive fix for the bug:
-        # "Output directory:\n/path/to/dir" -> "/path/to/dir"
-        if "Output directory:" in text:
-            text = text.split("Output directory:", 1)[1].strip()
-
-        # Defensive cleanup for possible similar mistakes.
-        for label in ("Model bundle:", "Feature ZIP:", "Label NPY:"):
-            if label in text:
-                text = text.split(label, 1)[1].strip()
-
-        return text
+        self.buttons.accepted.connect(self.accept); self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons); self.setLayout(layout)
 
     def _with_button(self, line_edit, button):
-        container = QWidget()
-        hbox = QHBoxLayout(container)
-        hbox.setContentsMargins(0, 0, 0, 0)
-        hbox.addWidget(line_edit)
-        hbox.addWidget(button)
-        return container
+        container = QWidget(); hbox = QHBoxLayout(container); hbox.setContentsMargins(0, 0, 0, 0); hbox.addWidget(line_edit); hbox.addWidget(button); return container
 
-    def browse_model_pt(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select DCML model bundle",
-            "",
-            "PyTorch Bundle (*.pt);;All Files (*)",
-        )
-        if path:
-            self.model_pt_input.setText(self._clean_path_text(path))
+    def _browse_dir(self, title: str, target: QLineEdit):
+        path = QFileDialog.getExistingDirectory(self, title)
+        if path: target.setText(path)
 
-    def browse_feature_zip(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select feature ZIP",
-            "",
-            "ZIP Files (*.zip);;All Files (*)",
-        )
-        if path:
-            self.feature_zip_input.setText(self._clean_path_text(path))
-
-    def browse_label_npy(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select label NPY",
-            "",
-            "NumPy Files (*.npy);;All Files (*)",
-        )
-        if path:
-            self.label_npy_input.setText(self._clean_path_text(path))
-
-    def browse_output_dir(self):
-        path = QFileDialog.getExistingDirectory(self, "Select output directory")
-        if path:
-            self.output_dir_input.setText(self._clean_path_text(path))
+    def _browse_file(self, title: str, file_filter: str, target: QLineEdit):
+        path, _ = QFileDialog.getOpenFileName(self, title, "", file_filter)
+        if path: target.setText(path)
 
     def accept(self):
-        model_pt = self._clean_path_text(self.model_pt_input.text())
-        feature_zip = self._clean_path_text(self.feature_zip_input.text())
-        label_npy = self._clean_path_text(self.label_npy_input.text())
-        output_dir = self._clean_path_text(self.output_dir_input.text())
-
-        # Also rewrite the fields visually, so the user sees the cleaned values.
-        self.model_pt_input.setText(model_pt)
-        self.feature_zip_input.setText(feature_zip)
-        self.label_npy_input.setText(label_npy)
-        self.output_dir_input.setText(output_dir)
-
-        self.settings.setValue("evaluation/model_pt", model_pt)
-        self.settings.setValue("evaluation/feature_zip", feature_zip)
-        self.settings.setValue("evaluation/label_npy", label_npy)
-        self.settings.setValue("evaluation/output_dir", output_dir)
-        self.settings.setValue("evaluation/dataset_name", self.dataset_name_input.text().strip())
-        self.settings.setValue("evaluation/split_id", self.split_id_input.text().strip())
-        self.settings.setValue("evaluation/device", self.device_combo.currentText())
-        self.settings.setValue("evaluation/cast_float32", self.cast_float32_check.isChecked())
-
+        for key, widget in (("prepared_root", self.prepared_root_input), ("model_pt", self.model_pt_input), ("output_dir", self.output_dir_input), ("labels_path", self.labels_input), ("sample_ids_path", self.sample_ids_input)):
+            self.settings.setValue(f"evaluation/{key}", widget.text())
+        self.settings.setValue("evaluation/variant", self.variant_combo.currentText())
+        self.settings.setValue("evaluation/split", self.split_combo.currentText())
+        self.settings.setValue("evaluation/fold_index", self.fold_spin.value())
         super().accept()
 
     def get_inputs(self):
-        model_pt = self._clean_path_text(self.model_pt_input.text())
-        feature_zip = self._clean_path_text(self.feature_zip_input.text())
-        label_npy = self._clean_path_text(self.label_npy_input.text())
-        output_dir = self._clean_path_text(self.output_dir_input.text())
-
-        split_id = self.split_id_input.text().strip() or None
-        dataset_name = self.dataset_name_input.text().strip() or None
-
         return {
-            "model_pt": model_pt,
-            "feature_zip": feature_zip,
-            "label_npy": label_npy,
-            "output_dir": output_dir,
-            "device": self.device_combo.currentText(),
-            "split_id": split_id,
-            "dataset_name": dataset_name,
-            "cast_float32": self.cast_float32_check.isChecked(),
+            "prepared_feature_root": self.prepared_root_input.text(),
+            "model_pt": self.model_pt_input.text(),
+            "output_dir": self.output_dir_input.text(),
+            "labels_path": self.labels_input.text().strip() or None,
+            "sample_ids_path": self.sample_ids_input.text().strip() or None,
+            "variant": self.variant_combo.currentText(),
+            "fold_index": self.fold_spin.value(),
+            "split": self.split_combo.currentText(),
+            "cast_float32": True,
         }

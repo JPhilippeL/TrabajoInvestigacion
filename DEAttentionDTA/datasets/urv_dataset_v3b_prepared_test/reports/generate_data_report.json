@@ -1,0 +1,258 @@
+{
+  "SMILES_length_statistics": {
+    "max": 94,
+    "mean": 51.787234042553195,
+    "min": 27
+  },
+  "candidate_samples_detected": 376,
+  "detected_raw_structure": {
+    "pIC50": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2/pIC50.txt",
+    "protein_pdb_search": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2",
+    "raw_root": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2",
+    "sdf_search": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2",
+    "smi_search": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2",
+    "test_split": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2/Splits/test_index_folder.txt",
+    "train_split": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2/Splits/train_index_folder.txt",
+    "valid_split": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2/Splits/valid_index_folder.txt"
+  },
+  "exact_format_generated": "DEAttentionDTA URV prepared CSV format: seq_data_all.csv, affinity_all.csv, split_manifest.csv, splits/split_XX/seq_{train,valid,test}.csv, splits/split_XX/affinity_{train,valid,test}.csv",
+  "max_protein_len": 1024,
+  "max_smiles_len": 256,
+  "missing_split_IDs": {
+    "split_01_test": [
+      "8UDX"
+    ],
+    "split_01_train": [
+      "9MVM"
+    ],
+    "split_01_valid": [],
+    "split_02_test": [],
+    "split_02_train": [
+      "8UDX",
+      "9MVM"
+    ],
+    "split_02_valid": [],
+    "split_03_test": [
+      "9MVM"
+    ],
+    "split_03_train": [],
+    "split_03_valid": [
+      "8UDX"
+    ],
+    "split_04_test": [],
+    "split_04_train": [
+      "8UDX",
+      "9MVM"
+    ],
+    "split_04_valid": [],
+    "split_05_test": [],
+    "split_05_train": [
+      "8UDX",
+      "9MVM"
+    ],
+    "split_05_valid": []
+  },
+  "output_files_created": [
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/seq_data_all.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/affinity_all.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/samples_manifest.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/split_manifest.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/reports/dropped_rows.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/generate_data_matching_audit.json",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_01/affinity_test.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_01/affinity_train.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_01/affinity_valid.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_01/seq_test.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_01/seq_train.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_01/seq_valid.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_02/affinity_test.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_02/affinity_train.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_02/affinity_valid.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_02/seq_test.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_02/seq_train.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_02/seq_valid.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_03/affinity_test.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_03/affinity_train.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_03/affinity_valid.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_03/seq_test.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_03/seq_train.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_03/seq_valid.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_04/affinity_test.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_04/affinity_train.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_04/affinity_valid.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_04/seq_test.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_04/seq_train.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_04/seq_valid.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_05/affinity_test.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_05/affinity_train.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_05/affinity_valid.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_05/seq_test.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_05/seq_train.csv",
+    "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test/splits/split_05/seq_valid.csv"
+  ],
+  "output_root": "/home/mohamed/Studies/stage/TrabajoInvestigacion/DEAttentionDTA/datasets/urv_dataset_v3b_prepared_test",
+  "overlap_checks": [
+    {
+      "fold": 1,
+      "train_test": 0,
+      "train_valid": 0,
+      "valid_test": 0
+    },
+    {
+      "fold": 2,
+      "train_test": 0,
+      "train_valid": 0,
+      "valid_test": 0
+    },
+    {
+      "fold": 3,
+      "train_test": 0,
+      "train_valid": 0,
+      "valid_test": 0
+    },
+    {
+      "fold": 4,
+      "train_test": 0,
+      "train_valid": 0,
+      "valid_test": 0
+    },
+    {
+      "fold": 5,
+      "train_test": 0,
+      "train_valid": 0,
+      "valid_test": 0
+    }
+  ],
+  "pIC50_entries_found": 378,
+  "protein_length_statistics": {
+    "max": 306,
+    "mean": 303.27659574468083,
+    "min": 296
+  },
+  "protein_pdb_files_found": 379,
+  "raw_source_root": "/home/mohamed/Studies/stage/MPro-URV_Version2/MPro-URV_Version2",
+  "samples_kept": 376,
+  "samples_skipped": 2,
+  "sdf_files_found": 378,
+  "sdf_required": false,
+  "sdf_requirement_note": "Current DEAttentionDTA loader consumes SMILES, protein sequence, pocket positions, and affinity only; SDF files are audited but not required.",
+  "skipped_reasons": {
+    "unsupported_protein_tokens:X": 2
+  },
+  "smi_files_found": 378,
+  "split_reports": [
+    {
+      "overlap_train_test": 0,
+      "overlap_train_valid": 0,
+      "overlap_valid_test": 0,
+      "split": 1,
+      "test_exported": 75,
+      "test_missing_ids": [
+        "8UDX"
+      ],
+      "test_official": 76,
+      "train_exported": 244,
+      "train_missing_ids": [
+        "9MVM"
+      ],
+      "train_official": 245,
+      "valid_exported": 57,
+      "valid_missing_ids": [],
+      "valid_official": 57
+    },
+    {
+      "overlap_train_test": 0,
+      "overlap_train_valid": 0,
+      "overlap_valid_test": 0,
+      "split": 2,
+      "test_exported": 76,
+      "test_missing_ids": [],
+      "test_official": 76,
+      "train_exported": 243,
+      "train_missing_ids": [
+        "8UDX",
+        "9MVM"
+      ],
+      "train_official": 245,
+      "valid_exported": 57,
+      "valid_missing_ids": [],
+      "valid_official": 57
+    },
+    {
+      "overlap_train_test": 0,
+      "overlap_train_valid": 0,
+      "overlap_valid_test": 0,
+      "split": 3,
+      "test_exported": 75,
+      "test_missing_ids": [
+        "9MVM"
+      ],
+      "test_official": 76,
+      "train_exported": 245,
+      "train_missing_ids": [],
+      "train_official": 245,
+      "valid_exported": 56,
+      "valid_missing_ids": [
+        "8UDX"
+      ],
+      "valid_official": 57
+    },
+    {
+      "overlap_train_test": 0,
+      "overlap_train_valid": 0,
+      "overlap_valid_test": 0,
+      "split": 4,
+      "test_exported": 75,
+      "test_missing_ids": [],
+      "test_official": 75,
+      "train_exported": 244,
+      "train_missing_ids": [
+        "8UDX",
+        "9MVM"
+      ],
+      "train_official": 246,
+      "valid_exported": 57,
+      "valid_missing_ids": [],
+      "valid_official": 57
+    },
+    {
+      "overlap_train_test": 0,
+      "overlap_train_valid": 0,
+      "overlap_valid_test": 0,
+      "split": 5,
+      "test_exported": 75,
+      "test_missing_ids": [],
+      "test_official": 75,
+      "train_exported": 244,
+      "train_missing_ids": [
+        "8UDX",
+        "9MVM"
+      ],
+      "train_official": 246,
+      "valid_exported": 57,
+      "valid_missing_ids": [],
+      "valid_official": 57
+    }
+  ],
+  "split_sizes": {
+    "split_01_test": 75,
+    "split_01_train": 244,
+    "split_01_valid": 57,
+    "split_02_test": 76,
+    "split_02_train": 243,
+    "split_02_valid": 57,
+    "split_03_test": 75,
+    "split_03_train": 245,
+    "split_03_valid": 56,
+    "split_04_test": 75,
+    "split_04_train": 244,
+    "split_04_valid": 57,
+    "split_05_test": 75,
+    "split_05_train": 244,
+    "split_05_valid": 57
+  },
+  "strict": false,
+  "timestamp": "2026-07-11T22:51:01.826862+00:00",
+  "warnings": [],
+  "warnings_count": 0
+}

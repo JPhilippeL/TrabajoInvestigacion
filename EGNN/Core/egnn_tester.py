@@ -11,7 +11,9 @@ and plots.
 from __future__ import annotations
 
 import ast
+import json
 import os
+import re
 from typing import Any
 
 import matplotlib.pyplot as plt
@@ -24,6 +26,9 @@ from torch.utils.data import Dataset
 from torch_geometric.loader import DataLoader
 
 from .egnn_model import EGNN
+
+
+CHECKPOINT_FILENAMES = ("best_model.pt", "model.pt", "checkpoint.pt")
 
 
 def load_split_txt(path: str):
@@ -238,6 +243,271 @@ def plot_global_scatter(
     plt.close()
 
 
+def _format_split_dir(split_idx: int) -> str:
+    return f"split_{split_idx:02d}"
+
+
+def _find_direct_checkpoint(path: str) -> str | None:
+    if os.path.isfile(path):
+        return path
+
+    for filename in CHECKPOINT_FILENAMES:
+        candidate = os.path.join(path, filename)
+        if os.path.isfile(candidate):
+            return candidate
+
+    pt_files = sorted(
+        os.path.join(path, name)
+        for name in os.listdir(path)
+        if name.endswith(".pt") and os.path.isfile(os.path.join(path, name))
+    )
+    return pt_files[0] if len(pt_files) == 1 else None
+
+
+def _detect_split_checkpoints(run_root: str, expected_count: int) -> tuple[dict[int, str], list[str]]:
+    found: dict[int, str] = {}
+
+    for name in sorted(os.listdir(run_root)):
+        direct_match = re.search(r"split[_-]?(\d+)", name)
+        direct_path = os.path.join(run_root, name)
+        if direct_match and name.endswith(".pt") and os.path.isfile(direct_path):
+            found[int(direct_match.group(1))] = direct_path
+            continue
+
+        match = re.fullmatch(r"split_(\d+)", name)
+        if not match:
+            continue
+
+        split_dir = os.path.join(run_root, name)
+        if not os.path.isdir(split_dir):
+            continue
+
+        checkpoint = _find_direct_checkpoint(split_dir)
+        if checkpoint:
+            found[int(match.group(1))] = checkpoint
+
+    missing = []
+    if found:
+        for split_idx in range(expected_count):
+            if split_idx not in found:
+                missing.append(os.path.join(run_root, _format_split_dir(split_idx), "best_model.pt"))
+
+    return found, missing
+
+
+def _write_metrics(metrics: dict[str, Any], save_dir: str) -> None:
+    with open(os.path.join(save_dir, "metrics.json"), "w", encoding="utf-8") as f:
+        json.dump(metrics, f, indent=2)
+
+    pd.DataFrame([metrics]).to_csv(os.path.join(save_dir, "metrics.csv"), index=False)
+
+
+def _write_predictions(graph_ids: list[str], labels: np.ndarray, preds: np.ndarray, save_dir: str) -> None:
+    pd.DataFrame(
+        {
+            "graph_id": graph_ids,
+            "label": labels.reshape(-1),
+            "prediction": preds.reshape(-1),
+        }
+    ).to_csv(os.path.join(save_dir, "predictions.csv"), index=False)
+
+
+def _evaluate_one_checkpoint(
+    graphs_dir: str,
+    test_splits: list[list[str]],
+    checkpoint_path: str,
+    output_dir: str,
+    split_idx: int,
+    batch_size: int,
+    device: str,
+    hidden_dim: int,
+) -> dict[str, Any]:
+    if split_idx < 0 or split_idx >= len(test_splits):
+        raise ValueError(f"Split index {split_idx} is outside the available split range 0..{len(test_splits) - 1}.")
+
+    split_name = f"Split {split_idx:02d}"
+    print(f"[EGNN Evaluation] Split being evaluated: {split_name}")
+    print(f"[EGNN Evaluation] Checkpoint found: {checkpoint_path}")
+
+    os.makedirs(output_dir, exist_ok=True)
+    test_ids = test_splits[split_idx]
+    test_set = URVGraphDataset(test_ids, graphs_dir)
+    test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False)
+
+    model = EGNN(hidden_dim=hidden_dim).to(device)
+    model.load_state_dict(safe_torch_load(checkpoint_path, map_location=device))
+
+    rmse, pearson, spearman, labels, preds = evaluate(model, test_loader, device)
+    metrics = {
+        "Split": split_idx,
+        "RMSE": rmse,
+        "Pearson": pearson,
+        "Spearman": spearman,
+        "checkpoint": checkpoint_path,
+    }
+
+    _write_metrics(metrics, output_dir)
+    _write_predictions(test_ids, labels, preds, output_dir)
+    plot_split_scatter(labels, preds, split_name, output_dir, rmse, pearson)
+
+    print(f"[EGNN Evaluation] Metrics for {split_name}: RMSE={rmse:.4f}, Pearson={pearson:.4f}, Spearman={spearman:.4f}")
+    print(f"[EGNN Evaluation] Output files written in: {output_dir}")
+
+    return {
+        **metrics,
+        "labels": labels,
+        "predictions": preds,
+        "graph_ids": test_ids,
+        "results_dir": output_dir,
+    }
+
+
+def evaluate_checkpoint_or_run(
+    graphs_dir: str,
+    test_split_file: str,
+    checkpoint_or_run: str,
+    results_dir: str,
+    batch_size: int = 4,
+    device: str | None = None,
+    hidden_dim: int = 64,
+    split_index: int = 0,
+    evaluation_scope: str = "auto",
+) -> dict[str, Any]:
+    """
+    @brief Evaluate one EGNN checkpoint or all detected split checkpoints in a trained run.
+    """
+    print("[EGNN Evaluation] Start evaluation.")
+    device = resolve_device(device)
+    scope = (evaluation_scope or "auto").strip().lower().replace(" ", "_")
+    test_splits = load_split_txt(test_split_file)
+    os.makedirs(results_dir, exist_ok=True)
+
+    if not checkpoint_or_run or not os.path.exists(checkpoint_or_run):
+        raise FileNotFoundError(f"No checkpoint or trained run was found at: {checkpoint_or_run}")
+
+    if scope not in {"auto", "single_checkpoint", "all_detected_splits"}:
+        raise ValueError(f"Unknown evaluation scope: {evaluation_scope}")
+
+    split_checkpoints: dict[int, str] = {}
+    missing_split_checkpoints: list[str] = []
+    direct_checkpoint = _find_direct_checkpoint(checkpoint_or_run)
+
+    if os.path.isdir(checkpoint_or_run):
+        split_checkpoints, missing_split_checkpoints = _detect_split_checkpoints(checkpoint_or_run, len(test_splits))
+
+    if scope == "all_detected_splits" or (scope == "auto" and split_checkpoints):
+        if not split_checkpoints:
+            raise FileNotFoundError(
+                f"No split checkpoints found in {checkpoint_or_run}. "
+                "Expected split_00/best_model.pt style folders."
+            )
+
+        print("[EGNN Evaluation] Detected mode: all detected splits.")
+        print(f"[EGNN Evaluation] Checkpoint(s) found: {len(split_checkpoints)}")
+        if missing_split_checkpoints:
+            print("[EGNN Evaluation] Missing expected split checkpoint(s):")
+            for path in missing_split_checkpoints:
+                print(f"  - {path}")
+
+        split_results = []
+        all_labels_global = []
+        all_preds_global = []
+        combined_predictions = []
+
+        for split_idx, checkpoint_path in sorted(split_checkpoints.items()):
+            split_output_dir = os.path.join(results_dir, _format_split_dir(split_idx))
+            result = _evaluate_one_checkpoint(
+                graphs_dir=graphs_dir,
+                test_splits=test_splits,
+                checkpoint_path=checkpoint_path,
+                output_dir=split_output_dir,
+                split_idx=split_idx,
+                batch_size=batch_size,
+                device=device,
+                hidden_dim=hidden_dim,
+            )
+            split_results.append({k: result[k] for k in ("Split", "RMSE", "Pearson", "Spearman", "checkpoint")})
+            all_labels_global.append(result["labels"])
+            all_preds_global.append(result["predictions"])
+            combined_predictions.append(
+                pd.DataFrame(
+                    {
+                        "split": split_idx,
+                        "graph_id": result["graph_ids"],
+                        "label": result["labels"].reshape(-1),
+                        "prediction": result["predictions"].reshape(-1),
+                    }
+                )
+            )
+
+        results_df = pd.DataFrame(split_results)
+        results_df.to_csv(os.path.join(results_dir, "metrics_per_split.csv"), index=False)
+
+        mean_row = results_df[["RMSE", "Pearson", "Spearman"]].mean()
+        std_row = results_df[["RMSE", "Pearson", "Spearman"]].std()
+        summary_df = pd.DataFrame(
+            {
+                "Metric": ["RMSE", "Pearson", "Spearman"],
+                "Mean": mean_row.values,
+                "Std": std_row.values,
+            }
+        )
+        summary_df.to_csv(os.path.join(results_dir, "metrics_summary.csv"), index=False)
+        pd.concat(combined_predictions, ignore_index=True).to_csv(
+            os.path.join(results_dir, "predictions.csv"),
+            index=False,
+        )
+
+        all_labels = np.concatenate(all_labels_global)
+        all_preds = np.concatenate(all_preds_global)
+        np.save(os.path.join(results_dir, "egnn_labels.npy"), all_labels)
+        np.save(os.path.join(results_dir, "egnn_preds.npy"), all_preds)
+        plot_global_scatter(
+            all_labels,
+            all_preds,
+            os.path.join(results_dir, "scatter_global.png"),
+            float(mean_row["RMSE"]),
+            float(mean_row["Pearson"]),
+        )
+
+        print(f"[EGNN Evaluation] Aggregated output files written in: {results_dir}")
+        print("[EGNN Evaluation] Done.")
+        return {
+            "mode": "all_detected_splits",
+            "RMSE": float(mean_row["RMSE"]),
+            "Pearson": float(mean_row["Pearson"]),
+            "Spearman": float(mean_row["Spearman"]),
+            "missing_checkpoints": missing_split_checkpoints,
+            "results_dir": results_dir,
+        }
+
+    if not direct_checkpoint:
+        raise FileNotFoundError(
+            f"No checkpoint found in {checkpoint_or_run}. "
+            f"Expected one of: {', '.join(CHECKPOINT_FILENAMES)}"
+        )
+
+    print("[EGNN Evaluation] Detected mode: single checkpoint.")
+    result = _evaluate_one_checkpoint(
+        graphs_dir=graphs_dir,
+        test_splits=test_splits,
+        checkpoint_path=direct_checkpoint,
+        output_dir=results_dir,
+        split_idx=split_index,
+        batch_size=batch_size,
+        device=device,
+        hidden_dim=hidden_dim,
+    )
+    print("[EGNN Evaluation] Done.")
+    return {
+        "mode": "single_checkpoint",
+        "RMSE": float(result["RMSE"]),
+        "Pearson": float(result["Pearson"]),
+        "Spearman": float(result["Spearman"]),
+        "results_dir": results_dir,
+    }
+
+
 def test_model(
     graphs_dir: str,
     test_split_file: str,
@@ -247,128 +517,16 @@ def test_model(
     device: str | None = None,
     hidden_dim: int = 64,
 ):
-    """
-    @brief Evaluate EGNN trained models over predefined test splits.
-    @param graphs_dir Directory containing generated graphs.
-    @param test_split_file Path to test_index_folder.txt.
-    @param models_dir Directory containing split subdirectories with best_model.pt.
-    @param results_dir Directory where evaluation outputs will be stored.
-    @param batch_size Batch size for evaluation.
-    @param device Device to use. Use "auto" for automatic selection.
-    @param hidden_dim Hidden dimension used to instantiate the model.
-    @return Dictionary with summary metrics.
-    """
-    device = resolve_device(device)
-
-    os.makedirs(results_dir, exist_ok=True)
-
-    all_results = []
-    all_labels_global = []
-    all_preds_global = []
-
-    test_splits = load_split_txt(test_split_file)
-
-    for split_idx in range(5):
-        split_name = f"Split {split_idx:02d}"
-
-        print("\n==============================")
-        print(f"        {split_name}")
-        print("==============================")
-
-        test_ids = test_splits[split_idx]
-        test_set = URVGraphDataset(test_ids, graphs_dir)
-
-        test_loader = DataLoader(
-            test_set,
-            batch_size=batch_size,
-            shuffle=False,
-        )
-
-        split_model_dir = os.path.join(models_dir, f"split_{split_idx:02d}")
-        model_path = os.path.join(split_model_dir, "best_model.pt")
-
-        if not os.path.exists(model_path):
-            print(f"[WARNING] Missing best_model.pt in {split_model_dir}")
-            continue
-
-        model = EGNN(hidden_dim=hidden_dim).to(device)
-        model.load_state_dict(safe_torch_load(model_path, map_location=device))
-
-        rmse, pearson, spearman, labels, preds = evaluate(model, test_loader, device)
-
-        print(f"RMSE: {rmse:.4f}")
-        print(f"Pearson: {pearson:.4f}")
-        print(f"Spearman: {spearman:.4f}")
-
-        plot_split_scatter(labels, preds, split_name, results_dir, rmse, pearson)
-
-        all_results.append(
-            {
-                "Split": split_idx,
-                "RMSE": rmse,
-                "Pearson": pearson,
-                "Spearman": spearman,
-            }
-        )
-
-        all_labels_global.append(labels)
-        all_preds_global.append(preds)
-
-    if not all_results:
-        raise FileNotFoundError(
-            f"No valid split model was found in {models_dir}. "
-            "Expected split_00/best_model.pt, ..., split_04/best_model.pt."
-        )
-
-    results_df = pd.DataFrame(all_results)
-    results_df.to_csv(
-        os.path.join(results_dir, "metrics_per_split.csv"),
-        index=False,
+    return evaluate_checkpoint_or_run(
+        graphs_dir=graphs_dir,
+        test_split_file=test_split_file,
+        checkpoint_or_run=models_dir,
+        results_dir=results_dir,
+        batch_size=batch_size,
+        device=device,
+        hidden_dim=hidden_dim,
+        evaluation_scope="auto",
     )
-
-    mean_row = results_df[["RMSE", "Pearson", "Spearman"]].mean()
-    std_row = results_df[["RMSE", "Pearson", "Spearman"]].std()
-
-    summary_df = pd.DataFrame(
-        {
-            "Metric": ["RMSE", "Pearson", "Spearman"],
-            "Mean": mean_row.values,
-            "Std": std_row.values,
-        }
-    )
-
-    summary_df.to_csv(
-        os.path.join(results_dir, "metrics_summary.csv"),
-        index=False,
-    )
-
-    print("\n=== FINAL RESULTS ===")
-    print(summary_df)
-
-    all_labels_global = np.concatenate(all_labels_global)
-    all_preds_global = np.concatenate(all_preds_global)
-
-    np.save(os.path.join(results_dir, "egnn_labels.npy"), all_labels_global)
-    np.save(os.path.join(results_dir, "egnn_preds.npy"), all_preds_global)
-
-    scatter_path = os.path.join(results_dir, "scatter_global.png")
-
-    plot_global_scatter(
-        all_labels_global,
-        all_preds_global,
-        scatter_path,
-        float(mean_row["RMSE"]),
-        float(mean_row["Pearson"]),
-    )
-
-    print(f"\nGlobal scatter plot saved to: {scatter_path}")
-
-    return {
-        "RMSE": float(mean_row["RMSE"]),
-        "Pearson": float(mean_row["Pearson"]),
-        "Spearman": float(mean_row["Spearman"]),
-        "results_dir": results_dir,
-    }
 
 
 def test_all_models_in_folder(

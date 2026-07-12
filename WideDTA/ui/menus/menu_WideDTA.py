@@ -25,9 +25,10 @@ class MenuWideDTA(QMenu):
         self.hyperparameter_search_thread = None
 
         self.generate_action = QAction("Generate Data", self)
-        self.train_action = QAction("Train Model", self)
-        self.evaluate_action = QAction("Evaluate/Predict Model", self)
-        self.hyperparameter_search_action = QAction("Hyperparameter Search", self)
+        self.train_action = QAction("Train", self)
+        self.hyperparameter_search_action = QAction("Search", self)
+        self.evaluate_action = QAction("Evaluate", self)
+
 
         self.generate_action.triggered.connect(self.open_generate_data_dialog)
         self.train_action.triggered.connect(self.open_train_dialog)
@@ -36,9 +37,9 @@ class MenuWideDTA(QMenu):
 
         self.addAction(self.generate_action)
         self.addAction(self.train_action)
-        self.addAction(self.evaluate_action)
-        self.addSeparator()
         self.addAction(self.hyperparameter_search_action)
+        self.addAction(self.evaluate_action)
+
 
     def _run_dialog(self, dialog_class, thread_class, action, success_slot, title):
         dialog = dialog_class(self.parent_window)

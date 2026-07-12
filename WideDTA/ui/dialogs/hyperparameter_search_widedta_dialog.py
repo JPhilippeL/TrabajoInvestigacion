@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import (
-    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -89,17 +88,10 @@ class HyperparameterSearchWideDTADialog(QDialog):
         self.test_split_spin.setValue(float(self.settings.value("search/test_split", DEFAULT_TEST_SPLIT)))
         self.test_split_spin.setToolTip("Used only when dataset fold files are not used.")
 
-        self.use_dataset_folds_checkbox = QCheckBox("Use dataset fold files when available")
-        self.use_dataset_folds_checkbox.setChecked(
-            self.settings.value("search/use_dataset_folds", True, type=bool)
-        )
-        self.use_dataset_folds_checkbox.setToolTip(
-            "Uses train/valid/test fold files if they exist. Otherwise the trainer falls back to random split."
-        )
-
         self.fold_index_spin = QSpinBox()
         self.fold_index_spin.setRange(0, 20)
         self.fold_index_spin.setValue(int(self.settings.value("search/fold_index", 0)))
+        self.fold_index_spin.setToolTip("Index of the official dataset split to use, usually 0 to 4.")
 
         self.max_train_batches_spin = QSpinBox()
         self.max_train_batches_spin.setRange(0, 100000)
@@ -134,8 +126,7 @@ class HyperparameterSearchWideDTADialog(QDialog):
         form_layout.addRow("Epochs:", self.epochs_spin)
 
         form_layout.addRow(QLabel("<br><b>3. Split configuration</b>"))
-        form_layout.addRow("Use dataset folds:", self.use_dataset_folds_checkbox)
-        form_layout.addRow("Fold index:", self.fold_index_spin)
+        form_layout.addRow("Split/Fold index:", self.fold_index_spin)
         form_layout.addRow("Validation split:", self.val_split_spin)
         form_layout.addRow("Test split:", self.test_split_spin)
 
@@ -179,7 +170,6 @@ class HyperparameterSearchWideDTADialog(QDialog):
         self.settings.setValue("search/epochs", self.epochs_spin.value())
         self.settings.setValue("search/val_split", self.val_split_spin.value())
         self.settings.setValue("search/test_split", self.test_split_spin.value())
-        self.settings.setValue("search/use_dataset_folds", self.use_dataset_folds_checkbox.isChecked())
         self.settings.setValue("search/fold_index", self.fold_index_spin.value())
         self.settings.setValue("search/max_train_batches", self.max_train_batches_spin.value())
         self.settings.setValue("search/lr_values", self.lr_values_input.text())
@@ -220,7 +210,7 @@ class HyperparameterSearchWideDTADialog(QDialog):
             "dropout_values": self._parse_float_list(self.dropout_values_input.text(), "dropout"),
             "val_split": self.val_split_spin.value(),
             "test_split": self.test_split_spin.value(),
-            "use_dataset_folds": self.use_dataset_folds_checkbox.isChecked(),
+            "use_dataset_folds": True,
             "fold_index": self.fold_index_spin.value(),
             "max_train_batches": None if max_train_batches == 0 else max_train_batches,
         }

@@ -9,7 +9,7 @@ import traceback
 
 from EDNN.Core.ednn_generate_data import generate_data
 from EDNN.Core.ednn_trainer import train
-from EDNN.Core.ednn_tester import test_model, test_all_models_in_folder
+from EDNN.Core.ednn_tester import evaluate_checkpoint_or_run, test_all_models_in_folder
 from EDNN.Core.ednn_hyperparameter_search import run_hyperparameter_search
 
 
@@ -71,7 +71,7 @@ class TestThread(QThread):
 
     def run(self):
         try:
-            metrics = test_model(**self.params)
+            metrics = evaluate_checkpoint_or_run(**self.params)
             self.finished_success.emit(metrics)
         except Exception:
             self.finished_error.emit(traceback.format_exc())

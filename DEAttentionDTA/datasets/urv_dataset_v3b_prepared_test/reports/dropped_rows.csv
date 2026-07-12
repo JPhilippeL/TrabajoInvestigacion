@@ -1,0 +1,3 @@
+PDBname,reason,smiles_path,protein_path
+8UDX,unsupported_protein_tokens:X,Ligand/Ligand_SMI/8UDX_WCZ.smi,Protein/Protein_PDB/8UDX_protein.pdb
+9MVM,unsupported_protein_tokens:X,Ligand/Ligand_SMI/9MVM_A1BTM.smi,Protein/Protein_PDB/9MVM_protein.pdb

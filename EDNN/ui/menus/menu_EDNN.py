@@ -12,14 +12,12 @@ from EDNN.ui.dialogs.generate_data_dialog import DBGenerationDialog
 from EDNN.ui.dialogs.train_ednn_dialog import TrainDialog
 from EDNN.ui.dialogs.batch_train_ednn_dialog import BatchTrainDialog
 from EDNN.ui.dialogs.test_ednn_dialog import TestDialog
-from EDNN.ui.dialogs.batch_test_ednn_dialog import BatchTestDialog
 
 from EDNN.workers import (
     DBGenerationThread,
     TrainThread,
     TrainAllModelsThread,
     TestThread,
-    TestAllModelsThread,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,21 +34,18 @@ class MenuEDNN(QMenu):
         generate_data_action.triggered.connect(self.generate_data_ednn)
         self.addAction(generate_data_action)
 
-        train_action = QAction("Train Model", self)
+        train_action = QAction("Train", self)
         train_action.triggered.connect(self.train_model_ednn)
         self.addAction(train_action)
 
-        batch_train_action = QAction("Hyperparameter Search", self)
+        batch_train_action = QAction("Search", self)
         batch_train_action.triggered.connect(self.train_all_models_ednn)
         self.addAction(batch_train_action)
 
-        test_action = QAction("Evaluate Model", self)
+        test_action = QAction("Evaluate", self)
         test_action.triggered.connect(self.test_model_ednn)
         self.addAction(test_action)
 
-        batch_test_action = QAction("Evaluate All Models", self)
-        batch_test_action.triggered.connect(self.test_multiple_models_ednn)
-        self.addAction(batch_test_action)
 
     def generate_data_ednn(self):
         dialog = DBGenerationDialog(self.main_window)
@@ -118,7 +113,7 @@ class MenuEDNN(QMenu):
         if dialog.exec():
             params = dialog.get_inputs()
 
-            if not params["graphs_dir"] or not params["test_split_file"] or not params["models_dir"]:
+            if not params["graphs_dir"] or not params["test_split_file"] or not params["checkpoint_or_run"]:
                 logger.warning("Missing required paths for EDNN evaluation.")
                 return
 
@@ -129,24 +124,6 @@ class MenuEDNN(QMenu):
             self.test_thread.finished_success.connect(self.on_test_success)
             self.test_thread.finished_error.connect(self.on_thread_error)
             self.test_thread.start()
-
-    def test_multiple_models_ednn(self):
-        dialog = BatchTestDialog(self.main_window)
-        if dialog.exec():
-            params = dialog.get_inputs()
-
-            if not params["graphs_dir"] or not params["test_split_file"] or not params["models_root"]:
-                logger.warning("Missing required paths for EDNN batch evaluation.")
-                return
-
-            logger.info("Starting EDNN batch evaluation...")
-            self.main_window.setEnabled(False)
-
-            self.test_batch_thread = TestAllModelsThread(params)
-            self.test_batch_thread.finished_success.connect(self.on_batch_test_model_success)
-            self.test_batch_thread.finished_error.connect(self.on_thread_error)
-            self.test_batch_thread.all_finished.connect(self.on_batch_test_all_finished)
-            self.test_batch_thread.start()
 
     def on_thread_error(self, error_msg):
         self.main_window.setEnabled(True)
@@ -175,7 +152,7 @@ class MenuEDNN(QMenu):
         metrics_log = " | ".join(
             [f"{k}: {v:.4f}" if isinstance(v, (float, int)) else f"{k}: {v}" for k, v in metrics.items()]
         )
-        logger.info(f"[EDNN Batch Test] {model_name} completed. Metrics: {metrics_log}")
+        logger.info(f"[EDNN Evaluation] {model_name} completed. Metrics: {metrics_log}")
 
     def on_batch_test_all_finished(self, csv_path):
         self.main_window.setEnabled(True)
