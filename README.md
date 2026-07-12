@@ -1,860 +1,319 @@
 # Molecular Analysis System
 
-Molecular Analysis System is a desktop GUI application for protein-ligand binding affinity prediction workflows. The interface centralizes molecule utilities, graph-based models, sequence-based models, hyperparameter search workflows, result inspection, and persistent project settings.
+Desktop GUI for protein-ligand binding affinity prediction, model training, hyperparameter search and evaluation.
 
-The application is designed to let non-specialist users run model workflows without editing Python scripts directly.
+## Project Overview
 
-## Current scope
+Molecular Analysis System is a PySide6 desktop application for running molecular binding-affinity experiments from a single graphical interface. The project is centered mainly on SARS-CoV-2 Mpro / MPro-URV datasets and integrates multiple model families used for protein-ligand affinity prediction.
 
-The current integration focuses on:
+The GUI centralizes:
 
-- EGNN workflows:
-    - data generation
-    - single-model training
-    - hyperparameter search
-    - single-model evaluation
-    - batch evaluation
+- dataset generation and preparation;
+- model training;
+- hyperparameter search;
+- checkpoint or model-bundle evaluation;
+- prediction and metric outputs;
+- graph-based, sequence-based, structure-aware and matrix-based model workflows.
 
-- EDNN workflows:
-    - data generation
-    - single-model training
-    - hyperparameter search
-    - single-model evaluation
-    - batch evaluation
+The root README gives a high-level project map. Model-specific technical details should remain in the README file inside each model folder.
 
-- DeepDTA workflows:
-    - hyperparameter search
+## Main GUI Workflow
 
-- WideDTA workflows:
-    - hyperparameter search
-
-- GUI infrastructure:
-    - dashboard navigation
-    - persistent settings page
-    - centralized results page
-    - result file detection
-    - metric parsing
-    - CSV summary export
-    - light theme
-    - application logos and desktop launcher support
-
-URVDEEPTAF is kept as an existing external module and is not the main development target of this stage.
-
-## Project structure
+The finalized model cards use the following common workflow:
 
 ```text
-TrabajoInvestigacion/
-├── assets/
-├── DeepDTA/
-│   ├── Core/
-│   ├── data/
-│   ├── results/
-│   ├── ui/
-│   ├── utils/
-│   ├── train.py
-│   └── workers.py
-├── EDNN/
-│   ├── ui/
-│   ├── utils/
-│   └── workers.py
-├── EGNN/
-│   ├── ui/
-│   ├── utils/
-│   └── workers.py
-├── GNNs/
-├── graph_managment/
-├── hyperparameter_Search/
-├── ui/
-│   ├── assets/
-│   │   ├── icons/
-│   │   └── logos/
-│   ├── controllers/
-│   ├── dialogs/
-│   ├── graph_interface/
-│   ├── menus/
-│   ├── pages/
-│   ├── themes/
-│   ├── utils/
-│   ├── widgets/
-│   ├── main_window.py
-│   └── menu_bar.py
-├── URVDEEPTAF/
-├── WideDTA/
-├── environment.yml
-├── requirements.txt
-└── main.py
+Generate Data -> Train -> Search -> Evaluate
 ```
 
-## Requirements
+| Action | Purpose |
+|---|---|
+| Generate Data | Converts raw or prepared molecular datasets into the format required by the selected model. |
+| Train | Trains a model using the selected dataset, split and configuration. |
+| Search | Runs hyperparameter search using validation metrics. Test metrics must not be used for model selection. |
+| Evaluate | Loads trained checkpoint(s) or model bundles and computes predictions and metrics. |
 
-Recommended system:
-
-- Linux Ubuntu or equivalent
-- Conda or Miniconda
-- Python 3.10
-- CUDA-capable GPU recommended for serious training
-- CPU mode supported for testing and debugging
-
-Main Python dependencies include:
-
-- PySide6
-- PyTorch
-- torch-geometric
-- RDKit
-- NumPy
-- pandas
-- scikit-learn
-- matplotlib
-- PyYAML
-
-The full environment should be installed from `environment.yml` when possible.
+Each model card opens its own dialogs and writes outputs to model-specific folders.
 
 ## Installation
 
-Clone the repository:
+The main environment definition is `environment.yml`. The project expects Python 3.10 and the dependencies listed there.
+
+The requested environment name for the final GUI is `gui_app`:
 
 ```bash
-git clone <repository-url>
-cd TrabajoInvestigacion
-```
-
-Create the Conda environment:
-
-```bash
-conda env create -f environment.yml
-```
-
-Activate the environment:
-
-```bash
+conda env create -n gui_app -f environment.yml
 conda activate gui_app
 ```
 
-If the environment already exists and dependencies have changed, update it:
+If the environment already exists:
 
 ```bash
-conda env update -f environment.yml --prune
+conda env update -n gui_app -f environment.yml
+conda activate gui_app
 ```
 
-If some packages are only listed in `requirements.txt`, install them after activating the environment:
+Note: the current `environment.yml` file declares `name: Philippe_v2`. Running `conda env create -f environment.yml` without `-n gui_app` will create/use that declared name instead. The environment file was not changed.
+
+Some PyTorch Geometric and DIG-related packages may require version-compatible wheels depending on the machine's CUDA and PyTorch setup. If imports fail after environment creation, check the installed PyTorch, CUDA and PyG versions before changing project code.
+
+## Basic Environment Checks
+
+After activating the environment, run:
 
 ```bash
-pip install -r requirements.txt
+python -c "import torch; print(torch.__version__)"
+python -c "from PySide6.QtWidgets import QApplication; print('PySide6 OK')"
+python -c "from rdkit import Chem; print('RDKit OK')"
+python -c "import torch_geometric; print('PyG OK')"
 ```
 
-Verify that Python points to the Conda environment:
+Optional checks for structure or charge workflows:
 
 ```bash
-which python
-python --version
+which mkdssp || which dssp
+which pdb2pqr || which pdb2pqr30
+which obabel
 ```
 
-Expected behavior:
+These tools are not required by every model. They are relevant for workflows that generate secondary-structure, pocket, or charge-based features.
 
-```text
-/home/<user>/miniconda3/envs/gui_app/bin/python
-Python 3.10.x
-```
-
-## Running the application
-
-From the project root:
+## Running the Application
 
 ```bash
 conda activate gui_app
 python main.py
 ```
 
-The GUI should open with the main dashboard.
+The application opens a card-based dashboard. Each card represents a model or utility module and opens the corresponding existing dialogs.
 
-The application entry point is:
-
-```text
-main.py
-```
-
-This file:
-
-- limits BLAS/OpenMP thread usage
-- sets the project root as the working directory
-- configures multiprocessing with `spawn`
-- initializes the Qt application
-- applies the light theme
-- launches the main window
-
-## Desktop launcher
-
-A Linux desktop shortcut can be created with a `.desktop` file.
-
-Create the file:
-
-```bash
-nano ~/.local/share/applications/molecular-analysis-system.desktop
-```
-
-Example content:
-
-```ini
-[Desktop Entry]
-Type=Application
-Name=Molecular Analysis System
-Comment=Protein-ligand binding affinity prediction platform
-Exec=/home/<user>/miniconda3/envs/gui_app/bin/python /home/<user>/Studies/stage/TrabajoInvestigacion/main.py
-Path=/home/<user>/Studies/stage/TrabajoInvestigacion
-Icon=/home/<user>/Studies/stage/TrabajoInvestigacion/ui/assets/icons/app_icon.png
-Terminal=false
-Categories=Science;Education;
-StartupWMClass=molecular-analysis-system
-```
-
-Update the application database:
-
-```bash
-update-desktop-database ~/.local/share/applications 2>/dev/null || true
-```
-
-Important details:
-
-- `Exec` must point to the Python interpreter inside the `gui_app` environment.
-- `Path` must point to the project root.
-- `Icon` must point to a valid image file.
-- The filename must be:
+## Project Structure
 
 ```text
-molecular-analysis-system.desktop
+TrabajoInvestigacion/
+├── main.py
+├── environment.yml
+├── README.md
+├── ui/
+├── EGNN/
+├── EDNN/
+├── DeepDTA/
+├── WideDTA/
+├── DCML/
+├── CAPLA/
+├── DEAttentionDTA/
+├── URVDEEPTAF/
+├── models/
+├── menu_ui/
+├── GNNs/
+└── ...
 ```
 
-The application also uses:
+- `ui/` contains the main PySide6 frontend, dashboard, dialogs, menus and shared theme.
+- Model folders such as `EGNN/`, `EDNN/`, `DeepDTA/`, `WideDTA/`, `DCML/`, `CAPLA/` and `DEAttentionDTA/` contain model-specific integrations.
+- Older or colleague-owned GNN modules are stored under folders such as `models/`, `menu_ui/`, `job_config/`, `core/` and `GNNs/`.
+- Generated data and results are usually kept in model-specific `data/`, `models/`, `outputs/`, `results/`, `Graphs_*`, `Models_*` or `Results_*` folders.
 
-```python
-app.setDesktopFileName("molecular-analysis-system")
-```
+## Dataset Note
 
-This helps Ubuntu associate the running window with the correct desktop launcher icon.
+Raw datasets such as MPro-URV may not be committed to this repository because of size, confidentiality, or path-specific constraints. GUI dialogs ask for dataset roots, prepared dataset roots, feature roots, checkpoint paths and output folders as needed.
 
-## Assets
+Avoid hardcoding local machine paths in source code. Prefer selecting paths in the GUI dialogs or storing them through the application's settings.
 
-Recommended asset locations:
-
-```text
-ui/assets/logos/urv_logo.png
-ui/assets/logos/app_logo.png
-ui/assets/icons/app_icon.png
-```
-
-The GUI header displays:
-
-- URV logo
-- application logo
-- application title
-- device status
-- execution status
-
-If a logo file is missing, the application may fall back to a text placeholder.
-
-## Main GUI pages
-
-### Dashboard
-
-The dashboard is the central navigation page.
-
-It provides access to:
-
-- molecule tools
-- SDF utilities
-- GNN training
-- experiments
-- explainability
-- results
-- settings
-- specialized model workflows
-
-The old menu bar is kept internally as an action registry, but it is hidden from the interface. Dashboard buttons trigger the existing menu actions programmatically.
-
-### Settings
-
-The Settings page centralizes persistent project configuration.
-
-It stores values using `QSettings`.
-
-Main settings include:
-
-```text
-Dataset paths:
-- dataset root
-- Ligand_SDF directory
-- Protein_PDB directory
-- pIC50 file
-- splits folder
-
-Model paths:
-- EGNN root
-- EDNN root
-- DeepDTA root
-- WideDTA root
-- exports directory
-
-Runtime:
-- default device
-- default seed
-
-Application resources:
-- URV logo
-- application logo
-- application icon
-```
-
-After saving settings, the values remain available after closing and reopening the application.
-
-### Results
-
-The Results page detects and displays generated experiment outputs.
-
-It scans the project tree for files such as:
-
-```text
-*_hyperparameter_trials.csv
-metrics_summary.csv
-metrics_per_split.csv
-best_config_*.yaml
-```
-
-It displays:
-
-- best RMSE
-- best Pearson
-- best Spearman when available
-- total parsed trials
-- detected result files
-- experiment summary table
-
-It also supports:
-
-- refreshing detected results
-- opening the folder of a selected result file
-- exporting a consolidated summary CSV
-
-Exported summaries are written to:
-
-```text
-exports/
-```
-
-Example:
-
-```text
-exports/results_summary_20260511_093000.csv
-```
-
-## Settings-driven dialogs
-
-Model dialogs are connected to the global Settings page.
-
-The general flow is:
-
-```text
-SettingsPage
-→ AppSettings
-→ model dialog
-→ get_inputs()
-→ worker thread
-→ training / evaluation / HPO pipeline
-```
-
-This avoids hardcoding the same paths repeatedly in multiple dialogs.
+## Model Modules
 
 ### EGNN
 
-The EGNN dialogs use:
+EGNN is a graph-based model workflow using generated molecular/protein graph data. The module uses graph structure and geometric information rather than only sequence strings.
 
-```text
-paths/pic50_file        → Generate Data
-paths/ligand_sdf        → Generate Data
-paths/protein_pdb       → Generate Data
-paths/egnn_root         → Graphs_EGNN / Models_EGNN / Results_EGNN
-paths/splits_folder     → train / validation / test split files
-runtime/default_device  → training / search / evaluation
-runtime/default_seed    → training / search
-```
+Graph generation depends on MPro-URV-style inputs such as `pIC50`, ligand SDF files and protein PDB files. Relevant graph-construction settings include edge and protein cutoffs when building local structural neighborhoods.
 
-Expected default paths:
+Available GUI workflow: `Generate Data`, `Train`, `Search`, `Evaluate`.
 
-```text
-EGNN/Graphs_EGNN
-EGNN/Models_EGNN
-EGNN/Results_EGNN
-```
+Detailed documentation: [EGNN/README.md](EGNN/README.md)
 
 ### EDNN
 
-The EDNN dialogs use:
+EDNN is an edge-aware graph neural network workflow. It follows a similar GUI structure to EGNN but uses graph node information together with edge information.
 
-```text
-paths/pic50_file        → Generate Data
-paths/ligand_sdf        → Generate Data
-paths/protein_pdb       → Generate Data
-paths/ednn_root         → Graphs_EDNN / Models_EDNN / Results_EDNN
-paths/splits_folder     → train / validation / test split files
-runtime/default_device  → training / search / evaluation
-runtime/default_seed    → training / search
-```
+The documented graph data contract includes PyTorch Geometric fields such as node features, positions, edge indices, optional edge attributes, labels and batch vectors. The module documentation describes node and edge feature assumptions and graph cutoffs.
 
-Expected default paths:
+Available GUI workflow: `Generate Data`, `Train`, `Search`, `Evaluate`.
 
-```text
-EDNN/Graphs_EDNN
-EDNN/Models_EDNN
-EDNN/Results_EDNN
-```
+Detailed documentation: [EDNN/README.md](EDNN/README.md)
 
 ### DeepDTA
 
-The DeepDTA hyperparameter search dialog uses:
+DeepDTA is a sequence-based drug-target affinity model. It represents ligands with SMILES strings and proteins with amino-acid sequences.
 
-```text
-paths/deepdta_root       → DeepDTA output root
-runtime/default_device   → device
-runtime/default_seed     → seed
-```
+The MPro-URV integration converts external data into the original DeepDTA-compatible layout: `ligands_can.txt`, `proteins.txt` and `Y`. The original fixed SMILES alphabet and length can require RDKit canonicalization and filtering, so compatible results may be computed on a filtered subset.
 
-Expected output root:
+Available GUI workflow: `Generate Data`, `Train`, `Search`, `Evaluate`.
 
-```text
-DeepDTA/results/deepdta_hpo/runs
-```
+Detailed documentation: [DeepDTA/README.md](DeepDTA/README.md)
 
 ### WideDTA
 
-The WideDTA hyperparameter search dialog uses:
+WideDTA is a sequence/subsequence extension of the DeepDTA family. It uses ligand, protein and motif-style branches rather than only character-level sequence encodings.
 
-```text
-paths/widedta_root       → WideDTA output root
-runtime/default_device   → device
-runtime/default_seed     → seed
-```
+The adapted MPro-URV format includes `ligands_can.txt`, `proteins.txt`, `motif2.txt` and `Y`. The current documentation states that `motif2` is a technical baseline aligned with protein data, not a complete biological motif extraction pipeline. Older `wide.pt` checkpoints may not be compatible with the refactored dynamic architecture dimensions.
 
-Expected output root:
+Available GUI workflow: `Generate Data`, `Train`, `Search`, `Evaluate`.
 
-```text
-WideDTA/results/widedta_hpo/runs
-```
+Detailed documentation: [WideDTA/README.md](WideDTA/README.md)
 
-## Dataset layout
+### DCML
 
-The application expects the MPro-URV dataset to provide molecular and affinity files.
+DCML is a matrix-based workflow, not a PyTorch graph neural network. The current implementation trains a scikit-learn `GradientBoostingRegressor` on precomputed feature matrices.
 
-Typical dataset elements:
+The expected prepared format includes a feature ZIP containing `.npy` matrices and a label `.npy` file. The `distance_only` variant uses ligand-protein distance matrices from structural coordinates. Charge-based variants such as `real_charge` or `full` require charge generation tools such as PDB2PQR and RDKit/OpenBabel-style ligand charge generation when enabled.
 
-```text
-MPro-URV_Version2/
-├── Ligand_SDF/
-├── Protein_PDB/
-├── Splits/
-│   ├── train_index_folder.txt
-│   ├── valid_index_folder.txt
-│   └── test_index_folder.txt
-└── pIC50.txt
-```
+Available GUI workflow: `Generate Data`, `Train`, `Search`, `Evaluate`.
 
-The exact paths should be configured in:
+Detailed documentation: [DCML/README.md](DCML/README.md)
 
-```text
-Dashboard → Settings → Open settings
-```
+### CAPLA
 
-## Recommended validation workflow
+CAPLA is a structure-aware binding-affinity model adapted to the URV SARS-CoV-2 Mpro dataset. It consumes three complementary inputs: global protein features, binding-pocket protein features and ligand SMILES.
 
-After installation and configuration, run a minimal test before launching long experiments.
+The adapted module uses official URV v3b splits. Hyperparameter search should use training and validation subsets only; test metrics are reserved for final evaluation. True structural feature generation may depend on DSSP/mkdssp or related structural-processing assets when regenerating global or pocket features.
 
-### 1. Compile Python files
+Available GUI workflow: `Generate Data`, `Train`, `Search`, `Evaluate`.
 
-```bash
-find ui EGNN EDNN DeepDTA WideDTA -type d -name "__pycache__" -prune -exec rm -rf {} +
-python -m compileall ui EGNN EDNN DeepDTA WideDTA
-```
+Detailed documentation: [CAPLA/Readme.md](CAPLA/Readme.md)
 
-### 2. Launch the GUI
+### DEAttentionDTA
 
-```bash
-python main.py
-```
+DEAttentionDTA is an attention-based binding-affinity model integrated for the official URV v3b SARS-CoV-2 Mpro splits. The maintained project workflow uses encoded protein sequence, ligand SMILES and pocket-related representations.
 
-### 3. Configure Settings
+The module preserves upstream code under `DEAttentionDTA/original/` and keeps adapted URV workflows under `DEAttentionDTA/core/`. Checkpoint compatibility matters because the GUI integration loads the maintained architecture and expects compatible generated encodings. HPO must avoid test-set leakage.
 
-Open:
+Available GUI workflow: `Generate Data`, `Train`, `Search`, `Evaluate`.
 
-```text
-Dashboard → Settings → Open settings
-```
+Detailed documentation: [DEAttentionDTA/README.md](DEAttentionDTA/README.md)
 
-Set and save:
+## Modules Pending Detailed Documentation
 
-```text
-Dataset root
-Ligand_SDF
-Protein_PDB
-pIC50 file
-Splits folder
-EGNN root
-EDNN root
-DeepDTA root
-WideDTA root
-Default device
-Default seed
-```
+The following modules are available from the GUI dashboard, but detailed technical documentation has not yet been added to this repository. The responsible contributor should complete these sections with architecture summaries, dataset requirements, training/search/evaluation outputs and known limitations.
 
-Close and reopen the application to confirm that settings persist.
+### CheapNet
 
-### 4. Check model dialogs
+This module is available from the GUI dashboard as part of the GNN model family.
 
-Open each dialog and verify that paths are pre-filled correctly:
+TODO: add model architecture summary.
+TODO: add dataset requirements.
+TODO: add training/search/evaluation outputs.
+TODO: add limitations and dependencies.
 
-```text
-EGNN → Generate / Train / Search / Evaluate
-EDNN → Generate / Train / Search / Evaluate
-DeepDTA → Search
-WideDTA → Search
-```
+### GIGN
 
-### 5. Run a minimal hyperparameter search
+This module is available from the GUI dashboard as part of the GNN model family.
 
-For debugging only:
+TODO: add model architecture summary.
+TODO: add dataset requirements.
+TODO: add training/search/evaluation outputs.
+TODO: add limitations and dependencies.
 
-```text
-epochs = 1
-learning rates = one value
-batch sizes = one value
-max_train_batches = 1
-```
+### GraphDTA
 
-For WideDTA:
+This module is available from the GUI dashboard as a graph-based drug-target affinity workflow.
 
-```text
-dropout values = one value
-```
+TODO: add model architecture summary.
+TODO: add dataset requirements.
+TODO: add training/search/evaluation outputs.
+TODO: add limitations and dependencies.
 
-The objective is not model quality. The objective is to verify that:
+### PLANET
 
-- parameters are accepted
-- workers start correctly
-- results are written
-- the Results page detects outputs
+This module is available from the GUI dashboard as a protein-ligand graph workflow.
 
-## Running experiments
+TODO: add model architecture summary.
+TODO: add dataset requirements.
+TODO: add training/search/evaluation outputs.
+TODO: add limitations and dependencies.
 
-### EGNN hyperparameter search
+### URVDEEPDTAF
 
-From the dashboard:
+This module is available from the GUI dashboard as a URV-specific DeepDTA-family workflow, but no dedicated root-level technical README was found during this documentation pass.
 
-```text
-EGNN → Search
-```
+TODO: add model architecture summary.
+TODO: add dataset requirements.
+TODO: add training/search/evaluation outputs.
+TODO: add limitations and dependencies.
 
-Recommended serious search space depends on available hardware. A minimal debugging configuration is:
+### Molecule Tools and GNN Utilities
 
-```text
-epochs = 1
-patience = 1
-lr_values = 1e-4
-hidden_dim_values = 32
-batch_size_values = 4
-```
+The dashboard also exposes molecular file utilities, GNN training utilities, transfer learning, testing, hyperparameter search and explainer workflows.
 
-A more serious search can use multiple values:
+TODO: add utility workflow reference.
+TODO: add expected input/output formats.
+TODO: add notes about optional explainer dependencies.
 
-```text
-lr_values = 5e-5,1e-4,5e-4,1e-3
-hidden_dim_values = 32,64,128
-batch_size_values = 2,4,8
-```
+## GUI Dashboard Reference
 
-### EDNN hyperparameter search
+The final GUI is card-based. Each model card opens the corresponding workflow dialogs. The `?` button on model cards shows a short model information summary. Dialogs may remember previously selected paths through `QSettings`; users should verify paths before launching long-running jobs.
 
-From the dashboard:
+The top menu is not the primary professor-facing interface. Its functionality is represented through dashboard cards.
 
-```text
-EDNN → Search
-```
-
-Use the same validation strategy as EGNN before launching long runs.
-
-### DeepDTA hyperparameter search
-
-From the dashboard:
-
-```text
-DeepDTA → Search
-```
-
-Main parameters:
-
-```text
-dataset_name
-output_root
-device
-seed
-epochs
-lr_values
-batch_size_values
-val_split
-test_split
-use_dataset_folds
-fold_index
-max_train_batches
-```
-
-### WideDTA hyperparameter search
-
-From the dashboard:
-
-```text
-WideDTA → Search
-```
-
-Main parameters:
-
-```text
-dataset_name
-output_root
-device
-seed
-epochs
-lr_values
-batch_size_values
-dropout_values
-val_split
-test_split
-use_dataset_folds
-fold_index
-max_train_batches
-```
-
-## Results and exported files
-
-Generated results may include:
-
-```text
-best_config_*.yaml
-*_hyperparameter_trials.csv
-metrics_summary.csv
-metrics_per_split.csv
-```
-
-The Results page can export a consolidated summary:
-
-```text
-Dashboard → Results → Open results → Export summary
-```
-
-The export contains:
-
-```text
-model
-source_file
-rmse
-pearson
-spearman
-status
-trials
-path
-```
-
-## Git hygiene
-
-Generated files should not be committed.
-
-Recommended ignored folders:
-
-```text
-__pycache__/
-*.pyc
-.venv/
-.env
-*.pt
-*.pth
-*.ckpt
-exports/
-EGNN/Graphs_EGNN/
-EGNN/Models_EGNN/
-EGNN/Results_EGNN/
-EDNN/Graphs_EDNN/
-EDNN/Models_EDNN/
-EDNN/Results_EDNN/
-DeepDTA/results/
-WideDTA/results/
-```
-
-If large files have already been tracked by Git, `.gitignore` alone will not remove them from Git history or tracking. Use:
-
-```bash
-git rm --cached <file-or-folder>
-```
-
-Then commit the removal.
+## Results and Outputs
+
+Each model writes outputs into its own model-specific folders. Depending on the workflow, common artifacts include:
+
+- trained checkpoints or model bundles;
+- prediction CSV files;
+- metrics CSV, JSON, or YAML files;
+- scatter plots and diagnostic figures;
+- training histories;
+- HPO trial CSV files;
+- best configuration YAML/JSON files;
+- generated dataset reports.
+
+Do not assume the exact same filenames across all modules. Use the module-specific README and GUI dialog output fields for exact locations.
+
+## Experimental Methodology Notes
+
+- Hyperparameter search must use validation metrics only.
+- Test metrics are for final evaluation, not model selection.
+- Official dataset folds should be used where available.
+- Smoke tests are only for checking that the pipeline runs; they must not be reported as final scientific results.
+- Keep generated datasets, checkpoints and outputs tied to the exact code and configuration used to produce them.
 
 ## Troubleshooting
 
-### The GUI opens but uses the wrong theme
+| Problem | Suggested check |
+|---|---|
+| GUI does not start because a module is missing | Activate the correct conda environment and run `python main.py` from the project root. |
+| `PySide6` import error | Confirm the environment was created from `environment.yml` and that `pyside6` is installed. |
+| RDKit import error | Check `python -c "from rdkit import Chem"` inside the active environment. |
+| PyTorch Geometric / `torch_sparse` errors | Verify PyTorch, CUDA and PyG wheels are version-compatible on the machine. |
+| Missing DSSP/mkdssp | Required only for workflows that regenerate secondary-structure or pocket features. Install system tools if those workflows are needed. |
+| Missing PDB2PQR | Required only for charge-based DCML variants that need protein charge generation. |
+| Missing OpenBabel/`obabel` | Required only for workflows that call ligand charge or conversion tools. |
+| Stale paths after moving the project | Dialog paths may be stored in `QSettings`; reselect paths in the GUI. |
+| Missing raw dataset files | Confirm the selected dataset root contains the expected MPro-URV files for the selected module. |
+| CUDA requested but unavailable | Use `auto` or `cpu` in the dialog, or install a CUDA-compatible PyTorch build. |
 
-Verify that `main.py` calls:
+## Contribution and Documentation Notes
 
-```python
-apply_theme(app, "light")
-```
+- Model-specific README files should remain the source of detailed technical information.
+- The root README should stay high-level and should not duplicate full model documentation.
+- New model modules should include their own README with dataset format, workflow, outputs and limitations.
+- Generated data, model checkpoints and experiment outputs should normally not be committed unless explicitly required.
+- Do not hardcode machine-specific paths in source code.
 
-Also verify that `ui/themes/light.qss` exists.
+## Final Status
 
-### Desktop launcher does not show the correct icon
-
-Check:
-
-```text
-~/.local/share/applications/molecular-analysis-system.desktop
-```
-
-Verify:
-
-```ini
-Icon=/absolute/path/to/ui/assets/icons/app_icon.png
-Path=/absolute/path/to/TrabajoInvestigacion
-```
-
-Also verify that `main.py` contains:
-
-```python
-app.setDesktopFileName("molecular-analysis-system")
-```
-
-### Spinbox arrows disappear when launching from desktop
-
-This usually means that relative paths in the QSS are resolved from the wrong working directory.
-
-Fix the `.desktop` file with:
-
-```ini
-Path=/absolute/path/to/TrabajoInvestigacion
-```
-
-The application also sets its working directory to the project root in `main.py`.
-
-### Settings are saved but dialogs do not update
-
-Check whether the dialog has been connected to `AppSettings`.
-
-Expected import:
-
-```python
-from ui.utils.app_settings import AppSettings
-```
-
-Expected pattern:
-
-```python
-self.app_settings = AppSettings()
-```
-
-Then the dialog should use values such as:
-
-```python
-self.app_settings.get_value("paths/egnn_root")
-self.app_settings.get_value("paths/ednn_root")
-self.app_settings.get_value("runtime/default_device")
-self.app_settings.get_value("runtime/default_seed")
-```
-
-### Results page does not show new files
-
-Click:
-
-```text
-Refresh
-```
-
-If files still do not appear, verify that generated files contain recognizable names such as:
-
-```text
-trials
-metrics_summary
-metrics_per_split
-best_config
-```
-
-### CUDA is unavailable
-
-Use:
-
-```text
-device = cpu
-```
-
-or:
-
-```text
-device = auto
-```
-
-If `auto` causes an error in a specific backend, use `cpu` explicitly.
-
-### A long path appears visually cut in a dialog
-
-This is normal behavior for `QLineEdit` when the path is longer than the visible field width. The full text is still stored and returned by `get_inputs()`.
-
-## Development conventions
-
-General code conventions used in this project:
-
-- GUI code is kept in `ui/`.
-- Model-specific GUI code is kept inside each model module.
-- Menus trigger dialogs.
-- Dialogs return dictionaries through `get_inputs()`.
-- Workers execute long operations in background threads.
-- Training and evaluation pipelines remain separated from GUI code.
-- Persistent GUI settings are centralized in `ui/utils/app_settings.py`.
-- Result parsing is centralized in `ui/controllers/results_controller.py`.
-
-Preferred architecture:
-
-```text
-Dashboard
-→ Dialog
-→ get_inputs()
-→ Worker
-→ Core pipeline
-→ Results files
-→ ResultsPage
-```
-
-## Minimal developer checklist
-
-Before committing GUI changes:
-
-```bash
-find ui EGNN EDNN DeepDTA WideDTA -type d -name "__pycache__" -prune -exec rm -rf {} +
-python -m compileall ui EGNN EDNN DeepDTA WideDTA
-python main.py
-```
-
-Then manually verify:
-
-```text
-Dashboard opens
-Settings opens
-Results opens
-EGNN dialogs open
-EDNN dialogs open
-DeepDTA dialog opens
-WideDTA dialog opens
-Log panel still works
-Header logo returns to dashboard
-```
-
-## Known limitations
-
-- DeepDTA and WideDTA currently expose hyperparameter search from the GUI, not the full set of possible training and evaluation actions.
-- Some generated result formats may require parser updates before all metrics appear in the Results page.
-- The GUI assumes the expected dataset files exist and are correctly formatted.
-- URVDEEPTAF is preserved as an existing external module and is not the main refactoring target.
-
-## License
-
-This project is part of an academic internship and should be used according to the rules defined by the institution, supervisor, and repository owner.
+| Module | Documentation status | GUI workflow | Notes |
+|---|---|---|---|
+| EGNN | Available | Generate/Train/Search/Evaluate | Graph model using generated molecular/protein graphs. |
+| EDNN | Available | Generate/Train/Search/Evaluate | Edge-aware graph model. |
+| DeepDTA | Available | Generate/Train/Search/Evaluate | Sequence model using SMILES and proteins. |
+| WideDTA | Available | Generate/Train/Search/Evaluate | Word/motif-style sequence model. |
+| DCML | Available | Generate/Train/Search/Evaluate | Matrix-based GradientBoostingRegressor workflow. |
+| CAPLA | Available | Generate/Train/Search/Evaluate | Structure-aware global/pocket model. |
+| DEAttentionDTA | Available | Generate/Train/Search/Evaluate | Attention-based model using sequence, ligand and pocket inputs. |
+| CheapNet | TODO | Dashboard card present | Colleague documentation pending. |
+| GIGN | TODO | Dashboard card present | Colleague documentation pending. |
+| GraphDTA | TODO | Dashboard card present | Colleague documentation pending. |
+| PLANET | TODO | Dashboard card present | Colleague documentation pending. |
+| URVDEEPDTAF | TODO | Dashboard card present | URV-specific DeepDTA-family documentation pending. |
+| Molecule/GNN utilities | TODO | Dashboard cards present | Utility workflow documentation pending. |
