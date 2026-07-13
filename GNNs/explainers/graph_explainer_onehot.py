@@ -16,7 +16,7 @@ from GNNs.explainers.explanation_helper import (
     obtener_info_real, guardar_dashboard_explicacion,
     guardar_pesos, tensor_to_abs_numpy, 
     normalizar_por_l2, 
-    procesar_features_onehot )
+    procesar_features_onehot, get_features_names_onehot )
 from ui.utils.constants import (
     EDGE_FEATURE_NAMES, NODE_FEATURE_NAMES_ONE_HOT,
     ONE_HOT_INDICES, EDGE_ONE_HOT_INDICES)

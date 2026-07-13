@@ -451,6 +451,26 @@ def get_feature_names_embedding():
         "Is Acceptor"
     ]
 
+def get_features_names_onehot():
+    feature_names = []
+
+    # Tipo de atomo one hot
+    feature_names+= [f"Atom_{atom}" for atom in periodic_elements]
+
+    # Features escalares
+    feature_names.append("Degree")
+    feature_names.append("Total Hs")
+    feature_names.append("Is Aromatic")
+    feature_names.append("Formal Charge")
+    feature_names.append("Gasteiger Charge")
+    feature_names.append("Is Donor")
+    feature_names.append("Is Acceptor")
+
+    # Hybridizacion
+    feature_names+= [f"Hybrid_{h}" for h in hybridization_types]
+
+    return feature_names
+
 def normalizar_por_l2(arr):
     """
     Normaliza el vector usando la Norma L2 (Euclidiana).
