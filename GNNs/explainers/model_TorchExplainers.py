@@ -4,6 +4,8 @@ import os
 import numpy as np
 import logging
 from rdkit import Chem
+from torch_geometric.explain import Explainer
+from GNNs.explainers.subgraphX import SubgraphX
 
 from torch_geometric.explain import Explainer, DummyExplainer, GNNExplainer, CaptumExplainer
 
@@ -51,7 +53,7 @@ def obtener_Dummy_Explainer(checkpoint_path, sdf_path, target_data_path=None, ba
     
     explanation = explainer(
         x=data.x, edge_index=data.edge_index, 
-        edge_attr=data.edge_attr, batch=batch, target=None
+        edge_attr=data.edge_attr, batch=batch
     )
 
     # --- 3. EXTRACCIÓN Y GUARDADO ---
@@ -125,7 +127,7 @@ def obtener_GNN_Explainer(checkpoint_path, sdf_path, target_data_path=None, batc
     logger.info(f"Ejecutando GNNExplainer para {mol_name}...")
     explanation = explainer(
         x=data.x, edge_index=data.edge_index, 
-        edge_attr=data.edge_attr, batch=batch, target=None
+        edge_attr=data.edge_attr, batch=batch
     )
 
     # --- 3. EXTRACCIÓN Y GUARDADO DE PESOS ---
@@ -222,7 +224,7 @@ def obtener_Captum_Explainer(checkpoint_path, sdf_path, target_data_path=None, b
     
     explanation = explainer(
         x=data.x, edge_index=data.edge_index, 
-        edge_attr=data.edge_attr, batch=batch, target=target_idx
+        edge_attr=data.edge_attr, batch=batch
     )
 
     # --- 3. EXTRACCIÓN Y GUARDADO DE PESOS ---

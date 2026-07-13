@@ -13,7 +13,8 @@ EXPLAINERS = [
         # "Captum_Saliency",          # <--- NUEVO
         # "Captum_Deconvolution",     # <--- NUEVO
         # "Captum_GuidedBackprop",    # <--- NUEVO
-        "DummyExplainer"
+        "DummyExplainer",
+        "SubgraphX"
     ]
 
 # Features Training
