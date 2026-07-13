@@ -65,7 +65,7 @@ class MenuExplainerGNN(QMenu):
                 if explainer_name == "GraphExplainer":
                     plot_path = obtener_graph_explainer(
                         model_path, sdf_path, target_path, 
-                        num_samples=1000, noise_level=0.01, device='cpu'
+                        num_samples=1000, noise_level=0.01
                     )
                 
                 elif explainer_name == "GNNExplainer":

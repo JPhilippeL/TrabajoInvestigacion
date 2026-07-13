@@ -162,7 +162,7 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1, 1, 1], noise_l
     return data_new
 
 # Función para generar múltiples muestras perturbadas
-def generate_perturbed_samples(data, feature_mask, num_samples=50, noise_level=0.05):
+def generate_perturbed_samples(data, feature_mask=[1, 1, 1, 1, 1, 1, 1, 1], num_samples=50, noise_level=0.05):
     perturbed_samples = []
     for i in range(num_samples):
         sample_specific_prob = random.uniform(0.01, 0.50)
@@ -228,9 +228,8 @@ def obtener_graph_explainer(
         sdf_path, 
         target_data_path=None, 
         feature_mask=[1, 1, 1, 1, 1, 1], 
-        num_samples=50, 
-        noise_level=0.05, 
-        device='cpu',
+        num_samples=1000, 
+        noise_level=0.01,
         batch_mode = False):
     
     mol = Chem.SDMolSupplier(sdf_path, removeHs=False)[0]
@@ -245,7 +244,7 @@ def obtener_graph_explainer(
     print("Real value:", real_val)
     
     # Generar muestras perturbadas
-    perturbed_samples = generate_perturbed_samples(muestra, feature_mask, num_samples, noise_level)
+    perturbed_samples = generate_perturbed_samples(muestra, num_samples, noise_level)
     # perturbed_samples_embedding = []
 
     # Obtener modelo

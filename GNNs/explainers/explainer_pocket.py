@@ -2,13 +2,14 @@ import pandas as pd
 import os
 import sys
 import torch
+import gc
 from torch_geometric.data import Batch
 
 dir_actual = os.path.dirname(os.path.abspath(__file__))
 dir_padre = os.path.abspath(os.path.join(dir_actual, "../.."))
 sys.path.insert(0, dir_padre)
 
-from GNNs.explainers.model_Graph_explainer import obtener_graph_explainer
+from GNNs.explainers.model_Graph_explainer import obtener_graph_explainer_from_pt
 from GNNs.data_processing import prepare_pt_training_data
 from GNNs.model_tester import cargar_modelo, predecir_molecula
 from ui.utils.constants import RESULTADOS_DIR, BOND_CLASS_NAMES, BOND_TYPES_NON_COVALENT
@@ -92,7 +93,7 @@ def calcular_y_guardar_importancias_beta(
         # ----------------------------------
         
         # Llamada a tu explainer
-        resultados = obtener_graph_explainer(
+        resultados = obtener_graph_explainer_from_pt(
             checkpoint_path=checkpoint_path, 
             data_indices=data,
             batch_mode=True
@@ -217,7 +218,7 @@ def explicar_y_guardar_molecula_individual(
             batch_mode=True
         )
     else:
-        resultados = obtener_graph_explainer(
+        resultados = obtener_graph_explainer_from_pt(
             checkpoint_path=checkpoint_path, 
             data_indices=target_data,
             batch_mode=True
@@ -383,7 +384,7 @@ def get_batch_explanation(model_path, data_list, explainer_name = "GraphExplaine
             # ----------------------------------
             
             # Llamada a tu explainer
-            resultados = obtener_graph_explainer(
+            resultados = obtener_graph_explainer_from_pt(
                 checkpoint_path=model_path, 
                 data_indices=data,
                 batch_mode=True
@@ -413,9 +414,9 @@ def get_batch_explanation(model_path, data_list, explainer_name = "GraphExplaine
 RUTA_MODELO = "Modelos/Explainer_BindingAffinity/GT_5_Split3.pt"
 RUTA_MODELOS = ["Modelos/Modelos_23F/3A_GT_Split3.pt", "Modelos/Modelos_23F/4A_GT_Split3.pt",
                 "Modelos/Modelos_23F/5A_GT_Split3.pt", "Modelos/Modelos_23F/7A_GT_Split3.pt"]
-DATA_PATHS = ["/home/philippe/Documents/Databases/3_Amstrongs/pocket_BD/pocket_BD.pt", "/home/philippe/Documents/Databases/4_Amstrongs/pocket_BD/pocket_BD.pt",
-            "/home/philippe/Documents/Databases/5_Amstrongs/pocket_BD/pocket_BD.pt", "/home/philippe/Documents/Databases/7_Amstrongs/pocket_BD/pocket_BD.pt"]
-DATA_PATH = "/home/philippe/Documents/Databases/7_Amstrongs/pocket_BD/pocket_BD.pt"
+DATA_PATHS = ["/home/philippe/Documents/Databases/23_features/3_Amstrongs/pocket_BD/pocket_BD.pt", "/home/philippe/Documents/Databases/23_features/4_Amstrongs/pocket_BD/pocket_BD.pt",
+            "/home/philippe/Documents/Databases/23_features/5_Amstrongs/pocket_BD/pocket_BD.pt", "/home/philippe/Documents/Databases/23_features/7_Amstrongs/pocket_BD/pocket_BD.pt"]
+DATA_PATH = "/home/philippe/Documents/Databases/23_features/7_Amstrongs/pocket_BD/pocket_BD.pt"
 OBJETIVOS = ["7GH3", "7EN9", "9GIJ"]
 
 # df_resumen, df_crudo = calcular_y_guardar_importancias_beta(
@@ -437,8 +438,10 @@ for modelo in RUTA_MODELOS:
             checkpoint_path=RUTA_MODELOS[i],
             target_mol_name=molecula,
             csv_dir="Resultados/Resultados_23F",
-            algo_name="GNNExplainer"
+            algo_name="GraphExplainer"
         )
+        torch.cuda.empty_cache()
+        gc.collect()
     i = i + 1
 
 # get_batch_explanation(RUTA_MODELO, train_loader.dataset)

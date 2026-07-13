@@ -120,7 +120,7 @@ BOND_CLASS_NAMES = [
 ]
 
 # Y ahora tu lista final de features para aristas será perfecta:
-EDGE_FEATURE_NAMES = BOND_CLASS_NAMES + ["Distance", "Flexibility"]
+EDGE_FEATURE_NAMES = BOND_CLASS_NAMES + BOND_TYPES_NON_COVALENT + ["Distance", "Flexibility"]
 
 EDGE_FEATURE_NAMES_EMBEDDING = ["BondType"] + BOND_TYPES_NON_COVALENT + ["Distance", "Flexibility"]
 

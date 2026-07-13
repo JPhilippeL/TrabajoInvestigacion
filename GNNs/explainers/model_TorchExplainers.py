@@ -5,7 +5,6 @@ import numpy as np
 import logging
 from rdkit import Chem
 from torch_geometric.explain import Explainer
-from GNNs.explainers.subgraphX import SubgraphX
 
 from torch_geometric.explain import Explainer, DummyExplainer, GNNExplainer, CaptumExplainer
 

@@ -8,8 +8,7 @@ import logging
 from GNNs.data_processing import onehot_to_indices, indices_to_onehot
 from GNNs.explainers.explanation_helper import ( 
     tensor_to_abs_numpy, normalizar_por_l2, procesar_features_ordenadas)
-from GNNs.explainers.graph_explainer_onehot import generate_perturbed_samples, graph_feature_distance_list
-from GNNs.explainers.graph_explainer_onehot import obtener_argmin
+from GNNs.explainers.graph_explainer_onehot import *
 from ui.utils.constants import NODE_FEATURES_NAMES_EMBEDDING, EDGE_FEATURE_NAMES_EMBEDDING
 
 ALGO_NAME = "GraphExplainer"
@@ -17,13 +16,13 @@ MININICIAL = sys.float_info.max
 
 logger = logging.getLogger(__name__)
 
-def obtener_graph_explainer(
+def obtener_graph_explainer_from_pt(
         checkpoint_path,
         data_indices, 
         target_data_path=None, 
         feature_mask=[1, 1, 1, 1, 1, 1], 
-        num_samples=1000, 
-        noise_level=0.05, 
+        num_samples=500, 
+        noise_level=0.01, 
         device='cpu',
         batch_mode = False):
     
@@ -34,7 +33,7 @@ def obtener_graph_explainer(
     mol_name = data_indices.name
     
     # Generar muestras perturbadas
-    perturbed_samples = generate_perturbed_samples(muestra, feature_mask, num_samples, noise_level)
+    perturbed_samples = generate_perturbed_samples(muestra, num_samples=num_samples, noise_level=noise_level)
     perturbed_samples_embedding = []
 
     # Obtener modelo
@@ -43,33 +42,85 @@ def obtener_graph_explainer(
     muestra_for_model = onehot_to_indices(muestra.to(device))
     # prediccion_original = predecir_molecula(model, muestra_for_model, device)
 
-    # Predecir las muestras perturbadas
-    predicciones_perturbadas = []
-    for perturbed in perturbed_samples:
-        perturbed = perturbed.to(device)
-        perturbed_for_model = onehot_to_indices(perturbed)  # <-- aquí el puente
-        pred = predecir_molecula(model, perturbed_for_model, device)
-        predicciones_perturbadas.append(pred)
-        perturbed_samples_embedding.append(perturbed_for_model)
+    # 1. Convertir todas las muestras al formato del modelo en una lista
+    muestras_procesadas = [onehot_to_indices(p.to(device)) for p in perturbed_samples]
+    
+    # 2. Unirlas en un solo "Súper Grafo" (Batch)
+    batch_data = Batch.from_data_list(muestras_procesadas)
+    
+    # 3. Hacer UNA SOLA predicción masiva
+    with torch.no_grad():
+        # Asumimos que tu modelo acepta (x, edge_index, edge_attr, batch)
+        predicciones_perturbadas = predict_in_batches(model, muestras_procesadas, device, batch_size=32)    
+    # Asegurar la forma [num_samples, 1]
+    predicciones_perturbadas = predicciones_perturbadas.view(-1, 1)
 
     # Convertir a tensor [num_samples,1]
     predicciones_perturbadas = torch.tensor(predicciones_perturbadas, dtype=torch.float, device=device).unsqueeze(1)
 
-    # Calcular distancias entre la muestra original y las perturbaciones
-    feature_distances = graph_feature_distance_list(muestra_for_model, perturbed_samples_embedding)
+    # Calcular distancias entre la muestra original y las perturbaciones ( one hot)
+    feature_distances = graph_feature_distance_list(muestra, perturbed_samples)
 
-    # Obtener E
-    E_list = [data_z.x.to(device) for data_z in perturbed_samples_embedding]
+    # Obtener E (onehot)
+    E_list = [data_z.x.to(device) for data_z in perturbed_samples]
 
-    # Lo mismo con los edges
+    # Variable para activar/desactivar el filtro (cámbialo a False para comparar)
+    aplicar_filtro_columnas = True
+    aplicar_filtro_filas = True
+    THRESHOLD = 1
+
+    # --- NUEVO PASO: Calcular y filtrar proporcionalidades ---
+
+    if aplicar_filtro_columnas:
+        E_list, features_mantenidas, info_eliminada, num_feat_orig = calcular_y_filtrar_proporcionalidad(
+            muestra.to(device),
+            E_list,
+            threshold=THRESHOLD,
+        )
+    else:
+        info_eliminada = None
+        num_feat_orig = E_list[0].shape[1] if len(E_list) > 0 else 0
+        features_mantenidas = list(range(num_feat_orig)) # <--- IMPORTANTE AÑADIR ESTO
+        print("[i] Filtro de proporcionalidad DESACTIVADO.")
+
+    if aplicar_filtro_filas:
+        # Nota: Le pasamos el E_list que ya viene limpio de columnas
+        E_list, nodos_mantenidos, info_row, num_nodos_orig = calcular_y_filtrar_proporcionalidad(
+            muestra.to(device), E_list, threshold=THRESHOLD, axis=1
+        )
+
+
+
+    # Lo mismo con los edges (onehot)
     A_list = []
-    for data_z in perturbed_samples_embedding:
-    # for data_z in perturbed_samples:
+    for data_z in perturbed_samples:
         if data_z.edge_attr is not None:
             A_list.append(data_z.edge_attr.to(device))
+        else:
+            print("Error al añadir los edge features de una molecula")
+
+    if aplicar_filtro_columnas:
+                A_list, features_mantenidas_e, info_eliminada_e, num_feat_orig_e = calcular_y_filtrar_proporcionalidad(
+                    muestra.to(device),
+                    A_list,
+                    threshold=THRESHOLD,
+                    mode="Edges",
+                )
+    if aplicar_filtro_filas:
+                A_list, edges_mantenidos, info_row_e, num_edges_orig = calcular_y_filtrar_proporcionalidad(
+                    muestra.to(device), A_list, threshold=THRESHOLD, mode="Edges", axis=1
+                )
 
     # --------------- HACERLO CON OPTIMIZACION DE PYTORCH ----------------------
-    alfa, beta, gamma, delta, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_list, A_list)
+    # Si el filtro está en False, 'alfa_reducido' será en realidad el tensor completo
+    alfa_reducido, beta_reducido, gamma_reducida, delta_reducida, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_list, A_list)
+
+    # Si info_eliminada es None, reconstruir_alfa simplemente devuelve alfa_reducido tal cual
+    alfa = reconstruir_importancias(alfa_reducido, num_feat_orig, features_mantenidas, info_eliminada)
+    gamma = reconstruir_importancias(gamma_reducida, num_feat_orig_e, features_mantenidas_e, info_eliminada_e)
+    beta = reconstruir_importancias(beta_reducido, num_nodos_orig, nodos_mantenidos, info_row)
+    delta = reconstruir_importancias(delta_reducida, num_edges_orig, edges_mantenidos, info_row_e)
+
     # Verificar que aprendimos algo distinto de cero
     print(f"Max Alfa: {alfa.max().item():.4f}, Min Alfa: {alfa.min().item():.4f}")
     print(f"Max Beta: {beta.max().item():.4f}, Min Beta: {beta.min().item():.4f}")
@@ -83,9 +134,9 @@ def obtener_graph_explainer(
     # ====================================================================
     
     # 1. Convertir todos los tensores a NumPy (Valores absolutos crudos)
-    alfa_norm = procesar_features_ordenadas(alfa, NODE_FEATURES_NAMES_EMBEDDING)
+    alfa_norm = procesar_features_ordenadas(alfa, NODE_FEATURE_NAMES_ONE_HOT)
     beta_raw = tensor_to_abs_numpy(beta)
-    gamma_norm = procesar_features_ordenadas(gamma, EDGE_FEATURE_NAMES_EMBEDDING) if gamma is not None else np.array([])
+    gamma_norm = procesar_features_ordenadas(gamma, EDGE_FEATURE_NAMES) if gamma is not None else np.array([])
     delta_raw = tensor_to_abs_numpy(delta) if delta is not None else np.array([])
 
     beta_norm = normalizar_por_l2(beta_raw)
@@ -132,3 +183,19 @@ def stack_and_normalize(tensor_list, device):
     # scale = 1.0 / N_elementos
     
     return normalized_stacked
+
+def predict_in_batches(model, batch_data_list, device, batch_size=32):
+    """Procesa predicciones en mini-batches para ahorrar memoria GPU"""
+    all_predictions = []
+    
+    for i in range(0, len(batch_data_list), batch_size):
+        mini_batch = Batch.from_data_list(batch_data_list[i:i+batch_size])
+        mini_batch = mini_batch.to(device)
+        
+        with torch.no_grad():
+            preds = model(mini_batch.x, mini_batch.edge_index, mini_batch.edge_attr, mini_batch.batch)
+            all_predictions.append(preds)
+        
+        torch.cuda.empty_cache()  # Liberar memoria después de cada mini-batch
+    
+    return torch.cat(all_predictions, dim=0)
