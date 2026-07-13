@@ -11,11 +11,11 @@ import csv
 import itertools
 import json
 import math
+import statistics
 import shutil
 import time
 import traceback
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any, Mapping, Sequence
 
 from .common import MODULE_ROOT, as_absolute_string, ensure_dir, load_base_runner, save_json
@@ -25,7 +25,20 @@ class DEAttentionDTAHPOError(RuntimeError):
     """Raised when validation-only hyperparameter search cannot complete."""
 
 
-def _parse_splits(value: str) -> list[int]:
+def _split_index(split_id: int) -> int:
+    return int(split_id) - 1
+
+
+def _split_id_from_zero_based(split_index: Any) -> int:
+    index = int(split_index)
+
+    if index < 0:
+        raise ValueError("Single-split HPO split index must be >= 0.")
+
+    return index + 1
+
+
+def _parse_legacy_splits(value: str) -> list[int]:
     text = str(value).strip().lower()
 
     if text in {"all", "*"}:
@@ -52,6 +65,98 @@ def _parse_splits(value: str) -> list[int]:
         raise ValueError("At least one tuning split is required.")
 
     return split_ids
+
+
+def _required_hpo_files(prepared_dir: Path, split_id: int) -> list[Path]:
+    split_dir = prepared_dir / "splits" / f"split_{split_id:02d}"
+    return [
+        split_dir / "seq_train.csv",
+        split_dir / "affinity_train.csv",
+        split_dir / "seq_valid.csv",
+        split_dir / "affinity_valid.csv",
+    ]
+
+
+def _detect_available_split_ids(prepared_dir: Path) -> list[int]:
+    split_root = prepared_dir / "splits"
+
+    if not split_root.is_dir():
+        raise DEAttentionDTAHPOError(
+            f"Prepared dataset is missing split folder: {split_root}"
+        )
+
+    split_ids: list[int] = []
+
+    for split_dir in sorted(split_root.glob("split_*")):
+        if not split_dir.is_dir():
+            continue
+
+        suffix = split_dir.name.rsplit("_", 1)[-1]
+
+        if not suffix.isdigit():
+            continue
+
+        split_id = int(suffix)
+        missing = [path for path in _required_hpo_files(prepared_dir, split_id) if not path.is_file()]
+
+        if missing:
+            raise DEAttentionDTAHPOError(
+                "Prepared DEAttentionDTA split is incomplete for HPO. "
+                f"Split folder: {split_dir}. Missing file: {missing[0]}"
+            )
+
+        split_ids.append(split_id)
+
+    if not split_ids:
+        raise DEAttentionDTAHPOError(
+            f"No usable official split folders were found under: {split_root}"
+        )
+
+    return sorted(split_ids)
+
+
+def _resolve_hpo_mode_and_splits(params: Mapping[str, Any], prepared_dir: Path) -> tuple[str, list[int]]:
+    mode = str(params.get("hpo_mode", params.get("search_mode", ""))).strip().lower()
+    mode = mode.replace("-", "_").replace(" ", "_")
+
+    run_all = params.get("run_all_splits", None)
+    if run_all is not None:
+        if isinstance(run_all, str):
+            run_all_bool = run_all.strip().lower() in {"1", "true", "yes", "y", "all", "all_splits"}
+        else:
+            run_all_bool = bool(run_all)
+        mode = "all_splits" if run_all_bool else "single_split"
+
+    if not mode:
+        legacy_splits = str(params.get("splits", "all")).strip().lower()
+        mode = "all_splits" if legacy_splits in {"all", "*"} else "single_split"
+
+    if mode in {"all", "all_split", "all_splits", "official_splits"}:
+        split_ids = _detect_available_split_ids(prepared_dir)
+        return "all_splits", split_ids
+
+    if mode in {"single", "single_split", "one_split"}:
+        if "split_index" in params:
+            split_ids = [_split_id_from_zero_based(params["split_index"])]
+        else:
+            split_ids = _parse_legacy_splits(str(params.get("splits", "1")))
+
+        if len(split_ids) != 1:
+            raise ValueError("single_split HPO requires exactly one split.")
+
+        split_id = split_ids[0]
+        missing = [path for path in _required_hpo_files(prepared_dir, split_id) if not path.is_file()]
+
+        if missing:
+            raise DEAttentionDTAHPOError(
+                "Requested DEAttentionDTA HPO split is incomplete. "
+                f"split_index={_split_index(split_id)} split_folder=split_{split_id:02d}. "
+                f"Missing file: {missing[0]}"
+            )
+
+        return "single_split", [split_id]
+
+    raise ValueError("hpo_mode must be 'single_split' or 'all_splits'.")
 
 
 def _values(params: Mapping[str, Any], key: str, caster) -> list[Any]:
@@ -129,15 +234,19 @@ def _write_yaml(path: Path, payload: Mapping[str, Any]) -> Path:
 def _write_trials_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> Path:
     fields = [
         "trial_id",
+        "hyperparameters",
+        "mean_val_RMSE",
+        "std_val_RMSE",
+        "mean_val_Pearson",
+        "std_val_Pearson",
+        "mean_val_MAE",
+        "std_val_MAE",
+        "mean_best_epoch",
         "status",
         "lr",
         "batch_size",
         "weight_decay",
         "tuning_splits",
-        "mean_val_RMSE",
-        "mean_val_Pearson",
-        "mean_val_MAE",
-        "mean_best_epoch",
         "elapsed_seconds",
         "elapsed_time",
         "elapsed_time_format",
@@ -156,6 +265,57 @@ def _write_trials_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> Path:
             writer.writerow({field: row.get(field, "") for field in fields})
 
     return path
+
+
+def _write_trials_per_split_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> Path:
+    fields = [
+        "trial_id",
+        "split_index",
+        "split_id",
+        "hyperparameters",
+        "val_RMSE",
+        "val_Pearson",
+        "val_MAE",
+        "best_epoch",
+        "checkpoint_path",
+        "status",
+        "error_message",
+    ]
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+
+        for row in rows:
+            writer.writerow({field: row.get(field, "") for field in fields})
+
+    return path
+
+
+def _std(values: Sequence[Any]) -> float:
+    numbers = [float(value) for value in values]
+    if len(numbers) < 2:
+        return 0.0
+    return float(statistics.stdev(numbers))
+
+
+def _aggregate_split_rows(split_rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    successful = [row for row in split_rows if row.get("status") == "success"]
+
+    if len(successful) != len(split_rows):
+        raise DEAttentionDTAHPOError("At least one split failed for this trial.")
+
+    return {
+        "mean_val_RMSE": float(statistics.mean(float(row["val_RMSE"]) for row in successful)),
+        "std_val_RMSE": _std([row["val_RMSE"] for row in successful]),
+        "mean_val_Pearson": float(statistics.mean(float(row["val_Pearson"]) for row in successful)),
+        "std_val_Pearson": _std([row["val_Pearson"] for row in successful]),
+        "mean_val_MAE": float(statistics.mean(float(row["val_MAE"]) for row in successful)),
+        "std_val_MAE": _std([row["val_MAE"] for row in successful]),
+        "mean_best_epoch": float(statistics.mean(float(row["best_epoch"]) for row in successful)),
+    }
 
 
 def _build_grid(params: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -391,13 +551,18 @@ def _run_one_split(
 
     summary = {
         "trial_id": trial_id,
-        "split": split_id,
+        "split": int(split_id),
+        "split_id": int(split_id),
+        "split_index": _split_index(split_id),
         "model_pt": str(model_path),
+        "checkpoint_path": str(model_path),
         "history_csv": str(history_csv),
         "best_epoch": int(best_epoch),
         "val_RMSE": float(best_metrics["RMSE"]),
         "val_MAE": float(best_metrics["MAE"]),
         "val_Pearson": float(best_metrics["Pearson"]),
+        "status": "success",
+        "error_message": "",
         "elapsed_seconds": elapsed_seconds,
         "elapsed_time": _format_elapsed_ddhhmmss(elapsed_seconds),
         "elapsed_time_format": "DD:HH:MM:SS",
@@ -425,7 +590,7 @@ def run_hyperparameter_search(params: Mapping[str, Any]) -> dict[str, Any]:
     )
     models_root = ensure_dir(str(params.get("models_root", "DEAttentionDTA/models/hpo")))
     results_root = ensure_dir(str(params.get("results_root", "DEAttentionDTA/outputs/hpo")))
-    tuning_splits = _parse_splits(str(params.get("splits", "1")))
+    hpo_mode, tuning_splits = _resolve_hpo_mode_and_splits(params, prepared_dir)
     grid = _build_grid(params)
     device = base.choose_device(str(params.get("device", "auto")))
 
@@ -443,25 +608,26 @@ def run_hyperparameter_search(params: Mapping[str, Any]) -> dict[str, Any]:
     if min_epochs_before_stopping < 1:
         raise ValueError("min_epochs_before_stopping must be >= 1.")
 
-    check_args = SimpleNamespace(prepared_dir=str(prepared_dir))
-    base.ensure_prepared_exists(check_args, str(MODULE_ROOT))
     model_cls, model_source_path = base.load_model_class(str(MODULE_ROOT))
 
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     run_dir = ensure_dir(results_root / f"deattentiondta_hpo_{timestamp}")
     trial_models_root = ensure_dir(models_root / f"deattentiondta_hpo_{timestamp}")
     trials_csv = run_dir / "trials.csv"
+    trials_per_split_csv = run_dir / "trials_per_split.csv"
 
     save_json(
         {
             "model_name": "DEAttentionDTA",
             "workflow": "validation_only_hpo",
+            "search_mode": hpo_mode,
             "methodology": "official train and validation subsets only; official test subsets excluded",
             "selection_rule": "min mean validation RMSE, then max mean validation Pearson",
             "prepared_dir": str(prepared_dir),
             "model_source_path": str(model_source_path),
             "device": str(device),
             "tuning_splits": tuning_splits,
+            "split_indices": [_split_index(split_id) for split_id in tuning_splits],
             "search_grid": grid,
             "n_trials": len(grid),
             "test_rows_used": 0,
@@ -470,6 +636,7 @@ def run_hyperparameter_search(params: Mapping[str, Any]) -> dict[str, Any]:
     )
 
     rows: list[dict[str, Any]] = []
+    per_split_rows: list[dict[str, Any]] = []
     best_row: dict[str, Any] | None = None
     started = time.time()
 
@@ -481,6 +648,7 @@ def run_hyperparameter_search(params: Mapping[str, Any]) -> dict[str, Any]:
         row: dict[str, Any] = {
             "trial_id": trial_id,
             "status": "failure",
+            "hyperparameters": json.dumps(dict(hparams), sort_keys=True),
             "lr": hparams["lr"],
             "batch_size": hparams["batch_size"],
             "weight_decay": hparams["weight_decay"],
@@ -492,12 +660,15 @@ def run_hyperparameter_search(params: Mapping[str, Any]) -> dict[str, Any]:
 
         try:
             print(f"Starting DEAttentionDTA HPO {trial_number}/{len(grid)} | {hparams}")
+            print("HPO uses validation metrics only. Test split is not used for hyperparameter selection.")
 
             split_rows = []
 
             for split_id in tuning_splits:
-                split_rows.append(
-                    _run_one_split(
+                print(f"{trial_id} split_index={_split_index(split_id)} split_folder=split_{split_id:02d}")
+
+                try:
+                    split_summary = _run_one_split(
                         base=base,
                         model_cls=model_cls,
                         split_id=split_id,
@@ -515,23 +686,59 @@ def run_hyperparameter_search(params: Mapping[str, Any]) -> dict[str, Any]:
                         seed=seed + trial_number * 1000 + split_id,
                         num_workers=num_workers,
                     )
-                )
+                    split_row = {
+                        "trial_id": trial_id,
+                        "split_index": _split_index(split_id),
+                        "split_id": int(split_id),
+                        "hyperparameters": json.dumps(dict(hparams), sort_keys=True),
+                        "val_RMSE": float(split_summary["val_RMSE"]),
+                        "val_Pearson": float(split_summary["val_Pearson"]),
+                        "val_MAE": float(split_summary["val_MAE"]),
+                        "best_epoch": int(split_summary["best_epoch"]),
+                        "checkpoint_path": str(split_summary["checkpoint_path"]),
+                        "elapsed_seconds": float(split_summary["elapsed_seconds"]),
+                        "status": "success",
+                        "error_message": "",
+                    }
+                    print(
+                        f"{trial_id} split_index={_split_index(split_id)} "
+                        f"val_RMSE={split_row['val_RMSE']:.6f} "
+                        f"val_Pearson={split_row['val_Pearson']:.6f} "
+                        f"val_MAE={split_row['val_MAE']:.6f}"
+                    )
+                except Exception as split_exc:
+                    split_row = {
+                        "trial_id": trial_id,
+                        "split_index": _split_index(split_id),
+                        "split_id": int(split_id),
+                        "hyperparameters": json.dumps(dict(hparams), sort_keys=True),
+                        "checkpoint_path": "",
+                        "status": "failure",
+                        "error_message": str(split_exc),
+                    }
+                    split_rows.append(split_row)
+                    per_split_rows.append(split_row)
+                    _write_trials_per_split_csv(trials_per_split_csv, per_split_rows)
+                    raise
+
+                split_rows.append(split_row)
+                per_split_rows.append(split_row)
+                _write_trials_per_split_csv(trials_per_split_csv, per_split_rows)
 
             pd.DataFrame(split_rows).to_csv(
                 trial_result_dir / "split_summaries.csv",
                 index=False,
             )
 
-            frame = pd.DataFrame(split_rows)
-            trial_elapsed_seconds = float(frame["elapsed_seconds"].sum())
+            aggregate = _aggregate_split_rows(split_rows)
+            trial_elapsed_seconds = float(
+                sum(float(item.get("elapsed_seconds", 0.0)) for item in split_rows)
+            )
 
             row.update(
                 {
                     "status": "success",
-                    "mean_val_RMSE": float(frame["val_RMSE"].mean()),
-                    "mean_val_Pearson": float(frame["val_Pearson"].mean()),
-                    "mean_val_MAE": float(frame["val_MAE"].mean()),
-                    "mean_best_epoch": float(frame["best_epoch"].mean()),
+                    **aggregate,
                     "elapsed_seconds": trial_elapsed_seconds,
                     "elapsed_time": _format_elapsed_ddhhmmss(trial_elapsed_seconds),
                     "elapsed_time_format": "DD:HH:MM:SS",
@@ -542,6 +749,14 @@ def run_hyperparameter_search(params: Mapping[str, Any]) -> dict[str, Any]:
 
             if _is_better(row, best_row):
                 best_row = dict(row)
+                print(f"Current best trial: {best_row['trial_id']}")
+
+            print(
+                f"{trial_id} aggregated | mean_val_RMSE={row['mean_val_RMSE']:.6f} "
+                f"std_val_RMSE={row['std_val_RMSE']:.6f} "
+                f"mean_val_Pearson={row['mean_val_Pearson']:.6f} "
+                f"mean_val_MAE={row['mean_val_MAE']:.6f}"
+            )
 
         except Exception as exc:
             row["error_message"] = str(exc)
@@ -554,6 +769,7 @@ def run_hyperparameter_search(params: Mapping[str, Any]) -> dict[str, Any]:
         finally:
             rows.append(row)
             _write_trials_csv(trials_csv, rows)
+            _write_trials_per_split_csv(trials_per_split_csv, per_split_rows)
 
     if best_row is None:
         raise DEAttentionDTAHPOError(
@@ -573,6 +789,7 @@ def run_hyperparameter_search(params: Mapping[str, Any]) -> dict[str, Any]:
         "model_name": "DEAttentionDTA",
         "status": "success",
         "workflow": "validation_only_hpo",
+        "search_mode": hpo_mode,
         "methodology": "official train and validation subsets only; official test subsets excluded",
         "selection_rule": {
             "primary_metric": "mean validation RMSE",
@@ -588,11 +805,15 @@ def run_hyperparameter_search(params: Mapping[str, Any]) -> dict[str, Any]:
         },
         "best_metrics": {
             "mean_val_RMSE": float(best_row["mean_val_RMSE"]),
+            "std_val_RMSE": float(best_row["std_val_RMSE"]),
             "mean_val_Pearson": float(best_row["mean_val_Pearson"]),
+            "std_val_Pearson": float(best_row["std_val_Pearson"]),
             "mean_val_MAE": float(best_row["mean_val_MAE"]),
+            "std_val_MAE": float(best_row["std_val_MAE"]),
             "mean_best_epoch": float(best_row["mean_best_epoch"]),
         },
         "tuning_splits": tuning_splits,
+        "split_indices": [_split_index(split_id) for split_id in tuning_splits],
         "n_trials": len(rows),
         "n_success": sum(1 for row in rows if row.get("status") == "success"),
         "n_failures": sum(1 for row in rows if row.get("status") != "success"),
@@ -603,12 +824,31 @@ def run_hyperparameter_search(params: Mapping[str, Any]) -> dict[str, Any]:
         "paths": {
             "run_dir": str(run_dir),
             "trials_csv": str(trials_csv),
+            "trials_per_split_csv": str(trials_per_split_csv),
             "best_models_dir": str(best_models_dir),
         },
     }
 
+    hpo_summary = {
+        "search_mode": hpo_mode,
+        "number_of_splits_used": len(tuning_splits),
+        "split_indices_used": [_split_index(split_id) for split_id in tuning_splits],
+        "objective_metric": "mean_val_RMSE",
+        "objective_goal": "minimize",
+        "tie_breaker_metric": "mean_val_Pearson",
+        "tie_breaker_goal": "maximize",
+        "best_trial_id": best_row["trial_id"],
+        "best_aggregated_metrics": payload["best_metrics"],
+        "timestamp": timestamp,
+        "dataset_root": str(prepared_dir),
+        "output_root": str(results_root),
+        "run_dir": str(run_dir),
+    }
+
     best_yaml = _write_yaml(run_dir / "best_config_deattentiondta.yaml", payload)
     best_json = save_json(payload, run_dir / "best_config_deattentiondta.json")
+    best_generic_json = save_json(payload, run_dir / "best_config.json")
+    hpo_summary_json = save_json(hpo_summary, run_dir / "hpo_summary.json")
     save_json(payload, results_root / "latest_run.json")
 
     print("DEAttentionDTA hyperparameter search completed")
@@ -625,8 +865,11 @@ def run_hyperparameter_search(params: Mapping[str, Any]) -> dict[str, Any]:
         "artifacts": {
             "run_dir": str(run_dir),
             "trials_csv": str(trials_csv),
+            "trials_per_split_csv": str(trials_per_split_csv),
             "best_config_yaml": str(best_yaml),
             "best_config_json": str(best_json),
+            "best_config": str(best_generic_json),
+            "hpo_summary_json": str(hpo_summary_json),
             "best_models_dir": str(best_models_dir),
         },
     }

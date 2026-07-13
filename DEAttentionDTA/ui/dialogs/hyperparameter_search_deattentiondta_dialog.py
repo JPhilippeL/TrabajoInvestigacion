@@ -22,8 +22,13 @@ class HyperparameterSearchDEAttentionDTADialog(QDialog):
         self.output_dir_btn = QPushButton("Browse...")
         self.output_dir_btn.clicked.connect(lambda: browse_existing_directory(self, "Select search output root", self.output_dir_input))
 
-        self.fold_spin = QSpinBox(); self.fold_spin.setRange(1, 5); self.fold_spin.setValue(int(self.settings.value("hpo/fold_index", 1)))
-        self.fold_spin.setToolTip("Index of the official dataset split to use, usually 0 to 4.")
+        self.mode_combo = QComboBox()
+        self.mode_combo.addItems(["All official splits", "Single split"])
+        self.mode_combo.setCurrentText(self._settings_text("hpo/mode", "All official splits"))
+        self.mode_combo.currentTextChanged.connect(self._update_split_enabled)
+
+        self.fold_spin = QSpinBox(); self.fold_spin.setRange(0, 4); self.fold_spin.setValue(int(self.settings.value("hpo/split_index", 0)))
+        self.fold_spin.setToolTip("Zero-based official split index. 0 maps to split_01, 4 maps to split_05.")
         self.device_combo = QComboBox(); self.device_combo.addItems(["auto", "cpu", "cuda", "cuda:0"]); self.device_combo.setCurrentText(self._settings_text("hpo/device", "auto"))
         self.seed_spin = QSpinBox(); self.seed_spin.setRange(0, 999999999); self.seed_spin.setValue(int(self.settings.value("hpo/seed", 42)))
         self.epochs_spin = QSpinBox(); self.epochs_spin.setRange(1, 10000); self.epochs_spin.setValue(int(self.settings.value("hpo/epochs", 50)))
@@ -36,6 +41,7 @@ class HyperparameterSearchDEAttentionDTADialog(QDialog):
         form.addRow(QLabel("<b>Dataset and outputs</b>"))
         form.addRow("Prepared dataset root:", with_button(self.prepared_dir_input, self.prepared_dir_btn))
         form.addRow("Output root:", with_button(self.output_dir_input, self.output_dir_btn))
+        form.addRow("HPO mode:", self.mode_combo)
         form.addRow("Official split index:", self.fold_spin)
         form.addRow(QLabel("<br><b>Runtime</b>"))
         form.addRow("Device:", self.device_combo)
@@ -47,10 +53,12 @@ class HyperparameterSearchDEAttentionDTADialog(QDialog):
         form.addRow("Weight-decay values:", self.weight_decay_values_input)
         form.addRow("Patience:", self.early_stopping_spin)
         form.addRow("Selection rule:", QLabel("Validation RMSE first, validation Pearson as tie-breaker."))
+        form.addRow("Leakage guard:", QLabel("HPO uses validation metrics only. Test split is not used for hyperparameter selection."))
 
         layout = QVBoxLayout(); layout.addLayout(form)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept); buttons.rejected.connect(self.reject); layout.addWidget(buttons); self.setLayout(layout)
+        self._update_split_enabled()
 
     @staticmethod
     def _parse_float_list(raw: str) -> list[float]:
@@ -68,10 +76,17 @@ class HyperparameterSearchDEAttentionDTADialog(QDialog):
             return ",".join(str(item) for item in value)
         return str(value)
 
+    def _hpo_mode(self) -> str:
+        return "all_splits" if self.mode_combo.currentText() == "All official splits" else "single_split"
+
+    def _update_split_enabled(self) -> None:
+        self.fold_spin.setEnabled(self._hpo_mode() == "single_split")
+
     def accept(self) -> None:
         self.settings.setValue("hpo/prepared_dir", self.prepared_dir_input.text().strip())
         self.settings.setValue("hpo/output_dir", self.output_dir_input.text().strip())
-        self.settings.setValue("hpo/fold_index", self.fold_spin.value())
+        self.settings.setValue("hpo/mode", self.mode_combo.currentText())
+        self.settings.setValue("hpo/split_index", self.fold_spin.value())
         self.settings.setValue("hpo/device", self.device_combo.currentText())
         self.settings.setValue("hpo/epochs", self.epochs_spin.value())
         self.settings.setValue("hpo/early_stopping_rounds", self.early_stopping_spin.value())
@@ -83,14 +98,18 @@ class HyperparameterSearchDEAttentionDTADialog(QDialog):
 
     def get_inputs(self) -> dict:
         output_dir = self.output_dir_input.text().strip()
-        fold = str(self.fold_spin.value())
+        hpo_mode = self._hpo_mode()
+        split_index = self.fold_spin.value()
         return {
             "prepared_dir": self.prepared_dir_input.text().strip(),
             "output_dir": output_dir,
             "models_root": output_dir.rstrip("/") + "/models",
             "results_root": output_dir,
-            "splits": fold,
-            "fold_index": self.fold_spin.value(),
+            "hpo_mode": hpo_mode,
+            "run_all_splits": hpo_mode == "all_splits",
+            "splits": "all" if hpo_mode == "all_splits" else str(split_index + 1),
+            "split_index": split_index,
+            "fold_index": split_index,
             "use_dataset_folds": True,
             "device": self.device_combo.currentText(),
             "epochs": self.epochs_spin.value(),
