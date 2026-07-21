@@ -20,9 +20,9 @@ def obtener_graph_explainer_from_pt(
         checkpoint_path,
         data_indices, 
         target_data_path=None, 
-        feature_mask=[1, 1, 1, 1, 1, 1], 
+        feature_mask=[0, 0, 0, 0, 1, 1, 1, 1], 
         num_samples=500, 
-        noise_level=0.01, 
+        noise_level=0.2, 
         device='cpu',
         batch_mode = False):
     
@@ -33,7 +33,7 @@ def obtener_graph_explainer_from_pt(
     mol_name = data_indices.name
     
     # Generar muestras perturbadas
-    perturbed_samples = generate_perturbed_samples(muestra, num_samples=num_samples, noise_level=noise_level)
+    perturbed_samples = generate_perturbed_samples(muestra, feature_mask=feature_mask, num_samples=num_samples, noise_level=noise_level)
     perturbed_samples_embedding = []
 
     # Obtener modelo
@@ -116,10 +116,10 @@ def obtener_graph_explainer_from_pt(
     alfa_reducido, beta_reducido, gamma_reducida, delta_reducida, loss = obtener_argmin(feature_distances, predicciones_perturbadas, E_list, A_list)
 
     # Si info_eliminada es None, reconstruir_alfa simplemente devuelve alfa_reducido tal cual
-    alfa = reconstruir_importancias(alfa_reducido, num_feat_orig, features_mantenidas, info_eliminada)
-    gamma = reconstruir_importancias(gamma_reducida, num_feat_orig_e, features_mantenidas_e, info_eliminada_e)
-    beta = reconstruir_importancias(beta_reducido, num_nodos_orig, nodos_mantenidos, info_row)
-    delta = reconstruir_importancias(delta_reducida, num_edges_orig, edges_mantenidos, info_row_e)
+    alfa = reconstruir_tensor_importancias(alfa_reducido, num_feat_orig, features_mantenidas, info_eliminada)
+    gamma = reconstruir_tensor_importancias(gamma_reducida, num_feat_orig_e, features_mantenidas_e, info_eliminada_e)
+    beta = reconstruir_tensor_importancias(beta_reducido, num_nodos_orig, nodos_mantenidos, info_row, axis=1)
+    delta = reconstruir_tensor_importancias(delta_reducida, num_edges_orig, edges_mantenidos, info_row_e, axis=1)
 
     # Verificar que aprendimos algo distinto de cero
     print(f"Max Alfa: {alfa.max().item():.4f}, Min Alfa: {alfa.min().item():.4f}")
@@ -129,30 +129,46 @@ def obtener_graph_explainer_from_pt(
     # PROCESAMIENTO DE MATRICES
     # ==========================================================================
 
-    # ====================================================================
-    # NORMALIZACIÓN GLOBAL
-    # ====================================================================
+    # 1. ALFA (Node Features) -> Filtrar -> Ordenar -> Normalizar
+    node_feature_names = NODE_FEATURE_NAMES_ONE_HOT
+    alfa_sorted, row_labels_alfa = procesar_features_onehot(
+        alfa, node_feature_names, muestra.x
+    )
+
+    # 2. GAMMA (Edge Features) -> Filtrar -> Ordenar -> Normalizar
+    # Reemplaza a Beta en el segundo heatmap
+    if muestra.edge_attr is not None:
+        # edge_feature_names = ["Bond Type", "Distance"]
+        edge_feature_names = EDGE_FEATURE_NAMES
+        
+        gamma_sorted, row_labels_gamma = procesar_features_onehot(
+            gamma, edge_feature_names, muestra.edge_attr
+        )
+    else:
+        gamma_sorted = np.array([])
+        row_labels_gamma = []
+
+    # --- BETA (Nodos) ---
+    beta_np = tensor_to_abs_numpy(beta)
+    beta_np = normalizar_por_l2(beta_np)  
+
+    # --- DELTA (Aristas) ---
+    if delta is not None:
+        delta_np = tensor_to_abs_numpy(delta)
+        print("Delta crudo:", delta_np)
+        # CAMBIO: Usar normalizar_por_l2 para evitar que una arista desaparezca si hay pocas
+        delta_normalized = normalizar_por_l2(delta_np) 
+    else:
+        delta_normalized = np.array([])
     
-    # 1. Convertir todos los tensores a NumPy (Valores absolutos crudos)
-    alfa_norm = procesar_features_ordenadas(alfa, NODE_FEATURE_NAMES_ONE_HOT)
-    beta_raw = tensor_to_abs_numpy(beta)
-    gamma_norm = procesar_features_ordenadas(gamma, EDGE_FEATURE_NAMES) if gamma is not None else np.array([])
-    delta_raw = tensor_to_abs_numpy(delta) if delta is not None else np.array([])
-
-    beta_norm = normalizar_por_l2(beta_raw)
-    delta_norm = normalizar_por_l2(delta_raw)
-
-    # Preparamos el nombre del modelo para la carpeta
-    model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
-
-    # Retorno en Batch Mode
+    # NUEVA LÓGICA: Si es batch, preparamos el diccionario y retornamos INMEDIATAMENTE
     if batch_mode:
         return {
-            'mol_name': mol_name, 
-            'alfa': alfa_norm,  
-            'beta': beta_norm,
-            'gamma': gamma_norm ,
-            'delta': delta_norm
+            'mol_name': mol_name, # Para usarlo como llave en el bucle
+            'alfa': alfa_sorted if alfa is not None else None,
+            'beta': beta_np if beta is not None else None,
+            'gamma': gamma_sorted if gamma is not None else None,
+            'delta': delta_normalized if delta is not None else None
         }
         
     return 0

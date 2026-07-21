@@ -165,7 +165,7 @@ def perturb_features_sample(data, feature_mask=[1, 1, 1, 1, 1, 1, 1, 1], noise_l
 def generate_perturbed_samples(data, feature_mask=[1, 1, 1, 1, 1, 1, 1, 1], num_samples=50, noise_level=0.05):
     perturbed_samples = []
     for i in range(num_samples):
-        sample_specific_prob = random.uniform(0.01, 0.50)
+        sample_specific_prob = random.uniform(0.1, 0.99)
         # sample_specific_prob = random.uniform(0.01, 0.99)
 
         perturbed_sample = perturb_features_sample(data, feature_mask, noise_level, sample_specific_prob)
@@ -494,11 +494,11 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
     # ... (resto del código sigue igual)
 
     # --- CAMBIO CLAVE: MENOS REGULARIZACIÓN INICIAL ---
-    l1_lambda = 0.01  # Antes quizás era muy alto comparado con el gradiente
+    l1_lambda = 0.0  # Antes quizás era muy alto comparado con el gradiente
 
     # MEJORA 1: Usar AdamW en lugar de Adam estándar
     # weight_decay ayuda a mantener los pesos controlados sin ser tan agresivo como L1
-    optimizer = torch.optim.AdamW(params, lr=lr, weight_decay=1e-4)
+    optimizer = torch.optim.AdamW(params, lr=lr, weight_decay=0.0)
     
     # MEJORA 2: Scheduler tipo Coseno
     # Esto baja el LR suavemente desde 0.05 hasta 0 al final de las epochs.
@@ -548,6 +548,14 @@ def obtener_argmin(feature_distances, predicciones_perturbadas,
         total_loss = loss + (l1_lambda * l1_reg)
 
         total_loss.backward()
+        
+        # VISUALIZAR GRADIENTES DE ARISTAS (Cada 200 epochs)
+        if verbose and epoch % 200 == 0 and has_edges:
+            # delta.grad contiene la dirección y fuerza con la que PyTorch quiere mover los pesos
+            grad_mean_delta = delta.grad.abs().mean().item()
+            grad_mean_beta = beta.grad.abs().mean().item()
+            logger.info(f"Gradiente Nodos (Beta): {grad_mean_beta:.6f} | Gradiente Aristas (Delta): {grad_mean_delta:.6f}")
+
         optimizer.step()
         
         loss_val = total_loss.item()
@@ -694,10 +702,11 @@ def calcular_y_filtrar_proporcionalidad(original, element_list, threshold=0.85, 
 
     return element_list_filtrado, elements_to_keep, info_eliminada_list, num_elements
 
-def reconstruir_importancias(tensor_reducido, dimension_original, indices_mantenidos, info_eliminada_list):
+def reconstruir_tensor_importancias(tensor_reducido, dimension_original, indices_mantenidos, info_eliminada_list, axis=0):
     """
-    Expande un tensor de pesos a su tamaño original, rellenando con 0s y 
-    aplicando la Ecuación 16 en ORDEN INVERSO para resolver cadenas de dependencias.
+    Expande un tensor de pesos a su tamaño original.
+    - axis=0 (Columnas/Features): Aplica Ecuación 16.
+    - axis=1 (Filas/Nodos/Aristas): Copia la importancia por simetría topológica.
     """
     tensor_completo = torch.zeros((dimension_original, 1), device=tensor_reducido.device)
     
@@ -712,10 +721,19 @@ def reconstruir_importancias(tensor_reducido, dimension_original, indices_manten
             k = info['k']
             p = info['p']
             
-            # El valor 'k' ya debe estar reconstruido gracias al orden inverso
-            tilde_k = tensor_completo[k].clone()
-            
-            tensor_completo[k] = (1 + p) * tilde_k - p
-            tensor_completo[j] = 1.0
+            if axis == 0:
+                # ==========================================
+                # MATEMÁTICA DE FEATURES (Columnas) - Ecuación 16
+                # ==========================================
+                tilde_k = tensor_completo[k].clone()
+                tensor_completo[k] = (1 + p) * tilde_k - p
+                tensor_completo[j] = 1.0
+            else:
+                # ==========================================
+                # MATEMÁTICA DE TOPOLOGÍA (Filas) - Herencia
+                # ==========================================
+                # Si el enlace 'j' es un espejo/clon de 'k', 
+                # simplemente comparten la misma importancia.
+                tensor_completo[j] = tensor_completo[k]
             
     return tensor_completo
