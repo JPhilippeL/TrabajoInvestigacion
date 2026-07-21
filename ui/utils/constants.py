@@ -14,7 +14,7 @@ EXPLAINERS = [
         # "Captum_Deconvolution",     # <--- NUEVO
         # "Captum_GuidedBackprop",    # <--- NUEVO
         "DummyExplainer",
-        "SubgraphX"
+        "GraphSVX"
     ]
 
 # Features Training

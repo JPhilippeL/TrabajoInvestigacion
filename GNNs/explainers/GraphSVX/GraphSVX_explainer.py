@@ -21,7 +21,6 @@ from sklearn.linear_model import (LassoLars, Lasso,
 from sklearn.metrics import r2_score
 from torch.autograd import Variable
 from torch.utils.data import DataLoader, TensorDataset
-from torch_geometric.nn import GNNExplainer as GNNE
 from torch_geometric.nn import MessagePassing
 
 from .GraphSVX_plots import (denoise_graph, k_hop_subgraph, log_graph,
@@ -244,28 +243,27 @@ class GraphSVX():
         phi_list = []
         for graph_index in graph_indices:
 
-            # Compute true prediction for original instance via explained GNN model
+            # Aseguramos que existe el vector batch, creándolo si es un único grafo
+            device = self.data.x.device
+            batch = getattr(self.data, 'batch', None)
+            if batch is None:
+                batch = torch.zeros(self.data.x.shape[0], dtype=torch.long, device=device)
+
             if self.gpu:
-                device = torch.device(
-                    'cuda' if torch.cuda.is_available() else 'cpu')
                 self.model = self.model.to(device)
                 with torch.no_grad():
-                    # En regresión no hay 'clase', solo el valor predicho.
-                    # Asumiendo que la salida del modelo tiene forma [num_graphs, 1] o [num_graphs]
-                    true_pred = self.model(self.data.x, self.data.edge_index)[graph_index]
+                    true_pred = self.model(self.data.x, self.data.edge_index, self.data.edge_attr, batch)[graph_index]
             else:
                 with torch.no_grad():
-                    # En regresión no hay 'clase', solo el valor predicho.
-                    # Asumiendo que la salida del modelo tiene forma [num_graphs, 1] o [num_graphs]
-                    true_pred = self.model(self.data.x, self.data.edge_index)[graph_index]
+                    true_pred = self.model(self.data.x, self.data.edge_index, self.data.edge_attr, batch)[graph_index]
 
             # Remove node v index from neighbours and store their number in D
-            self.neighbours = list(
-                range(int(self.data.edge_index.shape[1] - np.sum(np.diag(self.data.edge_index[graph_index])))))
+            # En PyG, el número de nodos es el número de filas en X
+            self.neighbours = list(range(self.data.x.shape[0]))
             D = len(self.neighbours)
 
             # Total number of features + neighbours considered for node v
-            self.F = 0
+            self.F = self.data.x.shape[1]
             self.M = self.F+D
 
             # Def range of endcases considered
@@ -1144,64 +1142,69 @@ class GraphSVX():
         return fz
     
     def graph_regression(self, graph_index, num_samples, D, z_, args_K, args_feat):
-        """ Construct z' from z and compute prediction f(z') for each sample z
-            In fact, we build the dataset (z, f(z')), required to train the weighted linear model.
-            Graph Regression task
-
-        Args:
-            Variables are defined exactly as defined in explainer function
-            Note that adjacency matrices are dense (square) matrices (unlike node classification)
-
-        Returns:
-            (tensor): f(z') - Predicted continuous value for all samples z'
-            Dimension (N) where N is num_samples.
-        """
         # Store discarded nodes (z_j=0) for each sample z 
         excluded_nei = {}
         for i in range(num_samples):
-            # Excluded nodes' indexes 
             nodes_id = []
             for j in range(D):
                 if z_[i, self.F+j] == 0:
                     nodes_id.append(self.neighbours[j])
             excluded_nei[i] = nodes_id
-            # Dico with key = num_sample id, value = excluded neighbour index
 
-        # Init 
         fz = torch.zeros(num_samples)
-        adj = deepcopy(self.data.edge_index[graph_index])
+        
+        # En PyG, edge_index es de tamaño [2, num_edges]
+        adj = self.data.edge_index
+        edge_attr_base = self.data.edge_attr
         
         if args_feat == 'Null':
-            av_feat_values = torch.zeros(self.data.x[graph_index].shape[1])
+            av_feat_values = torch.zeros(self.data.x.shape[1], device=self.data.x.device)
         else: 
-            av_feat_values = self.data.x.mean(dim=0).mean(dim=0)
-            #av_feat_values = np.mean(self.data.x[graph_index],axis=0)
+            # Modificado a un solo mean(dim=0) porque en PyG X es 2D [nodos, features]
+            av_feat_values = self.data.x.mean(dim=0)
         
-        # Create new matrix A and X - for each sample ≈ reform z' from z
         for (key, ex_nei) in tqdm(excluded_nei.items()):
 
-            # Change adj matrix
-            A = deepcopy(adj)
-            A[ex_nei, :] = 0
-            A[:, ex_nei] = 0
+            # 1. PERTURBAR LA TOPOLOGÍA (Formato COO de PyG)
+            if len(ex_nei) > 0:
+                ex_nei_tensor = torch.tensor(ex_nei, device=adj.device)
+                # Máscara: Mantiene la arista si ni el origen (adj[0]) ni el destino (adj[1]) están en ex_nei
+                mask = ~(torch.isin(adj[0], ex_nei_tensor) | torch.isin(adj[1], ex_nei_tensor))
+                
+                A = adj[:, mask]
+                E_attr = edge_attr_base[mask] if edge_attr_base is not None else None
+            else:
+                A = adj.clone()
+                E_attr = edge_attr_base.clone() if edge_attr_base is not None else None
 
-            # Also change features of excluded nodes (optional)
-            X = deepcopy(self.data.x[graph_index])
+            # 2. PERTURBAR LAS CARACTERÍSTICAS DE LOS NODOS
+            X = deepcopy(self.data.x)
             for nei in ex_nei:
                 X[nei] = av_feat_values
 
-            # Apply model on (X,A) as input.
+            # Generar tensor batch obligatorio para GINENet
+            batch_tensor = torch.zeros(X.shape[0], dtype=torch.long, device=X.device)
+
+            # 3. APLICAR MODELO 
+            # Eliminados los .unsqueeze(0) porque PyG espera los tensores planos y usa 'batch_tensor' para separar
             if self.gpu:
                 with torch.no_grad():
-                    # Eliminado el .exp()
-                    out = self.model(X.unsqueeze(0).cuda(), A.unsqueeze(0).cuda())
+                    out = self.model(
+                        X.cuda(), 
+                        A.cuda(), 
+                        E_attr.cuda() if E_attr is not None else None, 
+                        batch_tensor.cuda()
+                    )
             else:
                 with torch.no_grad():
-                    # Eliminado el .exp()
-                    out = self.model(X.unsqueeze(0), A.unsqueeze(0))
+                    out = self.model(
+                        X, 
+                        A, 
+                        E_attr, 
+                        batch_tensor
+                    )
 
-            # Compute prediction (extrayendo el valor continuo)
-            # Dependiendo de la forma de salida de tu modelo [1, 1] o [1]
+            # Extraer valor continuo
             fz[key] = out.item() if out.numel() == 1 else out[0][0]
 
         return fz
