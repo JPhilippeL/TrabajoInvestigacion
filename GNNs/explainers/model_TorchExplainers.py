@@ -5,7 +5,6 @@ import numpy as np
 import logging
 from rdkit import Chem
 from torch_geometric.explain import Explainer
-from GNNs.explainers.subgraphX import SubgraphX
 
 from torch_geometric.explain import Explainer, DummyExplainer, GNNExplainer, CaptumExplainer
 
@@ -257,108 +256,6 @@ def obtener_Captum_Explainer(checkpoint_path, sdf_path, target_data_path=None, b
         real_val=real_val, pred_val=pred_val,
         model_name=model_folder_name,
         algo_name=algo_name_full # Le pasamos el nombre específico para el dashboard
-    )
-    
-    logger.info(f"Proceso finalizado. Gráfico en: {plotfilename}")
-    return plotfilename
-
-def obtener_SubgraphX_Explainer(checkpoint_path, sdf_path, target_data_path=None, batch_mode=False):
-    
-    # --- 1. CARGA DE RECURSOS ---
-    device = torch.device('cpu') 
-    model, _, model_target_name = cargar_modelo(checkpoint_path)
-    model = model.to(device)
-    model.eval()
-    
-    mol = Chem.SDMolSupplier(sdf_path, removeHs=False)[0]
-    mol_id = os.path.basename(sdf_path).split('.')[0]
-    mol_name = mol.GetProp("_Name") if mol.HasProp("_Name") else mol_id
-    
-    # Info Target
-    target_name_str, real_val = obtener_info_real(target_data_path, mol_id)
-    if target_name_str == "Unknown Target" and model_target_name != "Unknown":
-        target_name_str = model_target_name
-
-    # Grafo
-    data = mol_to_graph_data(mol, mode='embedding').to(device)
-
-    # --- 2. EJECUCIÓN SUBGRAPHX ---
-    logger.info(f"Ejecutando SubgraphX para {mol_name}...")
-    
-    explainer = SubgraphX(
-        model=model,
-        num_classes=1,            # Requisito de la firma de la clase original
-        device=device,
-        explain_graph=True,       # Regresión de grafo completo
-        rollout=20,               # Iteraciones MCTS
-        min_atoms=4,              # Tamaño mínimo del subgrafo a explorar
-        c_puct=10.0,              # Factor de exploración
-        reward_method='mc_l_shapley'
-    )
-
-    num_nodes = data.x.shape[0]
-    batch = torch.zeros(num_nodes, dtype=torch.long, device=device) 
-    
-    # Llamamos al objeto pasándole los kwargs adicionales
-    _, explanation_results, _ = explainer(
-        x=data.x, 
-        edge_index=data.edge_index, 
-        edge_attr=data.edge_attr if hasattr(data, 'edge_attr') else None,
-        batch=batch,
-        max_nodes=5
-    )
-
-    # --- 3. EXTRACCIÓN DE PESOS MANUAL ---
-    # explanation_results[0] contiene la lista de diccionarios de subgrafos ordenados por recompensa.
-    best_subgraph_info = explanation_results[0][0]
-    coalition = best_subgraph_info['coalition'] # Índices de los nodos más importantes
-    
-    num_edges = data.edge_index.shape[1]
-    
-    # Creamos beta (Máscara de Nodos)
-    beta_raw = torch.zeros(num_nodes, dtype=torch.float32, device=device)
-    beta_raw[coalition] = 1.0
-    
-    # Creamos delta (Máscara de Aristas)
-    delta_raw = torch.zeros(num_edges, dtype=torch.float32, device=device)
-    row, col = data.edge_index
-    for i in range(num_edges):
-        if row[i].item() in coalition and col[i].item() in coalition:
-            delta_raw[i] = 1.0
-
-    # Características no evaluadas por la metodología estructural de SubgraphX
-    alfa_raw = None
-    gamma_raw = None
-    
-    model_folder_name = checkpoint_path.split('/')[-1].split('.')[0]
-
-    if batch_mode:
-        return {
-            'mol_name': mol_name,
-            'alfa': alfa_raw,
-            'beta': beta_raw.detach().cpu(),
-            'gamma': gamma_raw,
-            'delta': delta_raw.detach().cpu()
-        }
-    
-    guardar_pesos(
-        alfa=alfa_raw, beta=beta_raw, gamma=gamma_raw, delta=delta_raw,
-        model_name=model_folder_name, mol_name=mol_name,
-        algo_name="SubgraphX" 
-    )
-
-    # --- 4. ANÁLISIS Y VISUALIZACIÓN ---
-    pred_val = predecir_molecula(model, data, device)
-
-    plotfilename = pipeline_visualizacion_torchexplainers(
-        alfa_raw=alfa_raw, beta_raw=beta_raw, 
-        delta_raw=delta_raw, gamma_raw=gamma_raw,
-        edge_index=data.edge_index, 
-        sdf_path=sdf_path,
-        model=model, data=data, device=device,
-        mol_name=mol_name, target_name=target_name_str,
-        real_val=real_val, pred_val=pred_val,
-        model_name=model_folder_name, algo_name="SubgraphX"
     )
     
     logger.info(f"Proceso finalizado. Gráfico en: {plotfilename}")
