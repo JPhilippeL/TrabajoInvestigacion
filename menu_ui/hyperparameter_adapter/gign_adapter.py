@@ -92,4 +92,4 @@ if __name__ == "__main__":
     launch_ray_tune_hyperparameter_search(params, log_callback=logger.info)
     end_hp = time.time()
     elapsed_time = end_hp - start_hp
-    logger(f"Time elapsed for hyperparameter tuning is: {elapsed_time} seconds ")
+    logger.info(f"Time elapsed for hyperparameter tuning is: {elapsed_time} seconds ")
