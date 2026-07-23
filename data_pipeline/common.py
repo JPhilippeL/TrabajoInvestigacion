@@ -66,6 +66,55 @@ def save_all_trials_results_csv(results, save_directory):
     return csv_path
 
 
+def save_csv_for_planet(results,save_directory):
+    output_dir = Path(save_directory) / "hyperparameter_tuning_all_trials"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    csv_path = output_dir / "all_trials_results.csv"
+
+    rows = []
+
+    for trial_index, result in enumerate(results):
+        metrics = result.metrics or {}
+
+        row = {
+            "trial_index": trial_index,
+            "trial_path": str(result.path),
+            "train_rmse": metrics.get("train_rmse"),
+            "train_pearson": metrics.get("train_pearson"),
+            "val_rmse": metrics.get("val_rmse"),
+            "val_pearson": metrics.get("val_pearson"),
+            "test_rmse": metrics.get("test_rmse"),
+            "test_pearson": metrics.get("test_pearson"),
+            "best_epoch": metrics.get("best_epoch"),
+            "best_val_rmse": metrics.get("best_val_rmse"),
+            "training_time": metrics.get("training_time"),
+            "skipped_train_eval": metrics.get("skipped_train_eval"),
+            "skipped_val_eval": metrics.get("skipped_val_eval"),
+            "skipped_test_eval": metrics.get("skipped_test_eval"),
+        }
+
+        for key, value in result.config.items():
+            row[f"param_{key}"] = value
+
+        rows.append(row)
+    if not rows:
+        return csv_path
+
+    fieldnames = sorted({key for row in rows for key in row.keys()})
+
+    with csv_path.open("w", encoding="utf-8", newline="") as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=fieldnames,
+            extrasaction="ignore",
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+    return csv_path
+
+
 def safe_computation_pearson(pred, label):
     pred = np.asarray(pred).reshape(-1)
     label = np.asarray(label).reshape(-1)

@@ -6,7 +6,7 @@ import ray
 import torch
 from ray import tune
 
-from data_pipeline.common import save_all_trials_results_csv, seed_everything
+from data_pipeline.common import save_csv_for_planet, seed_everything
 from data_pipeline.planet_dataset import PlanetPocketDataset, make_planet_dataloader
 from models.planet.architecture.planet import PLANET
 
@@ -504,7 +504,7 @@ def run_hyperparameter_search(
 
     results = tuner.fit()
 
-    csv_path = save_all_trials_results_csv(
+    csv_path = save_csv_for_planet(
         results=results,
         save_directory=save_directory,
     )
