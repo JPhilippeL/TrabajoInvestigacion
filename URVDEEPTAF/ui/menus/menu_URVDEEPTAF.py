@@ -12,6 +12,7 @@ from URVDEEPTAF.ui.dialogs.generate_data_dialog import DBGenerationDialog
 from URVDEEPTAF.ui.dialogs.hp_tuning_dialog import DeepDTAFHyperparameterSearchDialog
 from URVDEEPTAF.ui.dialogs.test_urvdtaf_dialog import TestDialog
 from URVDEEPTAF.ui.dialogs.train_urvdtaf_dialog import TrainDialog
+from URVDEEPTAF.ui.dialogs.train_all_splits_dialog import TrainAllSplitsDialog
 from URVDEEPTAF.workers import (
     DBGenerationThread,
     TestAllModelsThread,
@@ -132,31 +133,34 @@ class MenuURVDEEPTAF(QMenu):
             self.train_batch_thread.start()
 
     def entrenar_todos_los_splits(self):
-        # Asumiendo que tienes un diálogo o configuración previa para obtener estos datos
-        mother_dir = "/ruta/a/tu/carpeta/madre_de_splits"
+        # Instanciar y mostrar el diálogo
+        dialog = TrainAllSplitsDialog(self)
+        
+        # Si el usuario presiona "Aceptar"
+        if dialog.exec():
+            # Obtenemos la configuración del diálogo
+            config = dialog.get_inputs()
+            
+            # Separar el directorio madre de los parámetros base
+            mother_dir = config.pop("mother_dir")
+            base_params = config  # Lo que queda en el diccionario son los base_params
 
-        # Parámetros base que espera tu función train (épocas, batch_size, target_file, etc.)
-        base_params = {
-            "target_file": "targets.csv",
-            "epochs": 50,
-            "batch_size": 32,
-            "output_dir": "./mis_modelos_guardados",  # Carpeta raíz de guardado
-        }
+            logger.info(f"Iniciando entrenamiento por splits en: {mother_dir}")
+            self.main_window.setEnabled(False)  # Bloqueamos la UI
 
-        logger.info(f"Iniciando entrenamiento por splits en: {mother_dir}")
-        self.main_window.setEnabled(False)  # Bloqueamos la UI
+            # Instanciamos el hilo
+            self.train_splits_thread = TrainAllSplitsThread(mother_dir, base_params)
 
-        # Instanciamos el hilo
-        self.train_splits_thread = TrainAllSplitsThread(mother_dir, base_params)
+            # Conectamos las señales a los slots de respuesta
+            self.train_splits_thread.split_started.connect(self.on_split_started)
+            self.train_splits_thread.split_finished_success.connect(self.on_split_success)
+            self.train_splits_thread.split_finished_error.connect(self.on_split_error)
+            self.train_splits_thread.all_finished.connect(self.on_all_splits_finished)
 
-        # Conectamos las señales a los slots de respuesta
-        self.train_splits_thread.split_started.connect(self.on_split_started)
-        self.train_splits_thread.split_finished_success.connect(self.on_split_success)
-        self.train_splits_thread.split_finished_error.connect(self.on_split_error)
-        self.train_splits_thread.all_finished.connect(self.on_all_splits_finished)
-
-        # Arrancamos el hilo
-        self.train_splits_thread.start()
+            # Arrancamos el hilo
+            self.train_splits_thread.start()
+        else:
+            logger.info("Entrenamiento por splits cancelado por el usuario.")
 
     # =========================================================
     # SLOTS DE RESPUESTA PARA LOS SPLITS
