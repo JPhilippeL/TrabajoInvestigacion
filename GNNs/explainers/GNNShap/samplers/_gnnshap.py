@@ -16,8 +16,20 @@ logger = logging.getLogger(__name__)
 
 from torch.utils.cpp_extension import load
 
-cppsamp = load(name='cudaGNNShapSampler', sources=['cppextension/cudagnnshap.cu'],
-                   extra_cflags=['-O2'], verbose=False)
+# Obtener la ruta absoluta de la carpeta donde está este script (_gnnshap.py)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Construir la ruta absoluta hacia el archivo .cu
+# Asumiendo que cppextension está al mismo nivel que la carpeta samplers o dentro de ella
+source_file = os.path.join(current_dir, 'cppextension', 'cudagnnshap.cu') 
+
+# Nota: Si cppextension está un nivel más arriba (en la carpeta GNNShap), 
+# la ruta sería: os.path.join(os.path.dirname(current_dir), 'cppextension', 'cudagnnshap.cu')
+
+cppsamp = load(
+    name='cudaGNNShapSampler', 
+    sources=[source_file],
+    extra_cflags=['-O2'], verbose=False)
 
 
 class GNNShapSampler(BaseSampler):

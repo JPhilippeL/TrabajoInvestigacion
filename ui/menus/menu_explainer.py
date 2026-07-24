@@ -16,7 +16,7 @@ from ui.dialogs.batch_explainer_comparer_dialog import BatchComparerDialog
 
 from GNNs.explainers.explanation_helper import guardar_pesos_batch
 from GNNs.explainers.graph_explainer_onehot import obtener_graph_explainer
-from GNNs.explainers.model_TorchExplainers import obtener_Dummy_Explainer, obtener_Captum_Explainer, obtener_GNN_Explainer, obtener_SubgraphX_Explainer
+from GNNs.explainers.model_TorchExplainers import obtener_Dummy_Explainer, obtener_Captum_Explainer, obtener_GNN_Explainer
 from GNNs.explainers.explanation_fidelity import generar_comparativa_fidelity, obtener_aucs_directorio
 from GNNs.explainers.GraphSVX.obtener_GraphSVX_explainer import obtener_GraphSVX_Explainer
 from GNNs.explainers.GNNShap.obtener_GNNShap_explainer import obtener_GNNShap_Explainer
@@ -86,11 +86,6 @@ class MenuExplainerGNN(QMenu):
                     
                 elif explainer_name == "DummyExplainer":
                     plot_path = obtener_Dummy_Explainer(
-                        model_path, sdf_path, target_path
-                    )
-
-                elif explainer_name == "SubgraphX":
-                    plot_path = obtener_SubgraphX_Explainer(
                         model_path, sdf_path, target_path
                     )
 
