@@ -19,7 +19,6 @@ from GNNs.explainers.graph_explainer_onehot import obtener_graph_explainer
 from GNNs.explainers.model_TorchExplainers import obtener_Dummy_Explainer, obtener_Captum_Explainer, obtener_GNN_Explainer
 from GNNs.explainers.explanation_fidelity import generar_comparativa_fidelity, obtener_aucs_directorio
 from GNNs.explainers.GraphSVX.obtener_GraphSVX_explainer import obtener_GraphSVX_Explainer
-# from GNNs.explainers.GNNShap.obtener_GNNShap_explainer import obtener_GNNShap_Explainer
 from ui.utils.constants import EXPLAINERS
 
 logger = logging.getLogger(__name__)

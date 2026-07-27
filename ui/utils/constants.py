@@ -15,7 +15,7 @@ EXPLAINERS = [
         # "Captum_GuidedBackprop",    # <--- NUEVO
         "DummyExplainer",
         "GraphSVX",
-        "GNNShap"
+        # "GNNShap"
     ]
 
 # Features Training
