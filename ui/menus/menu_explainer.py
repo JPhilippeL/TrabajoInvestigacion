@@ -94,11 +94,6 @@ class MenuExplainerGNN(QMenu):
                         model_path, sdf_path, target_path
                     )
 
-                # elif explainer_name == "GNNShap":
-                #     plot_path = obtener_GNNShap_Explainer(
-                #         model_path, sdf_path, target_path
-                #     )
-
 
                 else:
                     logger.error(f"Explicador no reconocido: {explainer_name}")
