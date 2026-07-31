@@ -1,11 +1,12 @@
-Modelos/
+*Modelos*/
+*modelo*/
 data/
-Resultados/
+*Resultado*/
+*resultado*/
 Datos/
 ZScripts/
 dtafRuns/
 dtafruns/
-Resultados 2025/
 best_model_tmp.pt
 # Ignorar todas las carpetas __pycache__ y archivos .pyc en el proyecto
 __pycache__/
